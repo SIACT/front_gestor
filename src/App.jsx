@@ -1,13 +1,17 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminRoute } from './components/AdminRoute';
 import { AuthLayout } from './layouts/AuthLayout';
+import { DashboardLayout } from './layouts/DashboardLayout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { MisInscripciones } from './pages/MisInscripciones';
 import { CrearInscripcion } from './pages/CrearInscripcion';
 import { DetalleInscripcion } from './pages/DetalleInscripcion';
-import { AdminUsuarios } from './pages/AdminUsuarios';
+import { Usuarios } from './pages/admin/Usuarios';
+import { TiposAsistente } from './pages/admin/TiposAsistente';
+import { Categorias } from './pages/admin/Categorias';
 
 function Home() {
   const { user, loading } = useAuth();
@@ -25,40 +29,18 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
           </Route>
-          <Route
-            path="/inscripciones"
-            element={
-              <ProtectedRoute>
-                <MisInscripciones />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/inscripciones/nueva"
-            element={
-              <ProtectedRoute>
-                <CrearInscripcion />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/inscripciones/:id"
-            element={
-              <ProtectedRoute>
-                <DetalleInscripcion />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/usuarios"
-            element={
-              <ProtectedRoute>
-                <AdminUsuarios />
-              </ProtectedRoute>
-            }
-            
-          />
-          
+          <Route element={<ProtectedRoute />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="/inscripciones" element={<MisInscripciones />} />
+              <Route path="/inscripciones/nueva" element={<CrearInscripcion />} />
+              <Route path="/inscripciones/:id" element={<DetalleInscripcion />} />
+              <Route element={<AdminRoute />}>
+                <Route path="/admin/usuarios" element={<Usuarios />} />
+                <Route path="/admin/tipos-asistente" element={<TiposAsistente />} />
+                <Route path="/admin/categorias" element={<Categorias />} />
+              </Route>
+            </Route>
+          </Route>
         </Routes>
       </AuthProvider>
     </BrowserRouter>

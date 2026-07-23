@@ -5,6 +5,9 @@ const VARIANT_CLASSES = {
   pendiente: 'bg-warning-bg text-warning-text border border-warning-text/30',
   revisado: 'bg-success-bg text-success-text border border-success-text/30',
   rechazado: 'bg-error-bg text-error-text border border-error-text/30',
+  admin: 'bg-purple-bg text-purple-text border border-purple-text/30',
+  ponente: 'bg-blue-bg text-blue-text border border-blue-text/30',
+  estudiante: 'bg-success-bg text-success-text border border-success-text/30',
 };
 
 export function Badge({ variant = 'default', className, children, ...props }) {

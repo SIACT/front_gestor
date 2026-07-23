@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AuthLayout } from './layouts/AuthLayout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { MisInscripciones } from './pages/MisInscripciones';
@@ -20,8 +21,10 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Route>
           <Route
             path="/inscripciones"
             element={
@@ -53,7 +56,9 @@ function App() {
                 <AdminUsuarios />
               </ProtectedRoute>
             }
+            
           />
+          
         </Routes>
       </AuthProvider>
     </BrowserRouter>

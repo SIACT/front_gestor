@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api/client';
+import { capitalizar } from '../utils/formato';
 
 const ROLES = [
   { id_rol: 1, nombre: 'Admin' },
@@ -61,7 +62,7 @@ export function AdminUsuarios() {
           <tbody>
             {usuarios.map((u) => (
               <tr key={u.id_usuario}>
-                <td>{u.nombre} {u.apellido}</td>
+                <td>{capitalizar(u.nombre)} {capitalizar(u.apellido)}</td>
                 <td>{u.correo}</td>
                 <td>{u.rol?.nombre ?? u.id_rol}</td>
                 <td>

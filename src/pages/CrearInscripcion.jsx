@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api/client';
+import { Card } from '../components/ui/Card';
+import { Select } from '../components/ui/Select';
+import { Button } from '../components/ui/Button';
+import { Alert } from '../components/ui/Alert';
+import { PageLoader } from '../components/ui/PageLoader';
+
+function formatCOP(value) {
+  return Number(value).toLocaleString('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+  });
+}
 
 export function CrearInscripcion() {
   const navigate = useNavigate();
@@ -8,20 +21,21 @@ export function CrearInscripcion() {
   const [tiposAsistente, setTiposAsistente] = useState([]);
   const [idCategoria, setIdCategoria] = useState('');
   const [idTipoAsistente, setIdTipoAsistente] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    Promise.all([apiFetch('/categorias'), apiFetch('/tipos-asistente')])
+    Promise.all([apiFetch('/categorias'), apiFetch('/tipos-asistente?activo=true')])
       .then(([cats, tipos]) => {
         setCategorias(cats ?? []);
         setTiposAsistente(tipos ?? []);
         if (cats?.length) setIdCategoria(String(cats[0].id_categoria));
         if (tipos?.length) setIdTipoAsistente(String(tipos[0].id_tipo_asistente));
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => setLoadError(err.message))
+      .finally(() => setLoadingData(false));
   }, []);
 
   async function handleSubmit(e) {
@@ -44,37 +58,58 @@ export function CrearInscripcion() {
     }
   }
 
-  if (loading) return <div className="loading-screen">Cargando...</div>;
+  if (loadingData) return <PageLoader />;
 
   return (
-    <div className="page-center">
-      <form className="card form" onSubmit={handleSubmit}>
-        <h1>Nueva inscripción</h1>
-        {error && <p className="alert alert-error">{error}</p>}
-        <label>
-          Categoría
-          <select value={idCategoria} onChange={(e) => setIdCategoria(e.target.value)} required>
+    <div className="mx-auto w-full max-w-lg px-6 py-12">
+      <h1 className="font-sans text-2xl font-bold text-text-primary">Nueva inscripción</h1>
+      <p className="mt-1 text-sm text-text-muted">
+        Elige tu categoría y tipo de asistente para el congreso.
+      </p>
+
+      <Card className="mt-6">
+        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+          {loadError && <Alert variant="error">{loadError}</Alert>}
+          {error && <Alert variant="error">{error}</Alert>}
+
+          <Select
+            id="crear-categoria"
+            label="Categoría"
+            value={idCategoria}
+            onChange={(e) => setIdCategoria(e.target.value)}
+            required
+          >
             {categorias.map((c) => (
               <option key={c.id_categoria} value={c.id_categoria}>
                 {c.nombre}
               </option>
             ))}
-          </select>
-        </label>
-        <label>
-          Tipo de asistente
-          <select value={idTipoAsistente} onChange={(e) => setIdTipoAsistente(e.target.value)} required>
+          </Select>
+
+          <Select
+            id="crear-tipo-asistente"
+            label="Tipo de asistente"
+            value={idTipoAsistente}
+            onChange={(e) => setIdTipoAsistente(e.target.value)}
+            required
+          >
             {tiposAsistente.map((t) => (
               <option key={t.id_tipo_asistente} value={t.id_tipo_asistente}>
-                {t.tipo} (${t.costo_base})
+                {t.tipo} — {formatCOP(t.costo_base)}
               </option>
             ))}
-          </select>
-        </label>
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Creando...' : 'Crear inscripción'}
-        </button>
-      </form>
+          </Select>
+
+          <Button
+            type="submit"
+            variant="primary"
+            loading={submitting}
+            disabled={!idCategoria || !idTipoAsistente}
+          >
+            Crear inscripción
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }

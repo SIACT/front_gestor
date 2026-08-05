@@ -113,12 +113,12 @@ export function Login() {
             />
             Recordarme
           </label>
-          <button
-            type="button"
+          <Link
+            to="/olvide-contrasena"
             className="text-sm text-text-muted transition-colors hover:text-text-primary"
           >
             ¿Olvidaste tu contraseña?
-          </button>
+          </Link>
         </div>
 
         <Button type="submit" variant="primary" loading={submitting} className="w-full">

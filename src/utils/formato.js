@@ -21,3 +21,10 @@ export function formatFecha(value) {
     year: 'numeric',
   });
 }
+
+export const ESTADO_INSCRIPCION_VARIANT = {
+  pendiente: 'pendiente',
+  confirmada: 'revisado',
+  rechazada: 'rechazado',
+  cancelada: 'default',
+};

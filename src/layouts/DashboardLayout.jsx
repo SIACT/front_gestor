@@ -10,9 +10,12 @@ import {
   FolderTree,
   LogOut,
   Menu,
+  Percent,
   PlusCircle,
+  Receipt,
   Settings,
   Tag,
+  User,
   Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -22,12 +25,15 @@ import { capitalizar } from '../utils/formato';
 const NAV_ITEMS = [
   { to: '/inscripciones', label: 'Mis inscripciones', icon: ClipboardList },
   { to: '/inscripciones/nueva', label: 'Nueva inscripción', icon: PlusCircle },
+  { to: '/perfil', label: 'Mi perfil', icon: User },
 ];
 
 const ADMIN_SUBLINKS = [
   { label: 'Usuarios', path: '/admin/usuarios', icon: Users },
   { label: 'Tipos de asistente', path: '/admin/tipos-asistente', icon: Tag },
   { label: 'Categorías', path: '/admin/categorias', icon: FolderTree },
+  { label: 'Descuentos', path: '/admin/descuentos', icon: Percent },
+  { label: 'Inscripciones', path: '/admin/inscripciones', icon: Receipt },
 ];
 
 const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };

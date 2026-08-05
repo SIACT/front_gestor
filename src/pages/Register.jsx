@@ -3,8 +3,16 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
+import { SearchSelect } from '../components/ui/SearchSelect';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
+
+async function buscarUniversidades(query) {
+  const res = await fetch(`http://universities.hipolabs.com/search?name=${encodeURIComponent(query)}`);
+  if (!res.ok) throw new Error('No se pudo buscar universidades');
+  const data = await res.json();
+  return data.slice(0, 15);
+}
 
 function ArrowRightIcon(props) {
   return (
@@ -190,18 +198,21 @@ export function Register() {
         <Input
           id="register-cedula"
           name="cedula"
-          label="Cédula (opcional)"
+          label="Cédula"
           inputMode="numeric"
           value={form.cedula}
           onChange={handleCedulaChange}
         />
 
-        <Input
+        <SearchSelect
           id="register-institucion"
-          name="institucion"
-          label="Institución (opcional)"
+          label="Institución "
+          placeholder="Busca tu universidad..."
           value={form.institucion}
-          onChange={handleChange}
+          onChange={(value) => setForm((prev) => ({ ...prev, institucion: value }))}
+          onSearch={buscarUniversidades}
+          renderOption={(uni) => `${uni.name}${uni.country ? ` — ${uni.country}` : ''}`}
+          allowCustom
         />
 
         <Select id="register-rol" name="id_rol" label="Rol" value={form.id_rol} onChange={handleChange}>

@@ -1,28 +1,82 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0A0F0B;
-  --color-surface: #151C16;
-  --color-border: #2A332C;
-  --color-accent: #9FE036;
-  --color-accent-hover: #8BC72E;
-  --color-text-primary: #FFFFFF;
-  --color-text-muted: #9CA3AF;
-  --color-text-placeholder: #6B7280;
+  --color-background: var(--c-background);
+  --color-surface: var(--c-surface);
+  --color-border: var(--c-border);
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-text-primary: var(--c-text-primary);
+  --color-text-muted: var(--c-text-muted);
+  --color-text-placeholder: var(--c-text-placeholder);
 
-  --color-error-bg: #3A1F1F;
-  --color-error-text: #F5A3A3;
-  --color-success-bg: #1C3324;
-  --color-success-text: #8FD8A3;
-  --color-warning-bg: #3A2F1A;
-  --color-warning-text: #E0B563;
-  --color-purple-bg: #2A1F3A;
-  --color-purple-text: #C9A8F5;
-  --color-blue-bg: #1A2A3A;
-  --color-blue-text: #8FC4F5;
+  --color-error-bg: var(--c-error-bg);
+  --color-error-text: var(--c-error-text);
+  --color-success-bg: var(--c-success-bg);
+  --color-success-text: var(--c-success-text);
+  --color-warning-bg: var(--c-warning-bg);
+  --color-warning-text: var(--c-warning-text);
+  --color-purple-bg: var(--c-purple-bg);
+  --color-purple-text: var(--c-purple-text);
+  --color-blue-bg: var(--c-blue-bg);
+  --color-blue-text: var(--c-blue-text);
 
   --font-display: "Archivo Black", sans-serif;
   --font-sans: "Inter", sans-serif;
+}
+
+/* Tema oscuro (por defecto — marca) */
+:root {
+  --c-background: #0A0F0B;
+  --c-surface: #151C16;
+  --c-border: #2A332C;
+  --c-accent: #9FE036;
+  --c-accent-hover: #8BC72E;
+  --c-text-primary: #FFFFFF;
+  --c-text-muted: #9CA3AF;
+  --c-text-placeholder: #6B7280;
+
+  --c-error-bg: #3A1F1F;
+  --c-error-text: #F5A3A3;
+  --c-success-bg: #1C3324;
+  --c-success-text: #8FD8A3;
+  --c-warning-bg: #3A2F1A;
+  --c-warning-text: #E0B563;
+  --c-purple-bg: #2A1F3A;
+  --c-purple-text: #C9A8F5;
+  --c-blue-bg: #1A2A3A;
+  --c-blue-text: #8FC4F5;
+}
+
+/* Tema claro */
+[data-theme="light"] {
+  --c-background: #FAFAF7;
+  --c-surface: #FFFFFF;
+  --c-border: #E2E5E0;
+  --c-accent: #5C8A1E;
+  --c-accent-hover: #4A7018;
+  --c-text-primary: #14181A;
+  --c-text-muted: #5C6560;
+  --c-text-placeholder: #9CA39D;
+
+  --c-error-bg: #FDECEC;
+  --c-error-text: #B3261E;
+  --c-success-bg: #EAF7ED;
+  --c-success-text: #1E7B34;
+  --c-warning-bg: #FFF4E0;
+  --c-warning-text: #8A5D12;
+  --c-purple-bg: #F0E9FA;
+  --c-purple-text: #6B3FA0;
+  --c-blue-bg: #E8F1FC;
+  --c-blue-text: #1D5FA8;
+}
+
+html {
+  transition: background-color 0.2s ease;
+}
+
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 body {

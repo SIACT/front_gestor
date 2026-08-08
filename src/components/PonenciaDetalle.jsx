@@ -1,0 +1,389 @@
+import { useEffect, useState } from 'react';
+import { apiFetch } from '../api/client';
+import { capitalizar, formatFecha } from '../utils/formato';
+import { Badge } from './ui/Badge';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
+import { Modal } from './ui/Modal';
+import { Alert } from './ui/Alert';
+
+const ESTADO_TALK_VARIANT = {
+  pendiente: 'pendiente',
+  aceptada: 'revisado',
+  rechazada: 'rechazado',
+};
+
+const FORM_INICIAL = {
+  titulo: '',
+  descripcion: '',
+  link_summary: '',
+  palabras_clave: '',
+  duracion_minutos: '',
+};
+
+const COPONENTE_ERROR_MESSAGES = {
+  USUARIO_NOT_FOUND: 'No existe ningún usuario registrado con ese correo.',
+  USUARIO_NO_ES_PONENTE: 'El usuario debe tener rol Ponente para ser agregado como coponente.',
+  USUARIO_SIN_INSCRIPCION_ACTIVA: 'El usuario no tiene ninguna inscripción activa.',
+  YA_ES_PONENTE_PRINCIPAL: 'Este usuario ya es el ponente principal de la charla.',
+  YA_ES_COPONENTE: 'Este usuario ya es coponente de la charla.',
+};
+
+function talkToForm(talk) {
+  return {
+    titulo: talk.titulo ?? '',
+    descripcion: talk.descripcion ?? '',
+    link_summary: talk.link_summary ?? '',
+    palabras_clave: talk.palabras_clave ?? '',
+    duracion_minutos: talk.duracion_minutos != null ? String(talk.duracion_minutos) : '',
+  };
+}
+
+export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, onRefresh, adminReviewSlot }) {
+  const [ponentes, setPonentes] = useState([]);
+  const [ponentesLoading, setPonentesLoading] = useState(true);
+  const [ponentesError, setPonentesError] = useState('');
+
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [form, setForm] = useState(FORM_INICIAL);
+  const [editError, setEditError] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [cambiosPendientes, setCambiosPendientes] = useState(null);
+
+  const [correoCoponente, setCorreoCoponente] = useState('');
+  const [agregandoCoponente, setAgregandoCoponente] = useState(false);
+  const [coponenteError, setCoponenteError] = useState('');
+  const [coponenteAQuitar, setCoponenteAQuitar] = useState(null);
+  const [quitandoCoponente, setQuitandoCoponente] = useState(false);
+  const [quitarError, setQuitarError] = useState('');
+
+  function cargarPonentes() {
+    setPonentesLoading(true);
+    setPonentesError('');
+    return apiFetch(`/talks/${talk.id_talk}/ponentes`)
+      .then((data) => setPonentes(data ?? []))
+      .catch((err) => setPonentesError(err.message))
+      .finally(() => setPonentesLoading(false));
+  }
+
+  useEffect(() => {
+    cargarPonentes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [talk.id_talk]);
+
+  function handleAbrirEditar() {
+    setForm(talkToForm(talk));
+    setEditError('');
+    setEditModalOpen(true);
+  }
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function construirCambios() {
+    const original = talkToForm(talk);
+    const cambios = {};
+    if (form.titulo !== original.titulo) cambios.titulo = form.titulo;
+    if (form.descripcion !== original.descripcion) cambios.descripcion = form.descripcion || null;
+    if (form.link_summary !== original.link_summary) cambios.link_summary = form.link_summary || null;
+    if (form.palabras_clave !== original.palabras_clave) cambios.palabras_clave = form.palabras_clave || null;
+    if (form.duracion_minutos !== original.duracion_minutos) {
+      cambios.duracion_minutos = form.duracion_minutos ? Number(form.duracion_minutos) : null;
+    }
+    return cambios;
+  }
+
+  async function enviarCambios(cambios) {
+    setGuardando(true);
+    setEditError('');
+    try {
+      await apiFetch(`/talks/${talk.id_talk}`, {
+        method: 'PATCH',
+        body: JSON.stringify(cambios),
+      });
+      setEditModalOpen(false);
+      setCambiosPendientes(null);
+      onRefresh?.();
+    } catch (err) {
+      setEditError(err.code === 'FORBIDDEN' ? 'No tienes permiso para editar esta ponencia' : err.message);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  function handleSubmitEditar(e) {
+    e.preventDefault();
+    const cambios = construirCambios();
+    if (Object.keys(cambios).length === 0) {
+      setEditModalOpen(false);
+      return;
+    }
+    if (talk.estado_talk === 'aceptada') {
+      setCambiosPendientes(cambios);
+      return;
+    }
+    enviarCambios(cambios);
+  }
+
+  async function handleAgregarCoponente(e) {
+    e.preventDefault();
+    setCoponenteError('');
+    setAgregandoCoponente(true);
+    try {
+      const data = await apiFetch(`/talks/${talk.id_talk}/ponentes`, {
+        method: 'POST',
+        body: JSON.stringify({ correo_coponente: correoCoponente }),
+      });
+      setPonentes(data ?? []);
+      setCorreoCoponente('');
+    } catch (err) {
+      setCoponenteError(COPONENTE_ERROR_MESSAGES[err.code] ?? err.message);
+    } finally {
+      setAgregandoCoponente(false);
+    }
+  }
+
+  async function handleQuitarCoponente() {
+    if (!coponenteAQuitar) return;
+    setQuitandoCoponente(true);
+    setQuitarError('');
+    try {
+      const data = await apiFetch(`/talks/${talk.id_talk}/ponentes/${coponenteAQuitar.id_inscripcion}`, {
+        method: 'DELETE',
+      });
+      setPonentes(data ?? []);
+      setCoponenteAQuitar(null);
+    } catch (err) {
+      setQuitarError(err.message);
+    } finally {
+      setQuitandoCoponente(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-sans text-2xl font-bold text-text-primary">{talk.titulo}</h1>
+          <div className="mt-2 flex items-center gap-2">
+            <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>{talk.estado_talk}</Badge>
+            <span className="text-xs text-text-muted">Propuesta el {formatFecha(talk.fecha_creacion)}</span>
+          </div>
+        </div>
+        {canEdit && (
+          <Button type="button" variant="secondary" onClick={handleAbrirEditar}>
+            Editar
+          </Button>
+        )}
+      </div>
+
+      {talk.observaciones && <Alert variant="warning">{talk.observaciones}</Alert>}
+
+      <div className="rounded-xl border border-border bg-surface p-6">
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Descripción</dt>
+            <dd className="mt-1 whitespace-pre-wrap text-sm text-text-primary">
+              {talk.descripcion || '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Enlace / resumen</dt>
+            <dd className="mt-1 text-sm text-text-primary">
+              {talk.link_summary ? (
+                <a
+                  href={talk.link_summary}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent hover:underline"
+                >
+                  {talk.link_summary}
+                </a>
+              ) : (
+                '—'
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Palabras clave</dt>
+            <dd className="mt-1 text-sm text-text-primary">{talk.palabras_clave || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Duración</dt>
+            <dd className="mt-1 text-sm text-text-primary">
+              {talk.duracion_minutos ? `${talk.duracion_minutos} minutos` : '—'}
+            </dd>
+          </div>
+          {talk.fecha_aceptacion && (
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Fecha de aceptación</dt>
+              <dd className="mt-1 text-sm text-text-primary">{formatFecha(talk.fecha_aceptacion)}</dd>
+            </div>
+          )}
+          {talk.revisor && (
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Revisado por</dt>
+              <dd className="mt-1 text-sm text-text-primary">
+                {capitalizar(talk.revisor.nombre)} {capitalizar(talk.revisor.apellido)}
+              </dd>
+            </div>
+          )}
+        </dl>
+      </div>
+
+      <div className="rounded-xl border border-border bg-surface p-6">
+        <h2 className="font-sans text-lg font-semibold text-text-primary">Ponentes</h2>
+
+        {ponentesError && (
+          <Alert variant="error" className="mt-3">
+            {ponentesError}
+          </Alert>
+        )}
+
+        {!ponentesLoading && !ponentesError && (
+          <ul className="mt-4 flex flex-col gap-2">
+            {ponentes.map((ponente) => (
+              <li
+                key={ponente.id_inscripcion ?? ponente.correo}
+                className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2"
+              >
+                <div>
+                  <p className="text-sm text-text-primary">
+                    {capitalizar(ponente.nombre)} {capitalizar(ponente.apellido)}
+                    {ponente.es_principal && (
+                      <Badge variant="admin" className="ml-2">
+                        Principal
+                      </Badge>
+                    )}
+                  </p>
+                  <p className="text-xs text-text-muted">{ponente.correo}</p>
+                </div>
+                {canManageCoponentes && !ponente.es_principal && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setCoponenteAQuitar(ponente)}
+                  >
+                    Quitar
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {canManageCoponentes && (
+          <form className="mt-4 flex items-end gap-2" onSubmit={handleAgregarCoponente}>
+            <Input
+              label="Correo del coponente"
+              type="email"
+              value={correoCoponente}
+              onChange={(e) => setCorreoCoponente(e.target.value)}
+              required
+              className="flex-1"
+            />
+            <Button type="submit" variant="secondary" loading={agregandoCoponente}>
+              Agregar coponente
+            </Button>
+          </form>
+        )}
+        {coponenteError && (
+          <Alert variant="error" className="mt-2">
+            {coponenteError}
+          </Alert>
+        )}
+      </div>
+
+      {isAdmin && adminReviewSlot}
+
+      <Modal open={editModalOpen} onClose={() => setEditModalOpen(false)} title="Editar ponencia">
+        <form className="flex flex-col gap-3" onSubmit={handleSubmitEditar}>
+          {editError && <Alert variant="error">{editError}</Alert>}
+
+          <Input name="titulo" label="Título" value={form.titulo} onChange={handleChange} required />
+          <Textarea
+            name="descripcion"
+            label="Descripción"
+            value={form.descripcion}
+            onChange={handleChange}
+          />
+          <Input
+            name="link_summary"
+            label="Enlace / resumen"
+            value={form.link_summary}
+            onChange={handleChange}
+          />
+          <Input
+            name="palabras_clave"
+            label="Palabras clave"
+            value={form.palabras_clave}
+            onChange={handleChange}
+          />
+          <Input
+            name="duracion_minutos"
+            type="number"
+            min="0"
+            label="Duración (minutos)"
+            value={form.duracion_minutos}
+            onChange={handleChange}
+          />
+
+          <Button type="submit" variant="primary" loading={guardando} className="mt-2 w-full">
+            Guardar cambios
+          </Button>
+        </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(cambiosPendientes)}
+        onClose={() => setCambiosPendientes(null)}
+        title="Confirmar edición"
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-text-primary">
+            Editar esta ponencia la enviará de nuevo a revisión. ¿Continuar?
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setCambiosPendientes(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              loading={guardando}
+              onClick={() => enviarCambios(cambiosPendientes)}
+            >
+              Continuar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(coponenteAQuitar)}
+        onClose={() => setCoponenteAQuitar(null)}
+        title="Quitar coponente"
+      >
+        <div className="flex flex-col gap-4">
+          {quitarError && <Alert variant="error">{quitarError}</Alert>}
+          <p className="text-sm text-text-primary">
+            ¿Quitar a {capitalizar(coponenteAQuitar?.nombre)} {capitalizar(coponenteAQuitar?.apellido)} como
+            coponente de esta ponencia?
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setCoponenteAQuitar(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="destructive" loading={quitandoCoponente} onClick={handleQuitarCoponente}>
+              Quitar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}

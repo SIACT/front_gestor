@@ -12,12 +12,16 @@ import { MisInscripciones } from './pages/MisInscripciones';
 import { CrearInscripcion } from './pages/CrearInscripcion';
 import { DetalleInscripcion } from './pages/DetalleInscripcion';
 import { Perfil } from './pages/Perfil';
+import { MisPonencias } from './pages/MisPonencias';
+import { DetallePonencia } from './pages/DetallePonencia';
 import { Usuarios } from './pages/admin/Usuarios';
 import { TiposAsistente } from './pages/admin/TiposAsistente';
 import { Categorias } from './pages/admin/Categorias';
 import { Descuentos } from './pages/admin/Descuentos';
 import { InscripcionesAdmin } from './pages/admin/InscripcionesAdmin';
 import { InscripcionAdminDetalle } from './pages/admin/InscripcionAdminDetalle';
+import { PonenciasAdmin } from './pages/admin/PonenciasAdmin';
+import { PonenciaAdminDetalle } from './pages/admin/PonenciaAdminDetalle';
 
 function Home() {
   const { user, loading } = useAuth();
@@ -43,6 +47,8 @@ function App() {
               <Route path="/inscripciones/nueva" element={<CrearInscripcion />} />
               <Route path="/inscripciones/:id" element={<DetalleInscripcion />} />
               <Route path="/perfil" element={<Perfil />} />
+              <Route path="/ponencias" element={<MisPonencias />} />
+              <Route path="/ponencias/:id" element={<DetallePonencia />} />
               <Route element={<AdminRoute />}>
                 <Route path="/admin/usuarios" element={<Usuarios />} />
                 <Route path="/admin/tipos-asistente" element={<TiposAsistente />} />
@@ -50,6 +56,8 @@ function App() {
                 <Route path="/admin/descuentos" element={<Descuentos />} />
                 <Route path="/admin/inscripciones" element={<InscripcionesAdmin />} />
                 <Route path="/admin/inscripciones/:id" element={<InscripcionAdminDetalle />} />
+                <Route path="/admin/ponencias" element={<PonenciasAdmin />} />
+                <Route path="/admin/ponencias/:id" element={<PonenciaAdminDetalle />} />
               </Route>
             </Route>
           </Route>

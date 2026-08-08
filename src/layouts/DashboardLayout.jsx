@@ -10,21 +10,26 @@ import {
   FolderTree,
   LogOut,
   Menu,
+  Mic,
+  Moon,
   Percent,
   PlusCircle,
   Receipt,
   Settings,
+  Sun,
   Tag,
   User,
   Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { Logo } from '../components/ui/Logo';
 import { capitalizar } from '../utils/formato';
 
 const NAV_ITEMS = [
   { to: '/inscripciones', label: 'Mis inscripciones', icon: ClipboardList },
   { to: '/inscripciones/nueva', label: 'Nueva inscripción', icon: PlusCircle },
+  { to: '/ponencias', label: 'Mis ponencias', icon: Mic, roles: [1, 2] },
   { to: '/perfil', label: 'Mi perfil', icon: User },
 ];
 
@@ -34,6 +39,7 @@ const ADMIN_SUBLINKS = [
   { label: 'Categorías', path: '/admin/categorias', icon: FolderTree },
   { label: 'Descuentos', path: '/admin/descuentos', icon: Percent },
   { label: 'Inscripciones', path: '/admin/inscripciones', icon: Receipt },
+  { label: 'Ponencias', path: '/admin/ponencias', icon: Mic },
 ];
 
 const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };
@@ -116,6 +122,7 @@ function AdminSection({ collapsed, onNavigate, onExpandSidebar }) {
 
 function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSidebar }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const rolLabel = user?.rol?.nombre ?? ROL_LABELS[user?.id_rol] ?? '';
 
@@ -152,7 +159,7 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user?.id_rol)).map((item) => (
           <NavItem key={item.to} {...item} collapsed={collapsed} onClick={onNavigate} />
         ))}
 
@@ -174,6 +181,22 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
             <p className="truncate text-xs text-text-muted">{rolLabel}</p>
           </div>
         )}
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+          className={clsx(
+            'flex items-center gap-2 rounded-lg text-sm text-text-muted transition-colors hover:text-text-primary',
+            collapsed ? 'justify-center p-2' : 'w-full px-3 py-2',
+          )}
+        >
+          {theme === 'dark' ? (
+            <Sun className="size-4 shrink-0" />
+          ) : (
+            <Moon className="size-4 shrink-0" />
+          )}
+          {!collapsed && <span>{theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}</span>}
+        </button>
         <button
           type="button"
           onClick={handleLogout}

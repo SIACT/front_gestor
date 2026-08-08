@@ -23,13 +23,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { apiFetch } from '../api/client';
 import { Logo } from '../components/ui/Logo';
 import { capitalizar } from '../utils/formato';
 
 const NAV_ITEMS = [
-  { to: '/inscripciones', label: 'Mis inscripciones', icon: ClipboardList },
-  { to: '/inscripciones/nueva', label: 'Nueva inscripción', icon: PlusCircle },
-  { to: '/ponencias', label: 'Mis ponencias', icon: Mic, roles: [1, 2] },
+  { to: '/inscripciones', label: 'Mis inscripciones', icon: ClipboardList, roles: [2, 3] },
+  { to: '/inscripciones/nueva', label: 'Nueva inscripción', icon: PlusCircle, roles: [2, 3] },
+  { to: '/ponencias', label: 'Mis ponencias', icon: Mic, roles: [2] },
   { to: '/perfil', label: 'Mi perfil', icon: User },
 ];
 
@@ -63,6 +64,21 @@ function NavItem({ to, icon: Icon, label, collapsed, onClick }) {
       <Icon className="size-5 shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
     </NavLink>
+  );
+}
+
+function DisabledNavItem({ icon: Icon, label, collapsed, title }) {
+  return (
+    <div
+      title={title}
+      className={clsx(
+        'flex cursor-not-allowed items-center gap-3 rounded-lg border-l-2 border-transparent px-3 py-2.5 text-sm text-text-muted opacity-50',
+        collapsed && 'justify-center px-0',
+      )}
+    >
+      <Icon className="size-5 shrink-0" />
+      {!collapsed && <span className="truncate">{label}</span>}
+    </div>
   );
 }
 
@@ -120,7 +136,7 @@ function AdminSection({ collapsed, onNavigate, onExpandSidebar }) {
   );
 }
 
-function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSidebar }) {
+function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSidebar, tieneInscripcion }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -135,7 +151,7 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
     <div className="flex h-full flex-col">
       <div
         className={clsx(
-          'flex items-center border-b border-border px-4 py-4',
+          'flex items-center border-b border-border px-4 py-8.5',
           collapsed ? 'flex-col gap-3' : 'justify-between',
         )}
       >
@@ -159,9 +175,20 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user?.id_rol)).map((item) => (
-          <NavItem key={item.to} {...item} collapsed={collapsed} onClick={onNavigate} />
-        ))}
+        {NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user?.id_rol)).map((item) => {
+          if (item.to === '/inscripciones/nueva' && tieneInscripcion) {
+            return (
+              <DisabledNavItem
+                key={item.to}
+                icon={item.icon}
+                label={item.label}
+                collapsed={collapsed}
+                title="Ya tienes una inscripción activa"
+              />
+            );
+          }
+          return <NavItem key={item.to} {...item} collapsed={collapsed} onClick={onNavigate} />;
+        })}
 
         {user?.id_rol === 1 && (
           <AdminSection
@@ -215,10 +242,12 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
 
 export function DashboardLayout() {
   const location = useLocation();
+  const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('sidebar-collapsed') === 'true',
   );
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [tieneInscripcion, setTieneInscripcion] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('sidebar-collapsed', String(collapsed));
@@ -228,8 +257,15 @@ export function DashboardLayout() {
     setMobileOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (user?.id_rol === 1) return;
+    apiFetch('/inscripciones')
+      .then((data) => setTieneInscripcion((data ?? []).length > 0))
+      .catch(() => {});
+  }, [user?.id_rol]);
+
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       <aside
         style={{ width: collapsed ? 72 : 240 }}
         className="hidden shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 lg:sticky lg:top-0 lg:flex lg:h-screen"
@@ -238,6 +274,7 @@ export function DashboardLayout() {
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((value) => !value)}
           onExpandSidebar={() => setCollapsed(false)}
+          tieneInscripcion={tieneInscripcion}
         />
       </aside>
 
@@ -273,12 +310,16 @@ export function DashboardLayout() {
             exit={{ x: '-100%' }}
             transition={{ type: 'tween', duration: 0.25 }}
           >
-            <SidebarContent collapsed={false} onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent
+              collapsed={false}
+              onNavigate={() => setMobileOpen(false)}
+              tieneInscripcion={tieneInscripcion}
+            />
           </motion.aside>
         )}
       </AnimatePresence>
 
-      <main className="flex-1 overflow-y-auto bg-background px-6 pb-6 pt-20 lg:p-10">
+      <main className="flex-1 overflow-y-auto bg-background px-6  py-0! lg:p-10">
         <Outlet />
       </main>
     </div>

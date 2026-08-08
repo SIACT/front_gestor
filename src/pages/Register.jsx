@@ -216,7 +216,7 @@ export function Register() {
         />
 
         <Select id="register-rol" name="id_rol" label="Rol" value={form.id_rol} onChange={handleChange}>
-          <option value="3">Estudiante</option>
+          <option value="3">Asistente</option>
           <option value="2">Ponente</option>
         </Select>
 

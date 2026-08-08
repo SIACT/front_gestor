@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
+import { NotAdminRoute } from './components/NotAdminRoute';
 import { AuthLayout } from './layouts/AuthLayout';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { Login } from './pages/Login';
@@ -26,7 +27,9 @@ import { PonenciaAdminDetalle } from './pages/admin/PonenciaAdminDetalle';
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return <div className="loading-screen">Cargando...</div>;
-  return <Navigate to={user ? '/inscripciones' : '/login'} replace />;
+  return (
+    <Navigate to={user ? (user.id_rol === 1 ? '/admin/usuarios' : '/inscripciones') : '/login'} replace />
+  );
 }
 
 function App() {
@@ -43,12 +46,14 @@ function App() {
           </Route>
           <Route element={<ProtectedRoute />}>
             <Route element={<DashboardLayout />}>
-              <Route path="/inscripciones" element={<MisInscripciones />} />
-              <Route path="/inscripciones/nueva" element={<CrearInscripcion />} />
-              <Route path="/inscripciones/:id" element={<DetalleInscripcion />} />
               <Route path="/perfil" element={<Perfil />} />
-              <Route path="/ponencias" element={<MisPonencias />} />
-              <Route path="/ponencias/:id" element={<DetallePonencia />} />
+              <Route element={<NotAdminRoute />}>
+                <Route path="/inscripciones" element={<MisInscripciones />} />
+                <Route path="/inscripciones/nueva" element={<CrearInscripcion />} />
+                <Route path="/inscripciones/:id" element={<DetalleInscripcion />} />
+                <Route path="/ponencias" element={<MisPonencias />} />
+                <Route path="/ponencias/:id" element={<DetallePonencia />} />
+              </Route>
               <Route element={<AdminRoute />}>
                 <Route path="/admin/usuarios" element={<Usuarios />} />
                 <Route path="/admin/tipos-asistente" element={<TiposAsistente />} />

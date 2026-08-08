@@ -59,7 +59,7 @@ export function InscripcionesAdmin() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 pt-6">
       <div>
         <h1 className="font-sans text-2xl font-bold text-text-primary">Inscripciones</h1>
         <p className="mt-1 text-sm text-text-muted">Todas las inscripciones registradas en el sistema.</p>

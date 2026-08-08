@@ -41,7 +41,7 @@ export function DetallePonencia() {
 
   if (error) {
     return (
-      <div className="mx-auto w-full max-w-2xl px-6 py-12">
+      <div className="flex flex-col gap-6">
         <Alert variant="error">{error}</Alert>
       </div>
     );
@@ -53,14 +53,12 @@ export function DetallePonencia() {
   const esAdmin = user?.id_rol === 1;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-12">
-      <PonenciaDetalle
-        talk={talk}
-        isAdmin={esAdmin}
-        canEdit={esPrincipal || esAdmin || esCoponente}
-        canManageCoponentes={esPrincipal || esAdmin}
-        onRefresh={cargarTalk}
-      />
-    </div>
+    <PonenciaDetalle
+      talk={talk}
+      isAdmin={esAdmin}
+      canEdit={esPrincipal || esAdmin || esCoponente}
+      canManageCoponentes={esPrincipal || esAdmin}
+      onRefresh={cargarTalk}
+    />
   );
 }

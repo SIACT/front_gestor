@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Info } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { capitalizar } from '../utils/formato';
@@ -91,11 +92,23 @@ export function MisInscripciones() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4">
         <h1 className="font-sans text-2xl font-bold text-text-primary">Mis inscripciones</h1>
-        {/* <Button variant="primary" onClick={() => navigate('/inscripciones/nueva')}>
-          Nueva inscripción
-        </Button> */}
+        <div className="flex flex-col items-end gap-1">
+          <Button
+            variant="primary"
+            disabled={inscripciones.length > 0}
+            onClick={() => navigate('/inscripciones/nueva')}
+          >
+            Nueva inscripción
+          </Button>
+          {inscripciones.length > 0 && (
+            <p className="flex items-center gap-1 text-xs text-text-muted">
+              <Info className="size-3.5" />
+              Ya tienes una inscripción activa. Solo se permite una por usuario.
+            </p>
+          )}
+        </div>
       </div>
 
       {error && (

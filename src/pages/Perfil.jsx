@@ -156,7 +156,7 @@ export function Perfil() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 mt-6">
       <div>
         <h1 className="font-sans text-2xl font-bold text-text-primary">Mi perfil</h1>
         <p className="mt-1 text-sm text-text-muted">Consulta tus datos y personaliza tu avatar.</p>

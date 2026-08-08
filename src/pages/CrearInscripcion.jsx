@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api/client';
 import { Card } from '../components/ui/Card';
 import { Select } from '../components/ui/Select';
@@ -25,10 +25,20 @@ export function CrearInscripcion() {
   const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [yaInscrito, setYaInscrito] = useState(false);
 
   useEffect(() => {
-    Promise.all([apiFetch('/categorias'), apiFetch('/tipos-asistente?activo=true')])
-      .then(([cats, tipos]) => {
+    apiFetch('/inscripciones')
+      .then((inscripciones) => {
+        if ((inscripciones ?? []).length > 0) {
+          setYaInscrito(true);
+          return null;
+        }
+        return Promise.all([apiFetch('/categorias'), apiFetch('/tipos-asistente?activo=true')]);
+      })
+      .then((resultado) => {
+        if (!resultado) return;
+        const [cats, tipos] = resultado;
         setCategorias(cats ?? []);
         setTiposAsistente(tipos ?? []);
         if (cats?.length) setIdCategoria(String(cats[0].id_categoria));
@@ -59,6 +69,7 @@ export function CrearInscripcion() {
   }
 
   if (loadingData) return <PageLoader />;
+  if (yaInscrito) return <Navigate to="/inscripciones" replace />;
 
   return (
     <div className="mx-auto w-full max-w-lg px-6 py-12">

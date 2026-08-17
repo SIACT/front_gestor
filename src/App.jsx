@@ -23,6 +23,7 @@ import { InscripcionesAdmin } from './pages/admin/InscripcionesAdmin';
 import { InscripcionAdminDetalle } from './pages/admin/InscripcionAdminDetalle';
 import { PonenciasAdmin } from './pages/admin/PonenciasAdmin';
 import { PonenciaAdminDetalle } from './pages/admin/PonenciaAdminDetalle';
+import { AreasEstudio } from './pages/admin/AreasEstudio';
 
 function Home() {
   const { user, loading } = useAuth();
@@ -63,6 +64,7 @@ function App() {
                 <Route path="/admin/inscripciones/:id" element={<InscripcionAdminDetalle />} />
                 <Route path="/admin/ponencias" element={<PonenciasAdmin />} />
                 <Route path="/admin/ponencias/:id" element={<PonenciaAdminDetalle />} />
+                <Route path="/admin/areas-estudio" element={<AreasEstudio />} />
               </Route>
             </Route>
           </Route>

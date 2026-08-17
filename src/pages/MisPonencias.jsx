@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
+import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
 import { Alert } from '../components/ui/Alert';
 import { PageLoader } from '../components/ui/PageLoader';
@@ -24,6 +25,12 @@ const FORM_INICIAL = {
   link_summary: '',
   palabras_clave: '',
   duracion_minutos: '',
+  id_area: '',
+};
+
+const AREA_ERROR_MESSAGES = {
+  AREA_NOT_FOUND: 'El área de estudio seleccionada no existe.',
+  AREA_INACTIVE: 'El área de estudio seleccionada está inactiva.',
 };
 
 export function MisPonencias() {
@@ -40,6 +47,8 @@ export function MisPonencias() {
   const [form, setForm] = useState(FORM_INICIAL);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [areas, setAreas] = useState([]);
+  const [areasError, setAreasError] = useState('');
 
   useEffect(() => {
     apiFetch('/inscripciones')
@@ -62,7 +71,11 @@ export function MisPonencias() {
   function handleAbrirCrear() {
     setForm(FORM_INICIAL);
     setFormError('');
+    setAreasError('');
     setModalOpen(true);
+    apiFetch('/areas-estudio?activo=true')
+      .then((data) => setAreas(data ?? []))
+      .catch((err) => setAreasError(err.message));
   }
 
   function handleChange(e) {
@@ -73,12 +86,17 @@ export function MisPonencias() {
   async function handleSubmit(e) {
     e.preventDefault();
     setFormError('');
+    if (!form.id_area) {
+      setFormError('Selecciona un área de estudio.');
+      return;
+    }
     setSubmitting(true);
     try {
       const nuevaTalk = await apiFetch(`/inscripciones/${idInscripcion}/talks`, {
         method: 'POST',
         body: JSON.stringify({
           titulo: form.titulo,
+          id_area: Number(form.id_area),
           descripcion: form.descripcion || undefined,
           link_summary: form.link_summary || undefined,
           palabras_clave: form.palabras_clave || undefined,
@@ -87,7 +105,7 @@ export function MisPonencias() {
       });
       navigate(`/ponencias/${nuevaTalk.id_talk}`);
     } catch (err) {
-      setFormError(err.message);
+      setFormError(AREA_ERROR_MESSAGES[err.code] ?? err.message);
     } finally {
       setSubmitting(false);
     }
@@ -98,7 +116,7 @@ export function MisPonencias() {
   const puedeProponer = user?.id_rol === 2 || user?.id_rol === 1;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-12">
+    <div className="mx-auto w-full max-w-2xl px-6 py-20">
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-sans text-2xl font-bold text-text-primary">Mis ponencias</h1>
         {puedeProponer && idInscripcion && (
@@ -144,7 +162,10 @@ export function MisPonencias() {
                       {talk.estado_talk}
                     </Badge>
                   </div>
-                  <p className="mt-2 text-xs text-text-muted">{formatFecha(talk.fecha_creacion)}</p>
+                  <p className="mt-2 text-xs text-text-muted">
+                    {talk.area?.nombre && <>{talk.area.nombre} · </>}
+                    {formatFecha(talk.fecha_creacion)}
+                  </p>
 
                   {talk.estado_talk === 'rechazada' && talk.observaciones && (
                     <Alert variant="warning" className="mt-3">
@@ -161,8 +182,19 @@ export function MisPonencias() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Proponer nueva ponencia">
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
           {formError && <Alert variant="error">{formError}</Alert>}
+          {areasError && <Alert variant="error">{areasError}</Alert>}
 
           <Input name="titulo" label="Título" value={form.titulo} onChange={handleChange} required />
+
+          <Select name="id_area" label="Área de estudio" value={form.id_area} onChange={handleChange} required>
+            <option value="">Selecciona un área</option>
+            {areas.map((a) => (
+              <option key={a.id_area} value={a.id_area}>
+                {a.nombre}
+              </option>
+            ))}
+          </Select>
+
           <Textarea
             name="descripcion"
             label="Descripción"

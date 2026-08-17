@@ -18,6 +18,7 @@ const SIZE_CLASSES = {
 
 export const Button = forwardRef(function Button(
   {
+    as: Component = 'button',
     variant = 'primary',
     size = 'md',
     loading = false,
@@ -29,11 +30,12 @@ export const Button = forwardRef(function Button(
   },
   ref,
 ) {
+  const isButtonElement = Component === 'button';
+
   return (
-    <button
+    <Component
       ref={ref}
-      type={type}
-      disabled={disabled || loading}
+      {...(isButtonElement ? { type, disabled: disabled || loading } : {})}
       className={clsx(
         'inline-flex items-center justify-center rounded-lg font-sans font-medium transition-colors',
         'disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer',
@@ -46,6 +48,6 @@ export const Button = forwardRef(function Button(
     >
       {loading && <Spinner className="size-4" />}
       {children}
-    </button>
+    </Component>
   );
 });

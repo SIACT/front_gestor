@@ -151,55 +151,99 @@ export function DetalleInscripcion() {
   const mostrarFormularioSubida = !comprobante || comprobante.estado_comprobante !== 'revisado';
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-6 px-6 py-12">
+    <div className="mx-auto flex w-full flex-col gap-6 px-6 py-20">
       <div>
-        <h1 className="font-sans text-2xl font-bold text-text-primary">
-          Inscripción {inscripcion.id_inscripcion}  ALTENCOA 11-2026
-        </h1>
+        <h2 className="font-sans text-2xl font-bold text-text-primary">
+         ALTENCOA 11-2026 <span className="text-lg font-normal text-text-muted ml-20">Inscripción {inscripcion.id_inscripcion}</span>
+        </h2>
         <p className="mt-1 text-sm text-text-muted">
           Estado: <span className="capitalize text-text-primary">{inscripcion.estado_inscripcion}</span>
         </p>
       </div>
 
-      <Card>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-          Resumen de costos
-        </h2>
-        <dl className="mt-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between text-sm">
-            <dt className="text-text-muted">Costo base</dt>
-            <dd className="text-text-primary">{formatCOP(costoBase)}</dd>
-          </div>
-          {descuentoAplicado > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <dt className="text-text-muted">Descuento aplicado</dt>
-              <dd className="text-success-text">-{formatCOP(descuentoAplicado)}</dd>
-            </div>
-          )}
-          <div className="flex items-center justify-between border-t border-border pt-3">
-            <dt className="text-sm font-medium text-text-muted">Costo final</dt>
-            <dd className="text-2xl font-bold text-accent">{formatCOP(costoFinal)}</dd>
-          </div>
-        </dl>
-      </Card>
+      {inscripcion.estado_inscripcion === 'pendiente' && (
+        <Card>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+            Completa tu inscripción
+          </h2>
+          <p className="mt-4 text-sm text-text-muted">
+            Tu inscripción está pendiente de pago. Realiza el pago en el portal de Tesorería de la
+            Universidad de Nariño y sube tu comprobante para confirmar tu cupo.
+          </p>
+          <ol className="mt-4 space-y-2 text-sm text-text-muted">
+            <li className="flex gap-2">
+              <span className="font-semibold text-accent">1.</span>
+              <span>Ingresa al portal de Tesorería con el enlace de abajo.</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold text-accent">2.</span>
+              <span>Genera o imprime tu recibo de pago con tus datos.</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold text-accent">3.</span>
+              <span>Realiza el pago según el método indicado en el portal.</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold text-accent">4.</span>
+              <span>
+                Vuelve aquí y sube tu comprobante en la sección "Comprobante de pago" más abajo.
+              </span>
+            </li>
+          </ol>
+          <Button
+            as="a"
+            href="https://ci.udenar.edu.co:8082/recibos/Tesoreria/ImpresionInternetEve.aspx?id=245"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="primary"
+            className="mt-4"
+          >
+            Ir al portal de pagos
+          </Button>
+        </Card>
+      )}
 
-      <Card>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-          Descuentos aplicados
-        </h2>
-        {descuentos.length === 0 ? (
-          <p className="mt-4 text-sm text-text-muted">No tienes descuentos aplicados aún.</p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-3">
-            {descuentos.map((d) => (
-              <li key={d.id_descuento} className="flex items-center justify-between text-sm">
-                <span className="text-text-primary">{d.descuento.nombre}</span>
-                <Badge variant="default">{d.descuento.porcentaje_descuento}%</Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+            Resumen de costos
+          </h2>
+          <dl className="mt-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between text-sm">
+              <dt className="text-text-muted">Costo base</dt>
+              <dd className="text-text-primary">{formatCOP(costoBase)}</dd>
+            </div>
+            {descuentoAplicado > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <dt className="text-text-muted">Descuento aplicado</dt>
+                <dd className="text-success-text">-{formatCOP(descuentoAplicado)}</dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t border-border pt-3">
+              <dt className="text-sm font-medium text-text-muted">Costo final</dt>
+              <dd className="text-2xl font-bold text-accent">{formatCOP(costoFinal)}</dd>
+            </div>
+          </dl>
+        </Card>
+
+        <Card className="lg:col-span-1">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+            Descuentos aplicados
+          </h2>
+          {descuentos.length === 0 ? (
+            <p className="mt-4 text-sm text-text-muted">No tienes descuentos aplicados aún.</p>
+          ) : (
+            <ul className="mt-4 flex flex-col gap-3">
+              {descuentos.map((d) => (
+                <li key={d.id_descuento} className="flex items-center justify-between text-sm">
+                  <span className="text-text-primary">{d.descuento.nombre}</span>
+                  <Badge variant="default">{d.descuento.porcentaje_descuento}%</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
 
       <Card>
         <div className="flex items-center justify-between">

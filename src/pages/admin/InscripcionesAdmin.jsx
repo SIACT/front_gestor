@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
@@ -11,15 +11,24 @@ import { Select } from '../../components/ui/Select';
 import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 
+const ESTADOS_INSCRIPCION = ['pendiente', 'confirmada', 'rechazada', 'cancelada'];
+
 export function InscripcionesAdmin() {
   const navigate = useNavigate();
   const [inscripciones, setInscripciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Server-side: GET /inscripciones soporta id_usuario y activo.
   const [busqueda, setBusqueda] = useState('');
   const [filtroActivo, setFiltroActivo] = useState('');
   const [activoFiltro, setActivoFiltro] = useState('');
+
+  // In-memory: el backend NO soporta estado_inscripcion ni id_tipo_asistente en GET /inscripciones,
+  // así que se filtran sobre los datos ya traídos (que sí respetan id_usuario/activo server-side).
+  const [estadoFiltro, setEstadoFiltro] = useState('');
+  const [tipoAsistenteFiltro, setTipoAsistenteFiltro] = useState('');
+  const [tiposAsistente, setTiposAsistente] = useState([]);
 
   function cargar(idUsuario, activo) {
     setLoading(true);
@@ -36,8 +45,19 @@ export function InscripcionesAdmin() {
 
   useEffect(() => {
     cargar();
+    apiFetch('/tipos-asistente?activo=true')
+      .then((data) => setTiposAsistente(data ?? []))
+      .catch((err) => setError(err.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const inscripcionesFiltradas = useMemo(() => {
+    return inscripciones.filter((i) => {
+      if (estadoFiltro && i.estado_inscripcion !== estadoFiltro) return false;
+      if (tipoAsistenteFiltro && String(i.id_tipo_asistente) !== tipoAsistenteFiltro) return false;
+      return true;
+    });
+  }, [inscripciones, estadoFiltro, tipoAsistenteFiltro]);
 
   function handleBuscar(e) {
     e.preventDefault();
@@ -46,16 +66,23 @@ export function InscripcionesAdmin() {
     cargar(valor, activoFiltro);
   }
 
-  function handleLimpiar() {
-    setBusqueda('');
-    setFiltroActivo('');
-    cargar('', activoFiltro);
-  }
-
   function handleActivoChange(e) {
     const valor = e.target.value;
     setActivoFiltro(valor);
     cargar(filtroActivo, valor);
+  }
+
+  const hayFiltrosActivos = Boolean(
+    filtroActivo || activoFiltro || estadoFiltro || tipoAsistenteFiltro,
+  );
+
+  function handleLimpiarFiltros() {
+    setBusqueda('');
+    setFiltroActivo('');
+    setActivoFiltro('');
+    setEstadoFiltro('');
+    setTipoAsistenteFiltro('');
+    cargar('', '');
   }
 
   return (
@@ -65,7 +92,7 @@ export function InscripcionesAdmin() {
         <p className="mt-1 text-sm text-text-muted">Todas las inscripciones registradas en el sistema.</p>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="flex flex-wrap items-end gap-3">
         <form className="flex flex-wrap items-end gap-2" onSubmit={handleBuscar}>
           <Input
             label="Buscar por id de usuario"
@@ -78,30 +105,70 @@ export function InscripcionesAdmin() {
           <Button type="submit" variant="secondary">
             Buscar
           </Button>
-          {filtroActivo && (
-            <Button type="button" variant="ghost" onClick={handleLimpiar}>
-              Limpiar filtro
-            </Button>
-          )}
         </form>
 
-        <Select label="Estado" value={activoFiltro} onChange={handleActivoChange} className="w-40">
+        <Select label="Activa" value={activoFiltro} onChange={handleActivoChange} className="w-40">
           <option value="">Todas</option>
           <option value="true">Solo activas</option>
           <option value="false">Solo inactivas</option>
         </Select>
+
+        <Select
+          label="Estado"
+          value={estadoFiltro}
+          onChange={(e) => setEstadoFiltro(e.target.value)}
+          className="w-40"
+        >
+          <option value="">Todos</option>
+          {ESTADOS_INSCRIPCION.map((estado) => (
+            <option key={estado} value={estado}>
+              {capitalizar(estado)}
+            </option>
+          ))}
+        </Select>
+
+        <Select
+          label="Tipo de asistente"
+          value={tipoAsistenteFiltro}
+          onChange={(e) => setTipoAsistenteFiltro(e.target.value)}
+          className="w-48"
+        >
+          <option value="">Todos los tipos</option>
+          {tiposAsistente.map((t) => (
+            <option key={t.id_tipo_asistente} value={t.id_tipo_asistente}>
+              {t.tipo}
+            </option>
+          ))}
+        </Select>
+
+        {hayFiltrosActivos && (
+          <Button type="button" variant="ghost" onClick={handleLimpiarFiltros}>
+            Limpiar filtros
+          </Button>
+        )}
       </div>
 
       {error && <Alert variant="error">{error}</Alert>}
 
+      {!loading && (
+        <p className="text-sm text-text-muted">
+          Mostrando {inscripcionesFiltradas.length} de {inscripciones.length} inscripciones
+        </p>
+      )}
+
       {loading ? (
         <PageLoader />
-      ) : inscripciones.length === 0 ? (
-        <p className="text-sm text-text-muted">
-          {filtroActivo
-            ? 'No se encontraron inscripciones para ese usuario.'
-            : 'No hay inscripciones registradas.'}
-        </p>
+      ) : inscripcionesFiltradas.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface px-6 py-12 text-center">
+          <p className="text-sm text-text-muted">
+            Ninguna inscripción coincide con los filtros aplicados.
+          </p>
+          {hayFiltrosActivos && (
+            <Button type="button" variant="ghost" onClick={handleLimpiarFiltros}>
+              Limpiar filtros
+            </Button>
+          )}
+        </div>
       ) : (
         <Table>
           <Table.Head>
@@ -114,7 +181,7 @@ export function InscripcionesAdmin() {
             </tr>
           </Table.Head>
           <tbody>
-            {inscripciones.map((i) => (
+            {inscripcionesFiltradas.map((i) => (
               <Table.Row
                 key={i.id_inscripcion}
                 onClick={() => navigate(`/admin/inscripciones/${i.id_inscripcion}`)}

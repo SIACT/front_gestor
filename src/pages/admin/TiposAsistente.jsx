@@ -1,18 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api/client';
 import { formatCOP } from '../../utils/formato';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { Modal } from '../../components/ui/Modal';
 import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 
-const FORM_INICIAL = { tipo: '', costo_base: '', activo: true };
+const FORM_INICIAL = { tipo: '', costo_base: '', activo: true, id_categoria: '' };
 
 export function TiposAsistente() {
   const [tipos, setTipos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -22,12 +24,45 @@ export function TiposAsistente() {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const [categoriaFiltro, setCategoriaFiltro] = useState('');
+  const [estadoFiltro, setEstadoFiltro] = useState('');
+
   useEffect(() => {
-    apiFetch('/tipos-asistente')
-      .then((data) => setTipos(data ?? []))
+    Promise.all([apiFetch('/tipos-asistente'), apiFetch('/categorias')])
+      .then(([tiposData, categoriasData]) => {
+        setTipos(tiposData ?? []);
+        setCategorias(categoriasData ?? []);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const categoriasDisponibles = useMemo(() => {
+    const mapa = new Map();
+    for (const t of tipos) {
+      const cat = t.categoria;
+      if (cat && !mapa.has(cat.id_categoria)) {
+        mapa.set(cat.id_categoria, cat.nombre);
+      }
+    }
+    return Array.from(mapa.entries()).map(([id_categoria, nombre]) => ({ id_categoria, nombre }));
+  }, [tipos]);
+
+  const tiposFiltrados = useMemo(() => {
+    return tipos.filter((t) => {
+      if (categoriaFiltro && String(t.categoria?.id_categoria) !== categoriaFiltro) return false;
+      if (estadoFiltro === 'activo' && !t.activo) return false;
+      if (estadoFiltro === 'inactivo' && t.activo) return false;
+      return true;
+    });
+  }, [tipos, categoriaFiltro, estadoFiltro]);
+
+  const hayFiltrosActivos = Boolean(categoriaFiltro || estadoFiltro);
+
+  function handleLimpiarFiltros() {
+    setCategoriaFiltro('');
+    setEstadoFiltro('');
+  }
 
   function handleAbrirCrear() {
     setEditando(null);
@@ -42,6 +77,7 @@ export function TiposAsistente() {
       tipo: item.tipo,
       costo_base: String(item.costo_base),
       activo: item.activo,
+      id_categoria: String(item.categoria?.id_categoria ?? ''),
     });
     setFormError('');
     setModalOpen(true);
@@ -64,6 +100,9 @@ export function TiposAsistente() {
           cambios.costo_base = Number(form.costo_base);
         }
         if (form.activo !== editando.activo) cambios.activo = form.activo;
+        if (Number(form.id_categoria) !== Number(editando.categoria?.id_categoria)) {
+          cambios.id_categoria = Number(form.id_categoria);
+        }
 
         const actualizado = await apiFetch(`/tipos-asistente/${editando.id_tipo_asistente}`, {
           method: 'PATCH',
@@ -77,7 +116,11 @@ export function TiposAsistente() {
       } else {
         const nuevo = await apiFetch('/tipos-asistente', {
           method: 'POST',
-          body: JSON.stringify({ tipo: form.tipo, costo_base: Number(form.costo_base) }),
+          body: JSON.stringify({
+            tipo: form.tipo,
+            costo_base: Number(form.costo_base),
+            id_categoria: Number(form.id_categoria),
+          }),
         });
         setTipos((prev) => [...prev, nuevo]);
       }
@@ -107,34 +150,84 @@ export function TiposAsistente() {
 
       {error && <Alert variant="error">{error}</Alert>}
 
-      <Table>
-        <Table.Head>
-          <tr>
-            <Table.HeadCell>Tipo</Table.HeadCell>
-            <Table.HeadCell>Costo base</Table.HeadCell>
-            <Table.HeadCell>Estado</Table.HeadCell>
-            <Table.HeadCell></Table.HeadCell>
-          </tr>
-        </Table.Head>
-        <tbody>
-          {tipos.map((t) => (
-            <Table.Row key={t.id_tipo_asistente}>
-              <Table.Cell>{t.tipo}</Table.Cell>
-              <Table.Cell className="text-text-muted">{formatCOP(t.costo_base)}</Table.Cell>
-              <Table.Cell>
-                <Badge variant={t.activo ? 'revisado' : 'default'}>
-                  {t.activo ? 'Activo' : 'Inactivo'}
-                </Badge>
-              </Table.Cell>
-              <Table.Cell>
-                <Button type="button" variant="ghost" size="sm" onClick={() => handleAbrirEditar(t)}>
-                  Editar
-                </Button>
-              </Table.Cell>
-            </Table.Row>
+      <div className="flex flex-wrap items-end gap-3">
+        <Select
+          label="Categoría"
+          value={categoriaFiltro}
+          onChange={(e) => setCategoriaFiltro(e.target.value)}
+          className="w-48"
+        >
+          <option value="">Todas las categorías</option>
+          {categoriasDisponibles.map((c) => (
+            <option key={c.id_categoria} value={c.id_categoria}>
+              {c.nombre}
+            </option>
           ))}
-        </tbody>
-      </Table>
+        </Select>
+        <Select
+          label="Estado"
+          value={estadoFiltro}
+          onChange={(e) => setEstadoFiltro(e.target.value)}
+          className="w-40"
+        >
+          <option value="">Todos</option>
+          <option value="activo">Activos</option>
+          <option value="inactivo">Inactivos</option>
+        </Select>
+        {hayFiltrosActivos && (
+          <Button type="button" variant="ghost" onClick={handleLimpiarFiltros}>
+            Limpiar filtros
+          </Button>
+        )}
+      </div>
+
+      <p className="text-sm text-text-muted">
+        Mostrando {tiposFiltrados.length} de {tipos.length} tipos de asistente
+      </p>
+
+      {tiposFiltrados.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface px-6 py-12 text-center">
+          <p className="text-sm text-text-muted">
+            Ningún tipo de asistente coincide con los filtros aplicados.
+          </p>
+          {hayFiltrosActivos && (
+            <Button type="button" variant="ghost" onClick={handleLimpiarFiltros}>
+              Limpiar filtros
+            </Button>
+          )}
+        </div>
+      ) : (
+        <Table>
+          <Table.Head>
+            <tr>
+              <Table.HeadCell>Tipo</Table.HeadCell>
+              <Table.HeadCell>Categoría</Table.HeadCell>
+              <Table.HeadCell>Costo base</Table.HeadCell>
+              <Table.HeadCell>Estado</Table.HeadCell>
+              <Table.HeadCell></Table.HeadCell>
+            </tr>
+          </Table.Head>
+          <tbody>
+            {tiposFiltrados.map((t) => (
+              <Table.Row key={t.id_tipo_asistente}>
+                <Table.Cell>{t.tipo}</Table.Cell>
+                <Table.Cell className="text-text-muted">{t.categoria?.nombre}</Table.Cell>
+                <Table.Cell className="text-text-muted">{formatCOP(t.costo_base)}</Table.Cell>
+                <Table.Cell>
+                  <Badge variant={t.activo ? 'revisado' : 'default'}>
+                    {t.activo ? 'Activo' : 'Inactivo'}
+                  </Badge>
+                </Table.Cell>
+                <Table.Cell>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => handleAbrirEditar(t)}>
+                    Editar
+                  </Button>
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </tbody>
+        </Table>
+      )}
 
       <Modal
         open={modalOpen}
@@ -145,6 +238,23 @@ export function TiposAsistente() {
           {formError && <Alert variant="error">{formError}</Alert>}
 
           <Input name="tipo" label="Tipo" value={form.tipo} onChange={handleChange} required />
+
+          <Select
+            name="id_categoria"
+            label="Categoría"
+            value={form.id_categoria}
+            onChange={handleChange}
+            required
+          >
+            <option value="" disabled>
+              Elige una categoría
+            </option>
+            {categorias.map((c) => (
+              <option key={c.id_categoria} value={c.id_categoria}>
+                {c.nombre}
+              </option>
+            ))}
+          </Select>
 
           <Input
             name="costo_base"

@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import {
+  BookOpen,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -41,6 +42,7 @@ const ADMIN_SUBLINKS = [
   { label: 'Descuentos', path: '/admin/descuentos', icon: Percent },
   { label: 'Inscripciones', path: '/admin/inscripciones', icon: Receipt },
   { label: 'Ponencias', path: '/admin/ponencias', icon: Mic },
+  { label: 'Áreas de estudio', path: '/admin/areas-estudio', icon: BookOpen },
 ];
 
 const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };

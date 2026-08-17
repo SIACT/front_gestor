@@ -6,6 +6,7 @@ import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Textarea } from './ui/Textarea';
+import { Select } from './ui/Select';
 import { Modal } from './ui/Modal';
 import { Alert } from './ui/Alert';
 
@@ -17,6 +18,7 @@ const ESTADO_TALK_VARIANT = {
 
 const FORM_INICIAL = {
   titulo: '',
+  id_area: '',
   descripcion: '',
   link_summary: '',
   palabras_clave: '',
@@ -25,15 +27,21 @@ const FORM_INICIAL = {
 
 const COPONENTE_ERROR_MESSAGES = {
   USUARIO_NOT_FOUND: 'No existe ningún usuario registrado con ese correo.',
-  USUARIO_NO_ES_PONENTE: 'El usuario debe tener rol Ponente para ser agregado como coponente.',
+  USUARIO_NO_ES_PONENTE: 'El usuario debe tener rol Ponente para ser agregado como coautor.',
   USUARIO_SIN_INSCRIPCION_ACTIVA: 'El usuario no tiene ninguna inscripción activa.',
   YA_ES_PONENTE_PRINCIPAL: 'Este usuario ya es el ponente principal de la charla.',
-  YA_ES_COPONENTE: 'Este usuario ya es coponente de la charla.',
+  YA_ES_COPONENTE: 'Este usuario ya es coautor de la charla.',
+};
+
+const AREA_ERROR_MESSAGES = {
+  AREA_NOT_FOUND: 'El área de estudio seleccionada no existe.',
+  AREA_INACTIVE: 'El área de estudio seleccionada está inactiva.',
 };
 
 function talkToForm(talk) {
   return {
     titulo: talk.titulo ?? '',
+    id_area: talk.area?.id_area != null ? String(talk.area.id_area) : '',
     descripcion: talk.descripcion ?? '',
     link_summary: talk.link_summary ?? '',
     palabras_clave: talk.palabras_clave ?? '',
@@ -51,6 +59,8 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
   const [editError, setEditError] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [cambiosPendientes, setCambiosPendientes] = useState(null);
+  const [areas, setAreas] = useState([]);
+  const [areasError, setAreasError] = useState('');
 
   const [correoCoponente, setCorreoCoponente] = useState('');
   const [agregandoCoponente, setAgregandoCoponente] = useState(false);
@@ -77,6 +87,9 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
     setForm(talkToForm(talk));
     setEditError('');
     setEditModalOpen(true);
+    apiFetch('/areas-estudio?activo=true')
+      .then((data) => setAreas(data ?? []))
+      .catch((err) => setAreasError(err.message));
   }
 
   function handleChange(e) {
@@ -88,6 +101,7 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
     const original = talkToForm(talk);
     const cambios = {};
     if (form.titulo !== original.titulo) cambios.titulo = form.titulo;
+    if (form.id_area !== original.id_area) cambios.id_area = Number(form.id_area);
     if (form.descripcion !== original.descripcion) cambios.descripcion = form.descripcion || null;
     if (form.link_summary !== original.link_summary) cambios.link_summary = form.link_summary || null;
     if (form.palabras_clave !== original.palabras_clave) cambios.palabras_clave = form.palabras_clave || null;
@@ -109,7 +123,11 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
       setCambiosPendientes(null);
       onRefresh?.();
     } catch (err) {
-      setEditError(err.code === 'FORBIDDEN' ? 'No tienes permiso para editar esta ponencia' : err.message);
+      if (err.code === 'FORBIDDEN') {
+        setEditError('No tienes permiso para editar esta ponencia');
+      } else {
+        setEditError(AREA_ERROR_MESSAGES[err.code] ?? err.message);
+      }
     } finally {
       setGuardando(false);
     }
@@ -164,14 +182,18 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
     }
   }
 
+  const opcionesArea =
+    talk.area && !areas.some((a) => a.id_area === talk.area.id_area) ? [...areas, talk.area] : areas;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="sticky top-0 z-20 -mx-3 border-b border-border bg-background px-3 py-6 lg:-mx-5 lg:px-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="font-sans text-2xl font-bold text-text-primary">{talk.titulo}</h1>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>{talk.estado_talk}</Badge>
+              {talk.area?.nombre && <Badge variant="default">{talk.area.nombre}</Badge>}
               <span className="text-xs text-text-muted">Propuesta el {formatFecha(talk.fecha_creacion)}</span>
             </div>
           </div>
@@ -337,8 +359,18 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
       <Modal open={editModalOpen} onClose={() => setEditModalOpen(false)} title="Editar ponencia">
         <form className="flex flex-col gap-3" onSubmit={handleSubmitEditar}>
           {editError && <Alert variant="error">{editError}</Alert>}
+          {areasError && <Alert variant="error">{areasError}</Alert>}
 
           <Input name="titulo" label="Título" value={form.titulo} onChange={handleChange} required />
+
+          <Select name="id_area" label="Área de estudio" value={form.id_area} onChange={handleChange} required>
+            {opcionesArea.map((a) => (
+              <option key={a.id_area} value={a.id_area}>
+                {a.nombre}
+              </option>
+            ))}
+          </Select>
+
           <Textarea
             name="descripcion"
             label="Descripción"

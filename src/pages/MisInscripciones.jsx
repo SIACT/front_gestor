@@ -91,7 +91,7 @@ export function MisInscripciones() {
   if (loading) return <PageLoader />;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-12">
+    <div className="mx-auto w-full max-w-2xl px-6 py-20">
       <div className="flex items-start justify-between gap-4">
         <h1 className="font-sans text-2xl font-bold text-text-primary">Mis inscripciones</h1>
         <div className="flex flex-col items-end gap-1">

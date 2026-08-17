@@ -20,11 +20,17 @@ export function PonenciasAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtro, setFiltro] = useState('');
+  const [areas, setAreas] = useState([]);
+  const [areaFiltro, setAreaFiltro] = useState('');
 
-  function cargar(estado) {
+  // Filtros server-side: el backend (GET /talks) soporta estado_talk e id_area combinados.
+  function cargar(estado, idArea) {
     setLoading(true);
     setError('');
-    const query = estado ? `?estado_talk=${estado}` : '';
+    const params = new URLSearchParams();
+    if (estado) params.set('estado_talk', estado);
+    if (idArea) params.set('id_area', idArea);
+    const query = params.toString() ? `?${params.toString()}` : '';
     return apiFetch(`/talks${query}`)
       .then((data) => setTalks(data ?? []))
       .catch((err) => setError(err.message))
@@ -33,13 +39,22 @@ export function PonenciasAdmin() {
 
   useEffect(() => {
     cargar();
+    apiFetch('/areas-estudio?activo=true')
+      .then((data) => setAreas(data ?? []))
+      .catch((err) => setError(err.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleFiltroChange(e) {
     const valor = e.target.value;
     setFiltro(valor);
-    cargar(valor);
+    cargar(valor, areaFiltro);
+  }
+
+  function handleAreaChange(e) {
+    const valor = e.target.value;
+    setAreaFiltro(valor);
+    cargar(filtro, valor);
   }
 
   return (
@@ -49,12 +64,23 @@ export function PonenciasAdmin() {
         <p className="mt-1 text-sm text-text-muted">Propuestas de ponencia enviadas por los ponentes.</p>
       </div>
 
-      <Select label="Estado" value={filtro} onChange={handleFiltroChange} className="w-48">
-        <option value="">Todas</option>
-        <option value="pendiente">Pendientes</option>
-        <option value="aceptada">Aceptadas</option>
-        <option value="rechazada">Rechazadas</option>
-      </Select>
+      <div className="flex flex-wrap items-end gap-3">
+        <Select label="Estado" value={filtro} onChange={handleFiltroChange} className="w-48">
+          <option value="">Todas</option>
+          <option value="pendiente">Pendientes</option>
+          <option value="aceptada">Aceptadas</option>
+          <option value="rechazada">Rechazadas</option>
+        </Select>
+
+        <Select label="Área" value={areaFiltro} onChange={handleAreaChange} className="w-56">
+          <option value="">Todas las áreas</option>
+          {areas.map((a) => (
+            <option key={a.id_area} value={a.id_area}>
+              {a.nombre}
+            </option>
+          ))}
+        </Select>
+      </div>
 
       {error && <Alert variant="error">{error}</Alert>}
 
@@ -68,6 +94,7 @@ export function PonenciasAdmin() {
             <tr>
               <Table.HeadCell>Título</Table.HeadCell>
               <Table.HeadCell>Ponente principal</Table.HeadCell>
+              <Table.HeadCell>Área</Table.HeadCell>
               <Table.HeadCell>Estado</Table.HeadCell>
               <Table.HeadCell>Fecha</Table.HeadCell>
             </tr>
@@ -85,6 +112,7 @@ export function PonenciasAdmin() {
                     ? `${capitalizar(talk.inscripcion.usuario.nombre)} ${capitalizar(talk.inscripcion.usuario.apellido)}`
                     : '—'}
                 </Table.Cell>
+                <Table.Cell className="text-text-muted">{talk.area?.nombre ?? '—'}</Table.Cell>
                 <Table.Cell>
                   <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>
                     {talk.estado_talk}

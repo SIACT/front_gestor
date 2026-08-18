@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
 import { Input } from '../../components/ui/Input';
+import { SelectInstitucion } from '../../components/ui/SelectInstitucion';
 import { DatePicker, toDateKey } from '../../components/ui/DatePicker';
 import { Modal } from '../../components/ui/Modal';
 import { Alert } from '../../components/ui/Alert';
@@ -360,11 +361,10 @@ export function Usuarios() {
             onChange={handleCedulaChange}
           />
 
-          <Input
-            name="institucion"
+          <SelectInstitucion
             label="Institución (opcional)"
             value={form.institucion}
-            onChange={handleChange}
+            onChange={(value) => setForm((prev) => ({ ...prev, institucion: value }))}
           />
 
           <Select name="id_rol" label="Rol" value={form.id_rol} onChange={handleChange}>

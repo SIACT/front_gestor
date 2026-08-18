@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import {
   BookOpen,
+  Building2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -43,6 +44,7 @@ const ADMIN_SUBLINKS = [
   { label: 'Inscripciones', path: '/admin/inscripciones', icon: Receipt },
   { label: 'Ponencias', path: '/admin/ponencias', icon: Mic },
   { label: 'Áreas de estudio', path: '/admin/areas-estudio', icon: BookOpen },
+  { label: 'Instituciones', path: '/admin/instituciones', icon: Building2 },
 ];
 
 const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };

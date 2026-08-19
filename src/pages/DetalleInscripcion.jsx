@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiFetch, API_URL } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Alert } from '../components/ui/Alert';
@@ -20,6 +21,7 @@ function formatCOP(value) {
 
 export function DetalleInscripcion() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [inscripcion, setInscripcion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -154,7 +156,7 @@ export function DetalleInscripcion() {
     <div className="mx-auto flex w-full flex-col gap-6 px-6 py-20">
       <div>
         <h2 className="font-sans text-2xl font-bold text-text-primary">
-         ALTENCOA 11-2026 <span className="text-lg font-normal text-text-muted ml-20">Inscripción {inscripcion.id_inscripcion}</span>
+         ALTENCOA 11-2026 <span className="text-lg font-normal text-text-muted ml-20">Inscripción {inscripcion.tipo_asistente?.tipo}</span>
         </h2>
         <p className="mt-1 text-sm text-text-muted">
           Estado: <span className="capitalize text-text-primary">{inscripcion.estado_inscripcion}</span>
@@ -203,47 +205,49 @@ export function DetalleInscripcion() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-            Resumen de costos
-          </h2>
-          <dl className="mt-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between text-sm">
-              <dt className="text-text-muted">Costo base</dt>
-              <dd className="text-text-primary">{formatCOP(costoBase)}</dd>
-            </div>
-            {descuentoAplicado > 0 && (
+      {user?.id_rol === 1 && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+              Resumen de costos
+            </h2>
+            <dl className="mt-4 flex flex-col gap-3">
               <div className="flex items-center justify-between text-sm">
-                <dt className="text-text-muted">Descuento aplicado</dt>
-                <dd className="text-success-text">-{formatCOP(descuentoAplicado)}</dd>
+                <dt className="text-text-muted">Costo base</dt>
+                <dd className="text-text-primary">{formatCOP(costoBase)}</dd>
               </div>
-            )}
-            <div className="flex items-center justify-between border-t border-border pt-3">
-              <dt className="text-sm font-medium text-text-muted">Costo final</dt>
-              <dd className="text-2xl font-bold text-accent">{formatCOP(costoFinal)}</dd>
-            </div>
-          </dl>
-        </Card>
+              {descuentoAplicado > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <dt className="text-text-muted">Descuento aplicado</dt>
+                  <dd className="text-success-text">-{formatCOP(descuentoAplicado)}</dd>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-border pt-3">
+                <dt className="text-sm font-medium text-text-muted">Costo final</dt>
+                <dd className="text-2xl font-bold text-accent">{formatCOP(costoFinal)}</dd>
+              </div>
+            </dl>
+          </Card>
 
-        <Card className="lg:col-span-1">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-            Descuentos aplicados
-          </h2>
-          {descuentos.length === 0 ? (
-            <p className="mt-4 text-sm text-text-muted">No tienes descuentos aplicados aún.</p>
-          ) : (
-            <ul className="mt-4 flex flex-col gap-3">
-              {descuentos.map((d) => (
-                <li key={d.id_descuento} className="flex items-center justify-between text-sm">
-                  <span className="text-text-primary">{d.descuento.nombre}</span>
-                  <Badge variant="default">{d.descuento.porcentaje_descuento}%</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
+          <Card className="lg:col-span-1">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+              Descuentos aplicados
+            </h2>
+            {descuentos.length === 0 ? (
+              <p className="mt-4 text-sm text-text-muted">No tienes descuentos aplicados aún.</p>
+            ) : (
+              <ul className="mt-4 flex flex-col gap-3">
+                {descuentos.map((d) => (
+                  <li key={d.id_descuento} className="flex items-center justify-between text-sm">
+                    <span className="text-text-primary">{d.descuento.nombre}</span>
+                    <Badge variant="default">{d.descuento.porcentaje_descuento}%</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+      )}
 
       <Card>
         <div className="flex items-center justify-between">

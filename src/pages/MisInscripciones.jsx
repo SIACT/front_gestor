@@ -166,21 +166,23 @@ export function MisInscripciones() {
                       </div>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-semibold text-accent">{formatCOP(costoFinal)}</span>
-                        {descuentoAplicado > 0 && (
-                          <span className="text-sm text-text-muted line-through">{formatCOP(costoBase)}</span>
+                    {user?.id_rol === 1 && (
+                      <div className="mt-4 flex items-center justify-between">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-lg font-semibold text-accent">{formatCOP(costoFinal)}</span>
+                          {descuentoAplicado > 0 && (
+                            <span className="text-sm text-text-muted line-through">{formatCOP(costoBase)}</span>
+                          )}
+                        </div>
+                        {numDescuentos > 0 && (
+                          <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                            <TagIcon className="size-3.5" />
+                            {numDescuentos} descuento{numDescuentos > 1 ? 's' : ''} aplicado
+                            {numDescuentos > 1 ? 's' : ''}
+                          </div>
                         )}
                       </div>
-                      {numDescuentos > 0 && (
-                        <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                          <TagIcon className="size-3.5" />
-                          {numDescuentos} descuento{numDescuentos > 1 ? 's' : ''} aplicado
-                          {numDescuentos > 1 ? 's' : ''}
-                        </div>
-                      )}
-                    </div>
+                    )}
 
                     {/* TODO: este mensaje se muestra siempre porque GET /inscripciones no incluye el campo "comprobante".
                         Cuando el backend exponga algo como "tiene_comprobante: boolean" en el listado,

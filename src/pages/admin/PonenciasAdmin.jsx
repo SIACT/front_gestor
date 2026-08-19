@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../../api/client';
 import { capitalizar, formatFecha } from '../../utils/formato';
@@ -22,6 +22,8 @@ export function PonenciasAdmin() {
   const [filtro, setFiltro] = useState('');
   const [areas, setAreas] = useState([]);
   const [areaFiltro, setAreaFiltro] = useState('');
+  const [tipos, setTipos] = useState([]);
+  const [tipoFiltro, setTipoFiltro] = useState('');
 
   // Filtros server-side: el backend (GET /talks) soporta estado_talk e id_area combinados.
   function cargar(estado, idArea) {
@@ -42,6 +44,9 @@ export function PonenciasAdmin() {
     apiFetch('/areas-estudio?activo=true')
       .then((data) => setAreas(data ?? []))
       .catch((err) => setError(err.message));
+    apiFetch('/tipos-participacion?activo=true')
+      .then((data) => setTipos(data ?? []))
+      .catch((err) => setError(err.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -56,6 +61,13 @@ export function PonenciasAdmin() {
     setAreaFiltro(valor);
     cargar(filtro, valor);
   }
+
+  // Filtro de tipo en memoria: el backend GET /talks no soporta id_tipo_participacion
+  // (solo estado_talk e id_area, ver listarTodasLasTalks en el backend).
+  const talksFiltradas = useMemo(() => {
+    if (!tipoFiltro) return talks;
+    return talks.filter((talk) => String(talk.tipo_participacion?.id_tipo_participacion) === tipoFiltro);
+  }, [talks, tipoFiltro]);
 
   return (
     <div className="flex flex-col gap-6 pt-6">
@@ -80,13 +92,22 @@ export function PonenciasAdmin() {
             </option>
           ))}
         </Select>
+
+        <Select label="Tipo" value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)} className="w-56">
+          <option value="">Todos los tipos</option>
+          {tipos.map((t) => (
+            <option key={t.id_tipo_participacion} value={t.id_tipo_participacion}>
+              {t.nombre}
+            </option>
+          ))}
+        </Select>
       </div>
 
       {error && <Alert variant="error">{error}</Alert>}
 
       {loading ? (
         <PageLoader />
-      ) : talks.length === 0 ? (
+      ) : talksFiltradas.length === 0 ? (
         <p className="text-sm text-text-muted">No hay ponencias para este filtro.</p>
       ) : (
         <Table>
@@ -95,12 +116,13 @@ export function PonenciasAdmin() {
               <Table.HeadCell>Título</Table.HeadCell>
               <Table.HeadCell>Ponente principal</Table.HeadCell>
               <Table.HeadCell>Área</Table.HeadCell>
+              <Table.HeadCell>Tipo</Table.HeadCell>
               <Table.HeadCell>Estado</Table.HeadCell>
               <Table.HeadCell>Fecha</Table.HeadCell>
             </tr>
           </Table.Head>
           <tbody>
-            {talks.map((talk) => (
+            {talksFiltradas.map((talk) => (
               <Table.Row
                 key={talk.id_talk}
                 onClick={() => navigate(`/admin/ponencias/${talk.id_talk}`)}
@@ -113,6 +135,7 @@ export function PonenciasAdmin() {
                     : '—'}
                 </Table.Cell>
                 <Table.Cell className="text-text-muted">{talk.area?.nombre ?? '—'}</Table.Cell>
+                <Table.Cell className="text-text-muted">{talk.tipo_participacion?.nombre ?? '—'}</Table.Cell>
                 <Table.Cell>
                   <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>
                     {talk.estado_talk}

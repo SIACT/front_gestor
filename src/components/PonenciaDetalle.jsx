@@ -19,6 +19,7 @@ const ESTADO_TALK_VARIANT = {
 const FORM_INICIAL = {
   titulo: '',
   id_area: '',
+  id_tipo_participacion: '',
   descripcion: '',
   link_summary: '',
   palabras_clave: '',
@@ -33,15 +34,21 @@ const COPONENTE_ERROR_MESSAGES = {
   YA_ES_COPONENTE: 'Este usuario ya es coautor de la charla.',
 };
 
-const AREA_ERROR_MESSAGES = {
+const CATALOGO_ERROR_MESSAGES = {
   AREA_NOT_FOUND: 'El área de estudio seleccionada no existe.',
   AREA_INACTIVE: 'El área de estudio seleccionada está inactiva.',
+  TIPO_PARTICIPACION_NOT_FOUND: 'El tipo de participación seleccionado no existe.',
+  TIPO_PARTICIPACION_INACTIVE: 'El tipo de participación seleccionado está inactivo.',
 };
 
 function talkToForm(talk) {
   return {
     titulo: talk.titulo ?? '',
     id_area: talk.area?.id_area != null ? String(talk.area.id_area) : '',
+    id_tipo_participacion:
+      talk.tipo_participacion?.id_tipo_participacion != null
+        ? String(talk.tipo_participacion.id_tipo_participacion)
+        : '',
     descripcion: talk.descripcion ?? '',
     link_summary: talk.link_summary ?? '',
     palabras_clave: talk.palabras_clave ?? '',
@@ -61,6 +68,8 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
   const [cambiosPendientes, setCambiosPendientes] = useState(null);
   const [areas, setAreas] = useState([]);
   const [areasError, setAreasError] = useState('');
+  const [tipos, setTipos] = useState([]);
+  const [tiposError, setTiposError] = useState('');
 
   const [correoCoponente, setCorreoCoponente] = useState('');
   const [agregandoCoponente, setAgregandoCoponente] = useState(false);
@@ -86,10 +95,15 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
   function handleAbrirEditar() {
     setForm(talkToForm(talk));
     setEditError('');
+    setAreasError('');
+    setTiposError('');
     setEditModalOpen(true);
     apiFetch('/areas-estudio?activo=true')
       .then((data) => setAreas(data ?? []))
       .catch((err) => setAreasError(err.message));
+    apiFetch('/tipos-participacion?activo=true')
+      .then((data) => setTipos(data ?? []))
+      .catch((err) => setTiposError(err.message));
   }
 
   function handleChange(e) {
@@ -102,6 +116,9 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
     const cambios = {};
     if (form.titulo !== original.titulo) cambios.titulo = form.titulo;
     if (form.id_area !== original.id_area) cambios.id_area = Number(form.id_area);
+    if (form.id_tipo_participacion !== original.id_tipo_participacion) {
+      cambios.id_tipo_participacion = Number(form.id_tipo_participacion);
+    }
     if (form.descripcion !== original.descripcion) cambios.descripcion = form.descripcion || null;
     if (form.link_summary !== original.link_summary) cambios.link_summary = form.link_summary || null;
     if (form.palabras_clave !== original.palabras_clave) cambios.palabras_clave = form.palabras_clave || null;
@@ -126,7 +143,7 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
       if (err.code === 'FORBIDDEN') {
         setEditError('No tienes permiso para editar esta ponencia');
       } else {
-        setEditError(AREA_ERROR_MESSAGES[err.code] ?? err.message);
+        setEditError(CATALOGO_ERROR_MESSAGES[err.code] ?? err.message);
       }
     } finally {
       setGuardando(false);
@@ -135,6 +152,10 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
 
   function handleSubmitEditar(e) {
     e.preventDefault();
+    if (!form.id_tipo_participacion) {
+      setEditError('Debes seleccionar un tipo de participación antes de guardar.');
+      return;
+    }
     const cambios = construirCambios();
     if (Object.keys(cambios).length === 0) {
       setEditModalOpen(false);
@@ -185,6 +206,12 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
   const opcionesArea =
     talk.area && !areas.some((a) => a.id_area === talk.area.id_area) ? [...areas, talk.area] : areas;
 
+  const opcionesTipo =
+    talk.tipo_participacion &&
+    !tipos.some((t) => t.id_tipo_participacion === talk.tipo_participacion.id_tipo_participacion)
+      ? [...tipos, talk.tipo_participacion]
+      : tipos;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="sticky top-0 z-20 -mx-3 border-b border-border bg-background px-3 py-6 lg:-mx-5 lg:px-5">
@@ -194,6 +221,7 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>{talk.estado_talk}</Badge>
               {talk.area?.nombre && <Badge variant="default">{talk.area.nombre}</Badge>}
+              <Badge variant="default">{talk.tipo_participacion?.nombre ?? 'Sin tipo asignado'}</Badge>
               <span className="text-xs text-text-muted">Propuesta el {formatFecha(talk.fecha_creacion)}</span>
             </div>
           </div>
@@ -360,6 +388,7 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
         <form className="flex flex-col gap-3" onSubmit={handleSubmitEditar}>
           {editError && <Alert variant="error">{editError}</Alert>}
           {areasError && <Alert variant="error">{areasError}</Alert>}
+          {tiposError && <Alert variant="error">{tiposError}</Alert>}
 
           <Input name="titulo" label="Título" value={form.titulo} onChange={handleChange} required />
 
@@ -367,6 +396,23 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
             {opcionesArea.map((a) => (
               <option key={a.id_area} value={a.id_area}>
                 {a.nombre}
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            name="id_tipo_participacion"
+            label="Tipo de participación *"
+            value={form.id_tipo_participacion}
+            onChange={handleChange}
+            required
+          >
+            <option value="" disabled>
+              Selecciona un tipo
+            </option>
+            {opcionesTipo.map((t) => (
+              <option key={t.id_tipo_participacion} value={t.id_tipo_participacion}>
+                {t.nombre}
               </option>
             ))}
           </Select>

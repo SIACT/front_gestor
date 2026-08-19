@@ -16,6 +16,7 @@ import {
   Moon,
   Percent,
   PlusCircle,
+  Presentation,
   Receipt,
   Settings,
   Sun,
@@ -26,6 +27,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { apiFetch } from '../api/client';
+import { BannerCedulaFaltante } from '../components/BannerCedulaFaltante';
 import { Logo } from '../components/ui/Logo';
 import { capitalizar } from '../utils/formato';
 
@@ -45,6 +47,7 @@ const ADMIN_SUBLINKS = [
   { label: 'Ponencias', path: '/admin/ponencias', icon: Mic },
   { label: 'Áreas de estudio', path: '/admin/areas-estudio', icon: BookOpen },
   { label: 'Instituciones', path: '/admin/instituciones', icon: Building2 },
+  { label: 'Tipos de participación', path: '/admin/tipos-participacion', icon: Presentation },
 ];
 
 const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };
@@ -324,6 +327,9 @@ export function DashboardLayout() {
       </AnimatePresence>
 
       <main className="flex-1 overflow-y-auto bg-background px-6  py-0! lg:p-10">
+        <div className="mt-6 lg:mt-0">
+          <BannerCedulaFaltante />
+        </div>
         <Outlet />
       </main>
     </div>

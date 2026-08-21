@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import clsx from 'clsx';
+import { FileText } from 'lucide-react';
 import { apiFetch, API_URL } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { ESTADO_INSCRIPCION_VARIANT } from '../utils/formato';
+import { evaluarRecordatorioArchivo, evaluarRecordatorioComprobante } from '../utils/recordatorios';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Alert } from '../components/ui/Alert';
@@ -10,6 +14,14 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
 import { Spinner } from '../components/ui/Spinner';
+import { Tooltip } from '../components/ui/Tooltip';
+
+const ESTADO_INSCRIPCION_BORDER = {
+  pendiente: 'border-warning-text',
+  confirmada: 'border-success-text',
+  rechazada: 'border-error-text',
+  cancelada: 'border-border',
+};
 
 function formatCOP(value) {
   return Number(value).toLocaleString('es-CO', {
@@ -19,6 +31,33 @@ function formatCOP(value) {
   });
 }
 
+function PanelRecordatorios({ comprobante, archivos, estadoInscripcion }) {
+  if (estadoInscripcion === 'confirmada') return null;
+
+  const recordatorios = [
+    evaluarRecordatorioComprobante(comprobante),
+    evaluarRecordatorioArchivo(archivos),
+  ].filter((r) => r.activo);
+
+  return (
+    <Card>
+      <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">Recordatorios</h2>
+      <div className="mt-4 flex flex-col gap-3">
+        {recordatorios.length === 0 ? (
+          <p className="text-sm text-text-muted">Todo en orden por ahora.</p>
+        ) : (
+          recordatorios.map((r, i) => (
+            <Alert key={i} variant={r.variant}>
+              {r.mensaje}
+              {r.detalle && <p className="mt-1 text-xs opacity-80">{r.detalle}</p>}
+            </Alert>
+          ))
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export function DetalleInscripcion() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -26,6 +65,7 @@ export function DetalleInscripcion() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [file, setFile] = useState(null);
+  const [linkExterno, setLinkExterno] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
@@ -71,6 +111,9 @@ export function DetalleInscripcion() {
     try {
       const formData = new FormData();
       formData.append('archivo', file);
+      if (linkExterno.trim()) {
+        formData.append('link_externo', linkExterno.trim());
+      }
       const res = await fetch(`${API_URL}/inscripciones/${id}/comprobante`, {
         method: 'POST',
         credentials: 'include',
@@ -82,6 +125,7 @@ export function DetalleInscripcion() {
       }
       await cargarInscripcion();
       setFile(null);
+      setLinkExterno('');
     } catch (err) {
       setUploadError(err.message);
     } finally {
@@ -151,6 +195,19 @@ export function DetalleInscripcion() {
   const descuentos = inscripcion.inscripcion_descuentos ?? [];
   const comprobante = inscripcion.comprobante;
   const mostrarFormularioSubida = !comprobante || comprobante.estado_comprobante !== 'revisado';
+  const estadoInscripcion = inscripcion.estado_inscripcion;
+
+  const linkCartaAceptacion = (
+    <a
+      href="https://docs.google.com/document/d/1_PmDrSumParPnPNnjrNrUtSKehDDyZCkRF6wwhGfts0/edit?usp=drive_link"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex  items-center gap-1.5 text-sm text-accent hover:text-accent-hover transition-colors"
+    >
+      <FileText className="size-4" />
+      Ver formato de carta de aceptación
+    </a>
+  );
 
   return (
     <div className="mx-auto flex w-full flex-col gap-6 px-6 py-20">
@@ -158,12 +215,24 @@ export function DetalleInscripcion() {
         <h2 className="font-sans text-2xl font-bold text-text-primary">
          ALTENCOA 11-2026 <span className="text-lg font-normal text-text-muted ml-20">Inscripción {inscripcion.tipo_asistente?.tipo}</span>
         </h2>
-        <p className="mt-1 text-sm text-text-muted">
-          Estado: <span className="capitalize text-text-primary">{inscripcion.estado_inscripcion}</span>
-        </p>
       </div>
 
-      {inscripcion.estado_inscripcion === 'pendiente' && (
+      <div
+        className={clsx(
+          'flex items-center gap-3 rounded-xl border-l-4 bg-surface p-4',
+          ESTADO_INSCRIPCION_BORDER[estadoInscripcion] ?? 'border-border',
+        )}
+      >
+        <span className="text-sm text-text-muted">Estado de tu inscripción:</span>
+        <Badge variant={ESTADO_INSCRIPCION_VARIANT[estadoInscripcion]} className="px-3 py-1 text-sm">
+          {estadoInscripcion}
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+      <div className="flex flex-col gap-6 lg:col-span-3">
+
+      {estadoInscripcion === 'pendiente' && (
         <Card>
           <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
             Completa tu inscripción
@@ -189,6 +258,12 @@ export function DetalleInscripcion() {
               <span className="font-semibold text-accent">4.</span>
               <span>
                 Vuelve aquí y sube tu comprobante en la sección "Comprobante de pago" más abajo.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold text-accent">5.</span>
+              <span>
+                Sube el soporte de categoría de participante.
               </span>
             </li>
           </ol>
@@ -251,8 +326,9 @@ export function DetalleInscripcion() {
 
       <Card>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-            Comprobante de pago
+          <h2 className="flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-text-muted">
+            Comprobante de pago o Carta de Compromiso (si aplica)
+            <Tooltip text="Sube el soporte de tu pago: recibo de consignación, transferencia bancaria o el comprobante que te entrega el portal de Tesorería. Debe verse claramente el monto pagado y la fecha." />
           </h2>
           {comprobante && (
             <Badge variant={comprobante.estado_comprobante}>{comprobante.estado_comprobante}</Badge>
@@ -265,7 +341,7 @@ export function DetalleInscripcion() {
           </Alert>
         )}
 
-        {mostrarFormularioSubida && (
+        {mostrarFormularioSubida ? (
           <form className="mt-4 flex flex-col gap-3" onSubmit={handleUpload}>
             {uploadError && <Alert variant="error">{uploadError}</Alert>}
             <input
@@ -275,16 +351,29 @@ export function DetalleInscripcion() {
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-text-muted file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-background hover:file:bg-accent-hover"
             />
-            <Button type="submit" variant="primary" loading={uploading} disabled={!file} className="self-start">
-              {comprobante ? 'Reemplazar comprobante' : 'Subir comprobante'}
-            </Button>
+            <input
+              type="text"
+              placeholder="Link externo opcional (ej. Google Drive) — no reemplaza el archivo"
+              value={linkExterno}
+              onChange={(e) => setLinkExterno(e.target.value)}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted"
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit" variant="primary" loading={uploading} disabled={!file}>
+                {comprobante ? 'Reemplazar comprobante' : 'Subir comprobante'}
+              </Button>
+              {linkCartaAceptacion}
+            </div>
           </form>
+        ) : (
+          <div className="mt-4">{linkCartaAceptacion}</div>
         )}
       </Card>
 
       <Card>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-          Archivos adicionales
+        <h2 className="flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-text-muted">
+          Soporte de categoría de participante
+          <Tooltip text="Sube un documento que respalde tu categoría de inscripción — por ejemplo, tu carné estudiantil vigente si te inscribiste como estudiante, o una certificación laboral si aplica a tu caso. Esto ayuda al Admin a validar tu inscripción." />
         </h2>
 
         {archivosError && (
@@ -392,6 +481,19 @@ export function DetalleInscripcion() {
           </div>
         </Modal>
       </Card>
+
+      </div>
+
+      <aside className="lg:col-span-1">
+        <div className="lg:sticky lg:top-6">
+          <PanelRecordatorios
+            comprobante={comprobante}
+            archivos={archivos}
+            estadoInscripcion={estadoInscripcion}
+          />
+        </div>
+      </aside>
+      </div>
     </div>
   );
 }

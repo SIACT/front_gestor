@@ -133,7 +133,7 @@ export function Register() {
   }
 
   return (
-    <div className="w-full max-w-sm">
+    <div className="w-full">
       {/* <Link
         to="/"
         className="text-sm text-text-muted transition-colors hover:text-text-primary"
@@ -141,12 +141,14 @@ export function Register() {
         ← Volver
       </Link> */}
 
-      <h1 className="mt-4 font-sans text-3xl font-bold text-text-primary">
-        Crea tu cuenta
-      </h1>
-      <p className="mt-2 text-sm text-text-muted">
-        Regístrate para gestionar tu inscripción o ponencia.
-      </p>
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <h1 className="font-sans text-3xl font-bold text-text-primary">
+          Crea tu cuenta
+        </h1>
+        <p className="text-xs text-text-muted">
+          Regístrate para gestionar tu inscripción o ponencia.
+        </p>
+      </div>
 
       <form className="mt-4 flex flex-col gap-3" onSubmit={handleSubmit}>
         {error && <Alert variant="error">{error}</Alert>}
@@ -170,28 +172,30 @@ export function Register() {
           />
         </div>
 
-        <Input
-          id="register-correo"
-          name="correo"
-          type="email"
-          label="Correo electrónico"
-          autoComplete="email"
-          value={form.correo}
-          onChange={handleChange}
-          required
-        />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Input
+            id="register-correo"
+            name="correo"
+            type="email"
+            label="Correo electrónico"
+            autoComplete="email"
+            value={form.correo}
+            onChange={handleChange}
+            required
+          />
 
-        <Input
-          id="register-confirmar-correo"
-          name="confirmar_correo"
-          type="email"
-          label="Confirmar correo electrónico"
-          autoComplete="email"
-          value={form.confirmar_correo}
-          onChange={handleChange}
-          error={correoNoCoincide ? 'Los correos no coinciden' : ''}
-          required
-        />
+          <Input
+            id="register-confirmar-correo"
+            name="confirmar_correo"
+            type="email"
+            label="Confirmar correo electrónico"
+            autoComplete="email"
+            value={form.confirmar_correo}
+            onChange={handleChange}
+            error={correoNoCoincide ? 'Los correos no coinciden' : ''}
+            required
+          />
+        </div>
 
         <div className="flex flex-col gap-2">
           <Input
@@ -225,21 +229,23 @@ export function Register() {
           required
         />
 
-        <Input
-          id="register-cedula"
-          name="cedula"
-          label="Cédula"
-          inputMode="numeric"
-          value={form.cedula}
-          onChange={handleCedulaChange}
-        />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Input
+            id="register-cedula"
+            name="cedula"
+            label="Cédula"
+            inputMode="numeric"
+            value={form.cedula}
+            onChange={handleCedulaChange}
+          />
 
-        <SelectInstitucion
-          id="register-institucion"
-          label="Institución (opcional)"
-          value={form.institucion}
-          onChange={(value) => setForm((prev) => ({ ...prev, institucion: value }))}
-        />
+          <SelectInstitucion
+            id="register-institucion"
+            label="Institución (opcional)"
+            value={form.institucion}
+            onChange={(value) => setForm((prev) => ({ ...prev, institucion: value }))}
+          />
+        </div>
 
         <SelectPais
           id="register-pais"
@@ -248,8 +254,15 @@ export function Register() {
           required
         />
 
-        <Select id="register-rol" name="id_rol" label="Rol" value={form.id_rol} onChange={handleChange}>
-          <option value="3">Asistente</option>
+        <Select
+          id="register-rol"
+          name="id_rol"
+          label="Rol"
+          value={form.id_rol}
+          onChange={handleChange}
+          required
+        >
+          <option value="3">Estudiante</option>
           <option value="2">Ponente</option>
         </Select>
 

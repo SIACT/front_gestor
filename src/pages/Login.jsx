@@ -64,22 +64,26 @@ export function Login() {
   }
 
   return (
-    <div className="w-full max-w-sm">
-      <Link
-        to="/"
-        className="text-sm text-text-muted transition-colors hover:text-text-primary"
-      >
-        ← Volver
-      </Link>
+    <div className="flex w-full flex-col gap-8 p-12">
+      <div className="flex flex-col gap-4">
+        <Link
+          to="/"
+          className="text-sm text-text-muted transition-colors hover:text-text-primary"
+        >
+          ← Volver
+        </Link>
 
-      <h1 className="mt-8 font-sans text-3xl font-bold text-text-primary">
-        Bienvenido de vuelta
-      </h1>
-      <p className="mt-2 text-sm text-text-muted">
-        Ingresa a tu cuenta para gestionar tu ponencia.
-      </p>
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-sans text-3xl font-bold text-text-primary">
+            Bienvenido de vuelta
+          </h1>
+          <p className="text-sm text-text-muted">
+            Ingresa a tu cuenta para gestionar tu ponencia.
+          </p>
+        </div>
+      </div>
 
-      <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit}>
+      <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
         {mensaje && <Alert variant="success">{mensaje}</Alert>}
         {error && <Alert variant="error">{error}</Alert>}
 
@@ -125,14 +129,14 @@ export function Login() {
           Ingresar
           {!submitting && <ArrowRightIcon className="size-4" />}
         </Button>
-
-        <p className="text-center text-sm text-text-muted">
-          ¿Aún no estás registrado?{' '}
-          <Link to="/register" className="text-accent hover:text-accent-hover">
-            Solicita acceso
-          </Link>
-        </p>
       </form>
+
+      <p className="text-center text-sm text-text-muted">
+        ¿Aún no estás registrado?{' '}
+        <Link to="/register" className="text-accent hover:text-accent-hover">
+          Solicita acceso
+        </Link>
+      </p>
     </div>
   );
 }

@@ -1,100 +1,80 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sun, Moon } from 'lucide-react';
-import { Logo } from '../components/ui/Logo';
 import { useTheme } from '../context/ThemeContext';
 
-const PANEL_SPRING = { type: 'spring', stiffness: 300, damping: 30 };
-
-const SYMBOLS = [
-  { char: '∞', className: '-left-8 top-12 text-[11rem]' },
-  { char: 'Σ', className: 'right-0 top-1/3 text-[9rem]' },
-  { char: 'π', className: 'left-1/4 bottom-28 text-[10rem]' },
-  { char: '∂', className: '-right-10 bottom-0 text-[8rem]' },
+const TEMAS = [
+  'Álgebra',
+  'Teoría de Números',
+  'Combinatoria',
+  'Aplicaciones',
+  'Geometría algebraica',
+  'Área invitada: Análisis de datos y sistemas complejos',
 ];
 
 export function AuthLayout() {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const isRegister = location.pathname === '/register';
-  const brandOrder = isRegister ? 2 : 1;
-  const formOrder = isRegister ? 1 : 2;
 
   return (
-    <div className="flex min-h-screen w-full overflow-hidden bg-background">
-      <motion.div
-        layout
-        transition={PANEL_SPRING}
-        style={{ order: brandOrder }}
-        className="relative hidden flex-2 flex-col justify-between overflow-hidden p-15 lg:flex"
+    <main className="relative min-h-screen w-full overflow-hidden bg-background">
+      <img
+        src="https://res.cloudinary.com/dspprxtpr/image/upload/v1787582772/altencoa_poster_ampliado_ujll9w.webp"
+        alt="Afiche del congreso ALTENCOA11 2026"
+        //cambiar esta URL por la de la imagen que se quiera poner de fondo para futuros eventos
+        className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-[3px]"
+      />
+      <div className="absolute inset-0 bg-background/55" />
+
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+        className="absolute right-6 top-6 z-20 flex size-8 items-center justify-center rounded-md bg-surface/80 text-text-muted backdrop-blur transition-colors hover:bg-surface hover:text-text-primary"
       >
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 z-0 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              'url(https://res.cloudinary.com/dspprxtpr/image/upload/v1787582772/altencoa_poster_ampliado_ujll9w.webp)',
-              //cambiar esta URL por la de la imagen que se quiera poner de fondo para futuros eventos
-          }}
-        />
+        {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      </button>
 
-        {/* Contenido de marca (logo, título, símbolos) deshabilitado temporalmente.
-            La nueva imagen de fondo (poster de ALTENCOA) ya incluye esta información visualmente.
-            Descomentar si se necesita volver a mostrar este overlay de texto. */}
-        {/*
-        {SYMBOLS.map((symbol) => (
-          <span
-            key={symbol.char}
-            aria-hidden="true"
-            className={`pointer-events-none absolute z-10 select-none text-[#9FE036]/20 ${symbol.className}`}
-          >
-            {symbol.char}
+      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col-reverse gap-10 px-5 py-8 lg:flex-row lg:items-center lg:gap-16 lg:py-10">
+        <div className="flex max-w-md flex-col gap-4 text-center lg:flex-1 lg:text-left">
+          <span className="font-sans text-3xl uppercase tracking-wide text-accent">
+            ALTENCOA11-2026
           </span>
-        ))}
 
-        <div className="relative flex items-center justify-between gap-50">
-        <Logo variant="altenua" className="relative z-10 h-14 w-auto" />
-        <Logo variant="udenar" className="relative z-10 h-14 w-auto" />
+          <h1 className="font-sans text-3xl font-bold leading-tight text-white md:text-5xl">
+            XI Encuentro de Álgebra, Teoría de Números y Combinatoria
+          </h1>
+
+          <p className="text-sm text-text-muted md:text-base">
+            Universidad de Nariño · 5 al 9 de octubre de 2026 · San Juan de Pasto, Colombia
+          </p>
+
+          <ul className="flex flex-col gap-1 text-sm text-text-muted">
+            {TEMAS.map((tema) => (
+              <li key={tema} className="flex items-center justify-center gap-2 lg:justify-start">
+                <span aria-hidden="true">*</span>
+                {tema}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <p className="relative z-10 font-display text-6xl leading-none text-white justify-center flex">
-          ALTENCOA<span className="font-sans text-[#9FE036]">11-2026</span>
-        </p>
-
-        <p className="relative z-10 text-xs uppercase tracking-wide text-[#9CA3AF] justify-center flex">
-          OCT 5-9, 2026 · SAN JUAN DE PASTO
-        </p>
-        */}
-      </motion.div>
-
-      <motion.div
-        layout
-        transition={PANEL_SPRING}
-        style={{ order: formOrder }}
-        className="relative flex flex-1 items-center bg-background px-6 sm:px-12 lg:px-16"
-      >
-        <button
-          type="button"
-          onClick={toggleTheme}
-          aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-          className="absolute right-6 top-6 flex size-8 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary"
-        >
-          {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
-        </button>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="w-full"
-          >
-            <Outlet />
-          </motion.div>
-        </AnimatePresence>
-      </motion.div>
-    </div>
+        <div className="flex w-full justify-center lg:flex-1 lg:justify-end">
+          <div className="w-full rounded-2xl border border-border bg-surface p-6 shadow-lg shadow-black/40 sm:p-8">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </main>
   );
 }

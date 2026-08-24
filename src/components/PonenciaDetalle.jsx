@@ -365,15 +365,15 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
         <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Sala / Auditorio</dt>
-            <dd className="mt-1 text-sm text-text-primary">Auditorio Principal — Bloque de Ingeniería</dd>
+            <dd className="mt-1 text-sm text-text-primary">Por definir</dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Fecha y hora</dt>
-            <dd className="mt-1 text-sm text-text-primary">9 de octubre, 2026 · 10:00 AM</dd>
+            <dd className="mt-1 text-sm text-text-primary">Por definir</dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Capacidad</dt>
-            <dd className="mt-1 text-sm text-text-primary">120 personas</dd>
+            <dd className="mt-1 text-sm text-text-primary">Por definir</dd>
           </div>
         </dl>
 

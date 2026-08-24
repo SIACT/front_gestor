@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ClipboardList,
   FolderTree,
+  LayoutGrid,
   LogOut,
   Menu,
   Mic,
@@ -38,16 +39,28 @@ const NAV_ITEMS = [
   { to: '/perfil', label: 'Mi perfil', icon: User },
 ];
 
-const ADMIN_SUBLINKS = [
-  { label: 'Usuarios', path: '/admin/usuarios', icon: Users },
-  { label: 'Tipos de asistente', path: '/admin/tipos-asistente', icon: Tag },
-  { label: 'Categorías', path: '/admin/categorias', icon: FolderTree },
-  { label: 'Descuentos', path: '/admin/descuentos', icon: Percent },
-  { label: 'Inscripciones', path: '/admin/inscripciones', icon: Receipt },
-  { label: 'Ponencias', path: '/admin/ponencias', icon: Mic },
-  { label: 'Áreas de estudio', path: '/admin/areas-estudio', icon: BookOpen },
-  { label: 'Instituciones', path: '/admin/instituciones', icon: Building2 },
-  { label: 'Tipos de participación', path: '/admin/tipos-participacion', icon: Presentation },
+const ADMIN_GROUPS = [
+  {
+    label: 'Configuración',
+    icon: Settings,
+    items: [
+      { label: 'Áreas de estudio', path: '/admin/areas-estudio', icon: BookOpen },
+      { label: 'Instituciones', path: '/admin/instituciones', icon: Building2 },
+      { label: 'Tipos de participación', path: '/admin/tipos-participacion', icon: Presentation },
+      { label: 'Tipos de asistente', path: '/admin/tipos-asistente', icon: Tag },
+      { label: 'Categorías', path: '/admin/categorias', icon: FolderTree },
+      { label: 'Descuentos', path: '/admin/descuentos', icon: Percent },
+    ],
+  },
+  {
+    label: 'Gestión',
+    icon: LayoutGrid,
+    items: [
+      { label: 'Usuarios', path: '/admin/usuarios', icon: Users },
+      { label: 'Inscripciones', path: '/admin/inscripciones', icon: Receipt },
+      { label: 'Ponencias', path: '/admin/ponencias', icon: Mic },
+    ],
+  },
 ];
 
 const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };
@@ -85,6 +98,47 @@ function DisabledNavItem({ icon: Icon, label, collapsed, title }) {
     >
       <Icon className="size-5 shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
+    </div>
+  );
+}
+
+function AdminGroup({ group, onNavigate }) {
+  const location = useLocation();
+  const [open, setOpen] = useState(() =>
+    group.items.some((item) => location.pathname.startsWith(item.path)),
+  );
+  const Icon = group.icon;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-3 rounded-lg border-l-2 border-transparent px-3 py-2 text-sm text-text-muted transition-colors hover:text-text-primary"
+      >
+        <Icon className="size-4 shrink-0" />
+        <span className="flex-1 truncate text-left">{group.label}</span>
+        {open ? (
+          <ChevronDown className="size-4 shrink-0" />
+        ) : (
+          <ChevronRight className="size-4 shrink-0" />
+        )}
+      </button>
+
+      {open && (
+        <div className="ml-4 mt-1 space-y-1 border-l border-border pl-2">
+          {group.items.map((item) => (
+            <NavItem
+              key={item.path}
+              to={item.path}
+              icon={item.icon}
+              label={item.label}
+              collapsed={false}
+              onClick={onNavigate}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -127,15 +181,8 @@ function AdminSection({ collapsed, onNavigate, onExpandSidebar }) {
 
       {!collapsed && open && (
         <div className="ml-4 mt-1 space-y-1 border-l border-border pl-2">
-          {ADMIN_SUBLINKS.map((item) => (
-            <NavItem
-              key={item.path}
-              to={item.path}
-              icon={item.icon}
-              label={item.label}
-              collapsed={false}
-              onClick={onNavigate}
-            />
+          {ADMIN_GROUPS.map((group) => (
+            <AdminGroup key={group.label} group={group} onNavigate={onNavigate} />
           ))}
         </div>
       )}

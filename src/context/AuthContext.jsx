@@ -33,6 +33,15 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     await apiFetch('/auth/logout', { method: 'POST' });
     setUser(null);
+    try {
+      for (const key of Object.keys(sessionStorage)) {
+        if (key.startsWith('recordatorio-minimizado-')) {
+          sessionStorage.removeItem(key);
+        }
+      }
+    } catch {
+      // sessionStorage no disponible — nada que limpiar.
+    }
   }, []);
 
   const actualizarUsuario = useCallback((datosNuevos) => {

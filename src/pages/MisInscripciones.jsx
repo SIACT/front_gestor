@@ -9,6 +9,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
 import { PageLoader } from '../components/ui/PageLoader';
+import { BurbujasRecordatorio } from '../components/BurbujasRecordatorio';
 
 // Valor fijo hasta que el backend exponga un endpoint de "evento activo".
 const EVENTO = 'ALTENCOA 11 · 2026';
@@ -73,6 +74,8 @@ export function MisInscripciones() {
   const [categoriasPorId, setCategoriasPorId] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [comprobante, setComprobante] = useState(null);
+  const [archivos, setArchivos] = useState([]);
 
   useEffect(() => {
     Promise.all([apiFetch('/inscripciones'), apiFetch('/categorias')])
@@ -87,6 +90,20 @@ export function MisInscripciones() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  // Solo hay 1 inscripción por usuario. GET /inscripciones no trae comprobante ni
+  // archivos, así que pedimos el detalle liviano solo cuando las burbujas lo necesitan (estado pendiente).
+  const inscripcionPendiente = inscripciones.find((i) => i.estado_inscripcion === 'pendiente');
+
+  useEffect(() => {
+    if (!inscripcionPendiente) return;
+    apiFetch(`/inscripciones/${inscripcionPendiente.id_inscripcion}`)
+      .then((data) => setComprobante(data?.comprobante ?? null))
+      .catch(() => {});
+    apiFetch(`/inscripciones/${inscripcionPendiente.id_inscripcion}/archivos`)
+      .then((data) => setArchivos(data ?? []))
+      .catch(() => {});
+  }, [inscripcionPendiente]);
 
   if (loading) return <PageLoader />;
 
@@ -200,6 +217,15 @@ export function MisInscripciones() {
             );
           })}
         </ul>
+      )}
+
+      {inscripcionPendiente && (
+        <BurbujasRecordatorio
+          comprobante={comprobante}
+          archivos={archivos}
+          estadoInscripcion={inscripcionPendiente.estado_inscripcion}
+          idInscripcion={inscripcionPendiente.id_inscripcion}
+        />
       )}
     </div>
   );

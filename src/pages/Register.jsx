@@ -4,8 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { SelectInstitucion } from '../components/ui/SelectInstitucion';
+import { SelectPais } from '../components/ui/SelectPais';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
+import { capitalizarPais } from '../utils/formato';
 
 function ArrowRightIcon(props) {
   return (
@@ -60,9 +62,12 @@ export function Register() {
     nombre: '',
     apellido: '',
     correo: '',
+    confirmar_correo: '',
     contrasena: '',
+    confirmar_contrasena: '',
     cedula: '',
     institucion: '',
+    pais: '',
     id_rol: '3',
   });
   const [error, setError] = useState('');
@@ -72,6 +77,10 @@ export function Register() {
   const tieneLetra = /[a-zA-Z]/.test(form.contrasena);
   const tieneNumero = /\d/.test(form.contrasena);
   const tieneEspecial = /[^a-zA-Z0-9]/.test(form.contrasena);
+
+  const correoNoCoincide = form.confirmar_correo !== '' && form.confirmar_correo !== form.correo;
+  const contrasenaNoCoincide =
+    form.confirmar_contrasena !== '' && form.confirmar_contrasena !== form.contrasena;
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -93,6 +102,9 @@ export function Register() {
     e.preventDefault();
     setError('');
 
+    if (form.correo !== form.confirmar_correo) return;
+    if (form.contrasena !== form.confirmar_contrasena) return;
+
     const passwordError = validarContrasena(form.contrasena);
     if (passwordError) {
       setContrasenaError(passwordError);
@@ -109,6 +121,7 @@ export function Register() {
         contrasena: form.contrasena,
         cedula: form.cedula || undefined,
         institucion: form.institucion || undefined,
+        pais: capitalizarPais(form.pais),
         id_rol: Number(form.id_rol),
       });
       navigate('/login', { state: { mensaje: 'Cuenta creada, ya puedes iniciar sesión' } });
@@ -168,6 +181,18 @@ export function Register() {
           required
         />
 
+        <Input
+          id="register-confirmar-correo"
+          name="confirmar_correo"
+          type="email"
+          label="Confirmar correo electrónico"
+          autoComplete="email"
+          value={form.confirmar_correo}
+          onChange={handleChange}
+          error={correoNoCoincide ? 'Los correos no coinciden' : ''}
+          required
+        />
+
         <div className="flex flex-col gap-2">
           <Input
             id="register-contrasena"
@@ -189,6 +214,18 @@ export function Register() {
         </div>
 
         <Input
+          id="register-confirmar-contrasena"
+          name="confirmar_contrasena"
+          type="password"
+          label="Confirmar contraseña"
+          autoComplete="new-password"
+          value={form.confirmar_contrasena}
+          onChange={handleChange}
+          error={contrasenaNoCoincide ? 'Las contraseñas no coinciden' : ''}
+          required
+        />
+
+        <Input
           id="register-cedula"
           name="cedula"
           label="Cédula"
@@ -202,6 +239,13 @@ export function Register() {
           label="Institución (opcional)"
           value={form.institucion}
           onChange={(value) => setForm((prev) => ({ ...prev, institucion: value }))}
+        />
+
+        <SelectPais
+          id="register-pais"
+          value={form.pais}
+          onChange={(value) => setForm((prev) => ({ ...prev, pais: value }))}
+          required
         />
 
         <Select id="register-rol" name="id_rol" label="Rol" value={form.id_rol} onChange={handleChange}>

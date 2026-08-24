@@ -9,9 +9,10 @@ import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { SelectInstitucion } from '../components/ui/SelectInstitucion';
+import { SelectPais } from '../components/ui/SelectPais';
 import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
-import { capitalizar, formatFecha } from '../utils/formato';
+import { capitalizar, capitalizarPais, formatFecha } from '../utils/formato';
 
 const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };
 const ROL_BADGE = { 1: 'admin', 2: 'ponente', 3: 'estudiante' };
@@ -73,6 +74,7 @@ function userToForm(user) {
     apellido: user?.apellido ?? '',
     cedula: user?.cedula ?? '',
     institucion: user?.institucion ?? '',
+    pais: user?.pais ? capitalizarPais(user.pais) : '',
   };
 }
 
@@ -138,7 +140,8 @@ export function Perfil() {
     form.nombre !== snapshot.nombre ||
     form.apellido !== snapshot.apellido ||
     form.cedula !== snapshot.cedula ||
-    form.institucion !== snapshot.institucion;
+    form.institucion !== snapshot.institucion ||
+    form.pais !== snapshot.pais;
 
   function handleFormChange(e) {
     const { name, value } = e.target;
@@ -157,6 +160,7 @@ export function Perfil() {
     if (form.apellido !== snapshot.apellido) cambios.apellido = form.apellido;
     if (form.cedula !== snapshot.cedula) cambios.cedula = form.cedula;
     if (form.institucion !== snapshot.institucion) cambios.institucion = form.institucion;
+    if (form.pais !== snapshot.pais) cambios.pais = capitalizarPais(form.pais);
     if (Object.keys(cambios).length === 0) return;
 
     setGuardandoDatos(true);
@@ -285,6 +289,11 @@ export function Perfil() {
             label="Institución"
             value={form.institucion}
             onChange={(value) => setForm((prev) => ({ ...prev, institucion: value }))}
+          />
+
+          <SelectPais
+            value={form.pais}
+            onChange={(value) => setForm((prev) => ({ ...prev, pais: value }))}
           />
 
           <Button

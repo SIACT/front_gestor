@@ -6,6 +6,15 @@ export function capitalizar(str) {
     .join(' ');
 }
 
+export function capitalizarPais(valor) {
+  return valor
+    .trim()
+    .toLowerCase()
+    .split(' ')
+    .map((palabra) => palabra.charAt(0).toUpperCase() + palabra.slice(1))
+    .join(' ');
+}
+
 export function formatCOP(value) {
   return Number(value).toLocaleString('es-CO', {
     style: 'currency',

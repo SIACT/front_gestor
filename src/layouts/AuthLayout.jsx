@@ -33,22 +33,15 @@ export function AuthLayout() {
           className="absolute inset-0 z-0 bg-cover bg-center"
           style={{
             backgroundImage:
-              'url(https://sapiens.udenar.edu.co:3026/cdn/images/imagenes_login/1.jpg)',
+              'url(https://res.cloudinary.com/dspprxtpr/image/upload/v1787582772/altencoa_poster_ampliado_ujll9w.webp)',
               //cambiar esta URL por la de la imagen que se quiera poner de fondo para futuros eventos
           }}
         />
 
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 z-[1]"
-          style={{
-            /* Panel de marca: siempre oscuro sobre la foto, sin importar el tema activo —
-               por eso el degradado y el texto de abajo usan colores fijos, no tokens. */
-            backgroundImage:
-              'linear-gradient(180deg, rgba(10,15,11,0.4) 0%, rgba(10,15,11,0.85) 70%, #0A0F0B 100%)',
-          }}
-        />
-
+        {/* Contenido de marca (logo, título, símbolos) deshabilitado temporalmente.
+            La nueva imagen de fondo (poster de ALTENCOA) ya incluye esta información visualmente.
+            Descomentar si se necesita volver a mostrar este overlay de texto. */}
+        {/*
         {SYMBOLS.map((symbol) => (
           <span
             key={symbol.char}
@@ -71,6 +64,7 @@ export function AuthLayout() {
         <p className="relative z-10 text-xs uppercase tracking-wide text-[#9CA3AF] justify-center flex">
           OCT 5-9, 2026 · SAN JUAN DE PASTO
         </p>
+        */}
       </motion.div>
 
       <motion.div

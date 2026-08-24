@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
-import { capitalizar, formatFecha } from '../../utils/formato';
+import { capitalizar, capitalizarPais, formatFecha } from '../../utils/formato';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
 import { Input } from '../../components/ui/Input';
 import { SelectInstitucion } from '../../components/ui/SelectInstitucion';
+import { SelectPais } from '../../components/ui/SelectPais';
 import { DatePicker, toDateKey } from '../../components/ui/DatePicker';
 import { Modal } from '../../components/ui/Modal';
 import { Alert } from '../../components/ui/Alert';
@@ -30,6 +31,7 @@ const FORM_INICIAL = {
   contrasena: '',
   cedula: '',
   institucion: '',
+  pais: '',
   id_rol: '3',
 };
 
@@ -162,6 +164,7 @@ export function Usuarios() {
           contrasena: form.contrasena,
           cedula: form.cedula || undefined,
           institucion: form.institucion || undefined,
+          pais: capitalizarPais(form.pais),
           id_rol: Number(form.id_rol),
         }),
       });
@@ -365,6 +368,12 @@ export function Usuarios() {
             label="Institución (opcional)"
             value={form.institucion}
             onChange={(value) => setForm((prev) => ({ ...prev, institucion: value }))}
+          />
+
+          <SelectPais
+            value={form.pais}
+            onChange={(value) => setForm((prev) => ({ ...prev, pais: value }))}
+            required
           />
 
           <Select name="id_rol" label="Rol" value={form.id_rol} onChange={handleChange}>

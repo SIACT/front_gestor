@@ -629,6 +629,24 @@ export function InscripcionAdminDetalle() {
               </div>
             </dl>
 
+            {comprobante.link_externo && (
+              <p className="text-sm">
+                {comprobante.link_externo.startsWith('http://') ||
+                comprobante.link_externo.startsWith('https://') ? (
+                  <a
+                    href={comprobante.link_externo}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent hover:underline"
+                  >
+                    Ver link externo del comprobante
+                  </a>
+                ) : (
+                  <span className="text-text-muted">Nota del usuario: {comprobante.link_externo}</span>
+                )}
+              </p>
+            )}
+
             {comprobante.estado_comprobante === 'rechazado' && comprobante.comentarios_revision && (
               <Alert variant="warning">{comprobante.comentarios_revision}</Alert>
             )}

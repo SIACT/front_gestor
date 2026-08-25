@@ -8,9 +8,11 @@ import { Badge } from '../components/ui/Badge';
 import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { SelectInstitucion } from '../components/ui/SelectInstitucion';
+import { SelectPais } from '../components/ui/SelectPais';
 import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
-import { capitalizar, formatFecha } from '../utils/formato';
+import { capitalizar, capitalizarPais, capitalizarNombrePropio, formatFecha } from '../utils/formato';
 
 const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };
 const ROL_BADGE = { 1: 'admin', 2: 'ponente', 3: 'estudiante' };
@@ -66,13 +68,30 @@ function generarSeeds() {
   return Array.from({ length: 8 }, () => Math.random().toString(36).slice(2, 10));
 }
 
+function userToForm(user) {
+  return {
+    nombre: user?.nombre ?? '',
+    apellido: user?.apellido ?? '',
+    cedula: user?.cedula ?? '',
+    institucion: user?.institucion ?? '',
+    pais: user?.pais ? capitalizarPais(user.pais) : '',
+  };
+}
+
 export function Perfil() {
-  const { user, logout } = useAuth();
+  const { user, logout, actualizarUsuario } = useAuth();
   const navigate = useNavigate();
   const [avatarSeed, setAvatarSeed] = useState(() => getStoredSeed(user));
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSeeds, setModalSeeds] = useState([]);
   const [modalSelected, setModalSelected] = useState(null);
+
+  const [form, setForm] = useState(() => userToForm(user));
+  const [snapshot, setSnapshot] = useState(() => userToForm(user));
+  const [datosError, setDatosError] = useState('');
+  const [cedulaError, setCedulaError] = useState('');
+  const [datosSuccess, setDatosSuccess] = useState('');
+  const [guardandoDatos, setGuardandoDatos] = useState(false);
 
   const [contrasenaActual, setContrasenaActual] = useState('');
   const [contrasenaNueva, setContrasenaNueva] = useState('');
@@ -115,6 +134,62 @@ export function Perfil() {
     localStorage.setItem(`avatar-seed-${user.id_usuario}`, modalSelected);
     setAvatarSeed(modalSelected);
     setModalOpen(false);
+  }
+
+  const hayCambiosDatos =
+    form.nombre !== snapshot.nombre ||
+    form.apellido !== snapshot.apellido ||
+    form.cedula !== snapshot.cedula ||
+    form.institucion !== snapshot.institucion ||
+    form.pais !== snapshot.pais;
+
+  function handleFormChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === 'cedula' && cedulaError) setCedulaError('');
+  }
+
+  function handleNombrePropioBlur(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: capitalizarNombrePropio(value) }));
+  }
+
+  async function handleGuardarDatos(e) {
+    e.preventDefault();
+    setDatosError('');
+    setCedulaError('');
+    setDatosSuccess('');
+
+    const nombre = capitalizarNombrePropio(form.nombre);
+    const apellido = capitalizarNombrePropio(form.apellido);
+
+    const cambios = {};
+    if (nombre !== snapshot.nombre) cambios.nombre = nombre;
+    if (apellido !== snapshot.apellido) cambios.apellido = apellido;
+    if (form.cedula !== snapshot.cedula) cambios.cedula = form.cedula;
+    if (form.institucion !== snapshot.institucion) cambios.institucion = form.institucion;
+    if (form.pais !== snapshot.pais) cambios.pais = capitalizarPais(form.pais);
+    if (Object.keys(cambios).length === 0) return;
+
+    setGuardandoDatos(true);
+    try {
+      const actualizado = await apiFetch('/auth/perfil', {
+        method: 'PATCH',
+        body: JSON.stringify(cambios),
+      });
+      actualizarUsuario(actualizado);
+      setForm(userToForm(actualizado));
+      setSnapshot(userToForm(actualizado));
+      setDatosSuccess('Perfil actualizado');
+    } catch (err) {
+      if (err.code === 'CEDULA_ALREADY_IN_USE') {
+        setCedulaError(err.message);
+      } else {
+        setDatosError(err.message);
+      }
+    } finally {
+      setGuardandoDatos(false);
+    }
   }
 
   async function handleCambiarContrasena(e) {
@@ -181,32 +256,72 @@ export function Perfil() {
           </div>
         </div>
 
-        <dl className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Correo</dt>
-            <dd className="mt-1 text-sm text-text-primary">{user.correo}</dd>
+        <form className="mt-6 flex flex-col gap-4" onSubmit={handleGuardarDatos}>
+          {datosSuccess && <Alert variant="success">{datosSuccess}</Alert>}
+          {datosError && <Alert variant="error">{datosError}</Alert>}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              name="nombre"
+              label="Nombre"
+              value={form.nombre}
+              onChange={handleFormChange}
+              onBlur={handleNombrePropioBlur}
+              required
+            />
+            <Input
+              name="apellido"
+              label="Apellido"
+              value={form.apellido}
+              onChange={handleFormChange}
+              onBlur={handleNombrePropioBlur}
+              required
+            />
           </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Cédula</dt>
-            <dd className={clsx('mt-1 text-sm', user.cedula ? 'text-text-primary' : 'text-text-muted')}>
-              {user.cedula || 'No registrada'}
-            </dd>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Correo</p>
+              <p className="mt-1.5 text-sm text-text-primary">{user.correo}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                Fecha de registro
+              </p>
+              <p className="mt-1.5 text-sm text-text-primary">{formatFecha(user.fecha_registro)}</p>
+            </div>
           </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Institución</dt>
-            <dd
-              className={clsx('mt-1 text-sm', user.institucion ? 'text-text-primary' : 'text-text-muted')}
-            >
-              {user.institucion || 'No registrada'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
-              Fecha de registro
-            </dt>
-            <dd className="mt-1 text-sm text-text-primary">{formatFecha(user.fecha_registro)}</dd>
-          </div>
-        </dl>
+
+          <Input
+            name="cedula"
+            label="Cédula"
+            placeholder="Aún no registrada"
+            value={form.cedula}
+            onChange={handleFormChange}
+            error={cedulaError}
+          />
+
+          <SelectInstitucion
+            label="Institución"
+            value={form.institucion}
+            onChange={(value) => setForm((prev) => ({ ...prev, institucion: value }))}
+          />
+
+          <SelectPais
+            value={form.pais}
+            onChange={(value) => setForm((prev) => ({ ...prev, pais: value }))}
+          />
+
+          <Button
+            type="submit"
+            variant="primary"
+            loading={guardandoDatos}
+            disabled={!hayCambiosDatos}
+            className="self-start"
+          >
+            Guardar cambios
+          </Button>
+        </form>
       </Card>
 
       <Card>

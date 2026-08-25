@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
-import { capitalizar, formatFecha } from '../../utils/formato';
+import { capitalizar, capitalizarPais, capitalizarNombrePropio, formatFecha } from '../../utils/formato';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
 import { Input } from '../../components/ui/Input';
 import { SelectInstitucion } from '../../components/ui/SelectInstitucion';
+import { SelectPais } from '../../components/ui/SelectPais';
 import { DatePicker, toDateKey } from '../../components/ui/DatePicker';
 import { Modal } from '../../components/ui/Modal';
 import { Alert } from '../../components/ui/Alert';
@@ -30,6 +31,7 @@ const FORM_INICIAL = {
   contrasena: '',
   cedula: '',
   institucion: '',
+  pais: '',
   id_rol: '3',
 };
 
@@ -130,6 +132,11 @@ export function Usuarios() {
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
+  function handleNombrePropioBlur(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: capitalizarNombrePropio(value) }));
+  }
+
   function handleCedulaChange(e) {
     const soloDigitos = e.target.value.replace(/\D/g, '');
     setForm((prev) => ({ ...prev, cedula: soloDigitos }));
@@ -156,12 +163,13 @@ export function Usuarios() {
       const nuevo = await apiFetch('/auth/usuarios', {
         method: 'POST',
         body: JSON.stringify({
-          nombre: form.nombre,
-          apellido: form.apellido,
+          nombre: capitalizarNombrePropio(form.nombre),
+          apellido: capitalizarNombrePropio(form.apellido),
           correo: form.correo,
           contrasena: form.contrasena,
           cedula: form.cedula || undefined,
           institucion: form.institucion || undefined,
+          pais: capitalizarPais(form.pais),
           id_rol: Number(form.id_rol),
         }),
       });
@@ -322,6 +330,7 @@ export function Usuarios() {
               label="Nombre"
               value={form.nombre}
               onChange={handleChange}
+              onBlur={handleNombrePropioBlur}
               required
             />
             <Input
@@ -329,6 +338,7 @@ export function Usuarios() {
               label="Apellido"
               value={form.apellido}
               onChange={handleChange}
+              onBlur={handleNombrePropioBlur}
               required
             />
           </div>
@@ -365,6 +375,12 @@ export function Usuarios() {
             label="Institución (opcional)"
             value={form.institucion}
             onChange={(value) => setForm((prev) => ({ ...prev, institucion: value }))}
+          />
+
+          <SelectPais
+            value={form.pais}
+            onChange={(value) => setForm((prev) => ({ ...prev, pais: value }))}
+            required
           />
 
           <Select name="id_rol" label="Rol" value={form.id_rol} onChange={handleChange}>

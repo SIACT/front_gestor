@@ -26,11 +26,14 @@ const FORM_INICIAL = {
   palabras_clave: '',
   duracion_minutos: '',
   id_area: '',
+  id_tipo_participacion: '',
 };
 
-const AREA_ERROR_MESSAGES = {
+const CATALOGO_ERROR_MESSAGES = {
   AREA_NOT_FOUND: 'El área de estudio seleccionada no existe.',
   AREA_INACTIVE: 'El área de estudio seleccionada está inactiva.',
+  TIPO_PARTICIPACION_NOT_FOUND: 'El tipo de participación seleccionado no existe.',
+  TIPO_PARTICIPACION_INACTIVE: 'El tipo de participación seleccionado está inactivo.',
 };
 
 export function MisPonencias() {
@@ -49,6 +52,8 @@ export function MisPonencias() {
   const [submitting, setSubmitting] = useState(false);
   const [areas, setAreas] = useState([]);
   const [areasError, setAreasError] = useState('');
+  const [tipos, setTipos] = useState([]);
+  const [tiposError, setTiposError] = useState('');
 
   useEffect(() => {
     apiFetch('/inscripciones')
@@ -72,10 +77,14 @@ export function MisPonencias() {
     setForm(FORM_INICIAL);
     setFormError('');
     setAreasError('');
+    setTiposError('');
     setModalOpen(true);
     apiFetch('/areas-estudio?activo=true')
       .then((data) => setAreas(data ?? []))
       .catch((err) => setAreasError(err.message));
+    apiFetch('/tipos-participacion?activo=true')
+      .then((data) => setTipos(data ?? []))
+      .catch((err) => setTiposError(err.message));
   }
 
   function handleChange(e) {
@@ -90,6 +99,10 @@ export function MisPonencias() {
       setFormError('Selecciona un área de estudio.');
       return;
     }
+    if (!form.id_tipo_participacion) {
+      setFormError('Selecciona un tipo de participación.');
+      return;
+    }
     setSubmitting(true);
     try {
       const nuevaTalk = await apiFetch(`/inscripciones/${idInscripcion}/talks`, {
@@ -97,6 +110,7 @@ export function MisPonencias() {
         body: JSON.stringify({
           titulo: form.titulo,
           id_area: Number(form.id_area),
+          id_tipo_participacion: Number(form.id_tipo_participacion),
           descripcion: form.descripcion || undefined,
           link_summary: form.link_summary || undefined,
           palabras_clave: form.palabras_clave || undefined,
@@ -105,7 +119,7 @@ export function MisPonencias() {
       });
       navigate(`/ponencias/${nuevaTalk.id_talk}`);
     } catch (err) {
-      setFormError(AREA_ERROR_MESSAGES[err.code] ?? err.message);
+      setFormError(CATALOGO_ERROR_MESSAGES[err.code] ?? err.message);
     } finally {
       setSubmitting(false);
     }
@@ -164,6 +178,7 @@ export function MisPonencias() {
                   </div>
                   <p className="mt-2 text-xs text-text-muted">
                     {talk.area?.nombre && <>{talk.area.nombre} · </>}
+                    {talk.tipo_participacion?.nombre ?? 'Sin tipo asignado'} ·{' '}
                     {formatFecha(talk.fecha_creacion)}
                   </p>
 
@@ -183,6 +198,7 @@ export function MisPonencias() {
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
           {formError && <Alert variant="error">{formError}</Alert>}
           {areasError && <Alert variant="error">{areasError}</Alert>}
+          {tiposError && <Alert variant="error">{tiposError}</Alert>}
 
           <Input name="titulo" label="Título" value={form.titulo} onChange={handleChange} required />
 
@@ -191,6 +207,23 @@ export function MisPonencias() {
             {areas.map((a) => (
               <option key={a.id_area} value={a.id_area}>
                 {a.nombre}
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            name="id_tipo_participacion"
+            label="Tipo de participación *"
+            value={form.id_tipo_participacion}
+            onChange={handleChange}
+            required
+          >
+            <option value="" disabled>
+              Selecciona un tipo
+            </option>
+            {tipos.map((t) => (
+              <option key={t.id_tipo_participacion} value={t.id_tipo_participacion}>
+                {t.nombre}
               </option>
             ))}
           </Select>

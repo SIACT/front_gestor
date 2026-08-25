@@ -9,6 +9,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
 import { PageLoader } from '../components/ui/PageLoader';
+import { BurbujasRecordatorio } from '../components/BurbujasRecordatorio';
 
 // Valor fijo hasta que el backend exponga un endpoint de "evento activo".
 const EVENTO = 'ALTENCOA 11 · 2026';
@@ -73,6 +74,8 @@ export function MisInscripciones() {
   const [categoriasPorId, setCategoriasPorId] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [comprobante, setComprobante] = useState(null);
+  const [archivos, setArchivos] = useState([]);
 
   useEffect(() => {
     Promise.all([apiFetch('/inscripciones'), apiFetch('/categorias')])
@@ -87,6 +90,20 @@ export function MisInscripciones() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  // Solo hay 1 inscripción por usuario. GET /inscripciones no trae comprobante ni
+  // archivos, así que pedimos el detalle liviano solo cuando las burbujas lo necesitan (estado pendiente).
+  const inscripcionPendiente = inscripciones.find((i) => i.estado_inscripcion === 'pendiente');
+
+  useEffect(() => {
+    if (!inscripcionPendiente) return;
+    apiFetch(`/inscripciones/${inscripcionPendiente.id_inscripcion}`)
+      .then((data) => setComprobante(data?.comprobante ?? null))
+      .catch(() => {});
+    apiFetch(`/inscripciones/${inscripcionPendiente.id_inscripcion}/archivos`)
+      .then((data) => setArchivos(data ?? []))
+      .catch(() => {});
+  }, [inscripcionPendiente]);
 
   if (loading) return <PageLoader />;
 
@@ -166,21 +183,23 @@ export function MisInscripciones() {
                       </div>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-semibold text-accent">{formatCOP(costoFinal)}</span>
-                        {descuentoAplicado > 0 && (
-                          <span className="text-sm text-text-muted line-through">{formatCOP(costoBase)}</span>
+                    {user?.id_rol === 1 && (
+                      <div className="mt-4 flex items-center justify-between">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-lg font-semibold text-accent">{formatCOP(costoFinal)}</span>
+                          {descuentoAplicado > 0 && (
+                            <span className="text-sm text-text-muted line-through">{formatCOP(costoBase)}</span>
+                          )}
+                        </div>
+                        {numDescuentos > 0 && (
+                          <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                            <TagIcon className="size-3.5" />
+                            {numDescuentos} descuento{numDescuentos > 1 ? 's' : ''} aplicado
+                            {numDescuentos > 1 ? 's' : ''}
+                          </div>
                         )}
                       </div>
-                      {numDescuentos > 0 && (
-                        <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                          <TagIcon className="size-3.5" />
-                          {numDescuentos} descuento{numDescuentos > 1 ? 's' : ''} aplicado
-                          {numDescuentos > 1 ? 's' : ''}
-                        </div>
-                      )}
-                    </div>
+                    )}
 
                     {/* TODO: este mensaje se muestra siempre porque GET /inscripciones no incluye el campo "comprobante".
                         Cuando el backend exponga algo como "tiene_comprobante: boolean" en el listado,
@@ -198,6 +217,15 @@ export function MisInscripciones() {
             );
           })}
         </ul>
+      )}
+
+      {inscripcionPendiente && (
+        <BurbujasRecordatorio
+          comprobante={comprobante}
+          archivos={archivos}
+          estadoInscripcion={inscripcionPendiente.estado_inscripcion}
+          idInscripcion={inscripcionPendiente.id_inscripcion}
+        />
       )}
     </div>
   );

@@ -7,7 +7,7 @@ import { SelectInstitucion } from '../components/ui/SelectInstitucion';
 import { SelectPais } from '../components/ui/SelectPais';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
-import { capitalizarPais } from '../utils/formato';
+import { capitalizarPais, capitalizarNombrePropio } from '../utils/formato';
 
 function ArrowRightIcon(props) {
   return (
@@ -87,6 +87,11 @@ export function Register() {
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
+  function handleNombrePropioBlur(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: capitalizarNombrePropio(value) }));
+  }
+
   function handleCedulaChange(e) {
     const soloDigitos = e.target.value.replace(/\D/g, '');
     setForm((prev) => ({ ...prev, cedula: soloDigitos }));
@@ -115,8 +120,8 @@ export function Register() {
     setSubmitting(true);
     try {
       await register({
-        nombre: form.nombre,
-        apellido: form.apellido,
+        nombre: capitalizarNombrePropio(form.nombre),
+        apellido: capitalizarNombrePropio(form.apellido),
         correo: form.correo,
         contrasena: form.contrasena,
         cedula: form.cedula || undefined,
@@ -160,6 +165,7 @@ export function Register() {
             label="Nombre"
             value={form.nombre}
             onChange={handleChange}
+            onBlur={handleNombrePropioBlur}
             required
           />
           <Input
@@ -168,6 +174,7 @@ export function Register() {
             label="Apellido"
             value={form.apellido}
             onChange={handleChange}
+            onBlur={handleNombrePropioBlur}
             required
           />
         </div>

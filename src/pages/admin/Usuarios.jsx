@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
-import { capitalizar, capitalizarPais, formatFecha } from '../../utils/formato';
+import { capitalizar, capitalizarPais, capitalizarNombrePropio, formatFecha } from '../../utils/formato';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -132,6 +132,11 @@ export function Usuarios() {
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
+  function handleNombrePropioBlur(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: capitalizarNombrePropio(value) }));
+  }
+
   function handleCedulaChange(e) {
     const soloDigitos = e.target.value.replace(/\D/g, '');
     setForm((prev) => ({ ...prev, cedula: soloDigitos }));
@@ -158,8 +163,8 @@ export function Usuarios() {
       const nuevo = await apiFetch('/auth/usuarios', {
         method: 'POST',
         body: JSON.stringify({
-          nombre: form.nombre,
-          apellido: form.apellido,
+          nombre: capitalizarNombrePropio(form.nombre),
+          apellido: capitalizarNombrePropio(form.apellido),
           correo: form.correo,
           contrasena: form.contrasena,
           cedula: form.cedula || undefined,
@@ -325,6 +330,7 @@ export function Usuarios() {
               label="Nombre"
               value={form.nombre}
               onChange={handleChange}
+              onBlur={handleNombrePropioBlur}
               required
             />
             <Input
@@ -332,6 +338,7 @@ export function Usuarios() {
               label="Apellido"
               value={form.apellido}
               onChange={handleChange}
+              onBlur={handleNombrePropioBlur}
               required
             />
           </div>

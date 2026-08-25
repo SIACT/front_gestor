@@ -15,6 +15,21 @@ export function capitalizarPais(valor) {
     .join(' ');
 }
 
+const CONECTORES = ['de', 'del', 'la', 'las', 'los', 'y', 'e', 'da', 'do', 'dos', 'van', 'von', 'di', 'el'];
+
+export function capitalizarNombrePropio(valor) {
+  return valor
+    .trim()
+    .toLowerCase()
+    .split(' ')
+    .filter(Boolean)
+    .map((palabra, index) => {
+      if (index > 0 && CONECTORES.includes(palabra)) return palabra;
+      return palabra.charAt(0).toUpperCase() + palabra.slice(1);
+    })
+    .join(' ');
+}
+
 export function formatCOP(value) {
   return Number(value).toLocaleString('es-CO', {
     style: 'currency',

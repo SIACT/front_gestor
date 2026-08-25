@@ -12,7 +12,7 @@ import { SelectInstitucion } from '../components/ui/SelectInstitucion';
 import { SelectPais } from '../components/ui/SelectPais';
 import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
-import { capitalizar, capitalizarPais, formatFecha } from '../utils/formato';
+import { capitalizar, capitalizarPais, capitalizarNombrePropio, formatFecha } from '../utils/formato';
 
 const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };
 const ROL_BADGE = { 1: 'admin', 2: 'ponente', 3: 'estudiante' };
@@ -149,15 +149,23 @@ export function Perfil() {
     if (name === 'cedula' && cedulaError) setCedulaError('');
   }
 
+  function handleNombrePropioBlur(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: capitalizarNombrePropio(value) }));
+  }
+
   async function handleGuardarDatos(e) {
     e.preventDefault();
     setDatosError('');
     setCedulaError('');
     setDatosSuccess('');
 
+    const nombre = capitalizarNombrePropio(form.nombre);
+    const apellido = capitalizarNombrePropio(form.apellido);
+
     const cambios = {};
-    if (form.nombre !== snapshot.nombre) cambios.nombre = form.nombre;
-    if (form.apellido !== snapshot.apellido) cambios.apellido = form.apellido;
+    if (nombre !== snapshot.nombre) cambios.nombre = nombre;
+    if (apellido !== snapshot.apellido) cambios.apellido = apellido;
     if (form.cedula !== snapshot.cedula) cambios.cedula = form.cedula;
     if (form.institucion !== snapshot.institucion) cambios.institucion = form.institucion;
     if (form.pais !== snapshot.pais) cambios.pais = capitalizarPais(form.pais);
@@ -253,12 +261,20 @@ export function Perfil() {
           {datosError && <Alert variant="error">{datosError}</Alert>}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input name="nombre" label="Nombre" value={form.nombre} onChange={handleFormChange} required />
+            <Input
+              name="nombre"
+              label="Nombre"
+              value={form.nombre}
+              onChange={handleFormChange}
+              onBlur={handleNombrePropioBlur}
+              required
+            />
             <Input
               name="apellido"
               label="Apellido"
               value={form.apellido}
               onChange={handleFormChange}
+              onBlur={handleNombrePropioBlur}
               required
             />
           </div>

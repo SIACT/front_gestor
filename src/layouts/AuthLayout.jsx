@@ -41,7 +41,7 @@ export function AuthLayout() {
             ALTENCOA11-2026
           </span>
 
-          <h1 className="font-sans text-3xl font-bold leading-tight text-white md:text-5xl">
+          <h1 className="font-sans text-3xl font-bold leading-tight --c-text-primary md:text-5xl">
             XI Encuentro de Álgebra, Teoría de Números y Combinatoria
           </h1>
 

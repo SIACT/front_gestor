@@ -64,7 +64,7 @@ export function Login() {
   }
 
   return (
-    <div className="flex w-full flex-col gap-8 p-12">
+    <div className="flex w-full flex-col gap-8 pr-12 pl-12">
       <div className="flex flex-col gap-4">
         <Link
           to="/"
@@ -137,6 +137,17 @@ export function Login() {
           Solicita acceso
         </Link>
       </p>
+
+      <div className="mt-0 overflow-hidden rounded-2xl bg-white p-3">
+        <div className="overflow-x-auto">
+          <img
+            src="https://res.cloudinary.com/dspprxtpr/image/upload/v1787628489/Captura_desde_2026-08-24_22-27-35_wnswwp.png"
+            alt="ICETEX, ALTENUA, y universidades e instituciones aliadas del evento"
+            className="h-auto w-full min-w-[480px] object-contain sm:min-w-0"
+            loading="lazy"
+          />
+        </div>
+      </div>
     </div>
   );
 }

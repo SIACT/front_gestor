@@ -55,7 +55,7 @@ export function Login() {
     setSubmitting(true);
     try {
       await login(correo, contrasena);
-      navigate('/inscripciones');
+      navigate('/');
     } catch (err) {
       setError(err.message);
     } finally {

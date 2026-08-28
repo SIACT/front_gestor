@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import {
+  ArrowLeftRight,
   BookOpen,
-  Building2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -23,47 +23,61 @@ import {
   Sun,
   Tag,
   User,
-  Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { apiFetch } from '../api/client';
+import { useCongreso } from '../context/CongresoContext';
 import { BannerCedulaFaltante } from '../components/BannerCedulaFaltante';
 import { Logo } from '../components/ui/Logo';
 import { capitalizar } from '../utils/formato';
+import { ROLES, ROL_LABELS } from '../utils/roles';
 
-const NAV_ITEMS = [
-  { to: '/inscripciones', label: 'Mis inscripciones', icon: ClipboardList, roles: [2, 3] },
-  { to: '/inscripciones/nueva', label: 'Nueva inscripción', icon: PlusCircle, roles: [2, 3] },
-  { to: '/ponencias', label: 'Mis ponencias', icon: Mic, roles: [2] },
-  { to: '/perfil', label: 'Mi perfil', icon: User },
-];
+function navItems(idCongreso) {
+  return [
+    {
+      to: `/congresos/${idCongreso}/inscripciones`,
+      label: 'Mis inscripciones',
+      icon: ClipboardList,
+      roles: [ROLES.PONENTE, ROLES.ESTUDIANTE],
+    },
+    {
+      to: `/congresos/${idCongreso}/inscripciones/nueva`,
+      label: 'Nueva inscripción',
+      icon: PlusCircle,
+      roles: [ROLES.PONENTE, ROLES.ESTUDIANTE],
+    },
+    {
+      to: `/congresos/${idCongreso}/ponencias`,
+      label: 'Mis ponencias',
+      icon: Mic,
+      roles: [ROLES.PONENTE],
+    },
+  ];
+}
 
-const ADMIN_GROUPS = [
-  {
-    label: 'Configuración',
-    icon: Settings,
-    items: [
-      { label: 'Áreas de estudio', path: '/admin/areas-estudio', icon: BookOpen },
-      { label: 'Instituciones', path: '/admin/instituciones', icon: Building2 },
-      { label: 'Tipos de participación', path: '/admin/tipos-participacion', icon: Presentation },
-      { label: 'Tipos de asistente', path: '/admin/tipos-asistente', icon: Tag },
-      { label: 'Categorías', path: '/admin/categorias', icon: FolderTree },
-      { label: 'Descuentos', path: '/admin/descuentos', icon: Percent },
-    ],
-  },
-  {
-    label: 'Gestión',
-    icon: LayoutGrid,
-    items: [
-      { label: 'Usuarios', path: '/admin/usuarios', icon: Users },
-      { label: 'Inscripciones', path: '/admin/inscripciones', icon: Receipt },
-      { label: 'Ponencias', path: '/admin/ponencias', icon: Mic },
-    ],
-  },
-];
-
-const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };
+function adminGroups(idCongreso) {
+  return [
+    {
+      label: 'Configuración',
+      icon: Settings,
+      items: [
+        { label: 'Áreas de estudio', path: `/congresos/${idCongreso}/admin/areas-estudio`, icon: BookOpen },
+        { label: 'Tipos de participación', path: `/congresos/${idCongreso}/admin/tipos-participacion`, icon: Presentation },
+        { label: 'Tipos de asistente', path: `/congresos/${idCongreso}/admin/tipos-asistente`, icon: Tag },
+        { label: 'Categorías', path: `/congresos/${idCongreso}/admin/categorias`, icon: FolderTree },
+        { label: 'Descuentos', path: `/congresos/${idCongreso}/admin/descuentos`, icon: Percent },
+      ],
+    },
+    {
+      label: 'Gestión',
+      icon: LayoutGrid,
+      items: [
+        { label: 'Inscripciones', path: `/congresos/${idCongreso}/admin/inscripciones`, icon: Receipt },
+        { label: 'Ponencias', path: `/congresos/${idCongreso}/admin/ponencias`, icon: Mic },
+      ],
+    },
+  ];
+}
 
 function NavItem({ to, icon: Icon, label, collapsed, onClick }) {
   return (
@@ -143,9 +157,11 @@ function AdminGroup({ group, onNavigate }) {
   );
 }
 
-function AdminSection({ collapsed, onNavigate, onExpandSidebar }) {
+function AdminSection({ collapsed, onNavigate, onExpandSidebar, idCongreso }) {
   const location = useLocation();
-  const [open, setOpen] = useState(() => location.pathname.startsWith('/admin'));
+  const [open, setOpen] = useState(() =>
+    location.pathname.startsWith(`/congresos/${idCongreso}/admin`),
+  );
 
   function handleToggle() {
     if (collapsed) {
@@ -181,7 +197,7 @@ function AdminSection({ collapsed, onNavigate, onExpandSidebar }) {
 
       {!collapsed && open && (
         <div className="ml-4 mt-1 space-y-1 border-l border-border pl-2">
-          {ADMIN_GROUPS.map((group) => (
+          {adminGroups(idCongreso).map((group) => (
             <AdminGroup key={group.label} group={group} onNavigate={onNavigate} />
           ))}
         </div>
@@ -193,6 +209,8 @@ function AdminSection({ collapsed, onNavigate, onExpandSidebar }) {
 function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSidebar, tieneInscripcion }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { congreso, puedeAdministrarCongreso } = useCongreso();
+  const { id_congreso } = useParams();
   const navigate = useNavigate();
   const rolLabel = user?.rol?.nombre ?? ROL_LABELS[user?.id_rol] ?? '';
 
@@ -205,50 +223,65 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
     <div className="flex h-full flex-col">
       <div
         className={clsx(
-          'flex items-center border-b border-border px-4 py-8.5',
-          collapsed ? 'flex-col gap-3' : 'justify-between',
+          'flex flex-col gap-2 border-b border-border px-4 py-6',
+          collapsed && 'items-center',
         )}
       >
-        {collapsed ? (
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent/10 text-sm font-bold text-accent">
-            A
-          </div>
-        ) : (
-          <Logo variant="altenua" className="h-8 w-auto" />
-        )}
-        {onToggleCollapse && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-background hover:text-text-primary"
-          >
-            {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-          </button>
+        <div
+          className={clsx(
+            'flex items-center',
+            collapsed ? 'flex-col gap-3' : 'justify-between',
+          )}
+        >
+          {collapsed ? (
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent/10 text-sm font-bold text-accent">
+              A
+            </div>
+          ) : (
+            <Logo variant="altenua" className="h-8 w-auto" />
+          )}
+          {onToggleCollapse && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+              className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-background hover:text-text-primary"
+            >
+              {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+            </button>
+          )}
+        </div>
+        {!collapsed && congreso?.nombre && (
+          <p className="truncate text-xs font-medium uppercase tracking-wide text-accent">
+            {congreso.nombre}
+          </p>
         )}
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user?.id_rol)).map((item) => {
-          if (item.to === '/inscripciones/nueva' && tieneInscripcion) {
-            return (
-              <DisabledNavItem
-                key={item.to}
-                icon={item.icon}
-                label={item.label}
-                collapsed={collapsed}
-                title="Ya tienes una inscripción activa"
-              />
-            );
-          }
-          return <NavItem key={item.to} {...item} collapsed={collapsed} onClick={onNavigate} />;
-        })}
+        {navItems(id_congreso)
+          .filter((item) => !item.roles || item.roles.includes(user?.id_rol))
+          .map((item) => {
+            if (item.label === 'Nueva inscripción' && tieneInscripcion) {
+              return (
+                <DisabledNavItem
+                  key={item.to}
+                  icon={item.icon}
+                  label={item.label}
+                  collapsed={collapsed}
+                  title="Ya tienes una inscripción activa en este congreso"
+                />
+              );
+            }
+            return <NavItem key={item.to} {...item} collapsed={collapsed} onClick={onNavigate} />;
+          })}
 
-        {user?.id_rol === 1 && (
+        {(user?.id_rol === ROLES.ADMIN || puedeAdministrarCongreso) && (
           <AdminSection
             collapsed={collapsed}
             onNavigate={onNavigate}
             onExpandSidebar={onExpandSidebar}
+            idCongreso={id_congreso}
           />
         )}
       </nav>
@@ -262,6 +295,28 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
             <p className="truncate text-xs text-text-muted">{rolLabel}</p>
           </div>
         )}
+        <Link
+          to="/"
+          onClick={onNavigate}
+          className={clsx(
+            'flex items-center gap-2 rounded-lg text-sm text-text-muted transition-colors hover:text-text-primary',
+            collapsed ? 'justify-center p-2' : 'w-full px-3 py-2',
+          )}
+        >
+          <ArrowLeftRight className="size-4 shrink-0" />
+          {!collapsed && <span>Cambiar de congreso</span>}
+        </Link>
+        <Link
+          to="/perfil"
+          onClick={onNavigate}
+          className={clsx(
+            'flex items-center gap-2 rounded-lg text-sm text-text-muted transition-colors hover:text-text-primary',
+            collapsed ? 'justify-center p-2' : 'w-full px-3 py-2',
+          )}
+        >
+          <User className="size-4 shrink-0" />
+          {!collapsed && <span>Mi perfil</span>}
+        </Link>
         <button
           type="button"
           onClick={toggleTheme}
@@ -296,12 +351,11 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
 
 export function DashboardLayout() {
   const location = useLocation();
-  const { user } = useAuth();
+  const { misInscripcion } = useCongreso();
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('sidebar-collapsed') === 'true',
   );
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [tieneInscripcion, setTieneInscripcion] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('sidebar-collapsed', String(collapsed));
@@ -310,13 +364,6 @@ export function DashboardLayout() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
-
-  useEffect(() => {
-    if (user?.id_rol === 1) return;
-    apiFetch('/inscripciones')
-      .then((data) => setTieneInscripcion((data ?? []).length > 0))
-      .catch(() => {});
-  }, [user?.id_rol]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -328,7 +375,7 @@ export function DashboardLayout() {
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((value) => !value)}
           onExpandSidebar={() => setCollapsed(false)}
-          tieneInscripcion={tieneInscripcion}
+          tieneInscripcion={Boolean(misInscripcion)}
         />
       </aside>
 
@@ -367,7 +414,7 @@ export function DashboardLayout() {
             <SidebarContent
               collapsed={false}
               onNavigate={() => setMobileOpen(false)}
-              tieneInscripcion={tieneInscripcion}
+              tieneInscripcion={Boolean(misInscripcion)}
             />
           </motion.aside>
         )}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP } from '../../utils/formato';
@@ -15,6 +15,7 @@ const ESTADOS_INSCRIPCION = ['pendiente', 'confirmada', 'rechazada', 'cancelada'
 
 export function InscripcionesAdmin() {
   const navigate = useNavigate();
+  const { id_congreso } = useParams();
   const [inscripciones, setInscripciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -34,10 +35,10 @@ export function InscripcionesAdmin() {
     setLoading(true);
     setError('');
     const params = new URLSearchParams();
+    params.set('id_congreso', id_congreso);
     if (idUsuario) params.set('id_usuario', idUsuario);
     if (activo) params.set('activo', activo);
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return apiFetch(`/inscripciones${query}`)
+    return apiFetch(`/inscripciones?${params.toString()}`)
       .then((data) => setInscripciones(data ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -45,11 +46,11 @@ export function InscripcionesAdmin() {
 
   useEffect(() => {
     cargar();
-    apiFetch('/tipos-asistente?activo=true')
+    apiFetch(`/congresos/${id_congreso}/tipos-asistente?activo=true`)
       .then((data) => setTiposAsistente(data ?? []))
       .catch((err) => setError(err.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [id_congreso]);
 
   const inscripcionesFiltradas = useMemo(() => {
     return inscripciones.filter((i) => {
@@ -184,7 +185,7 @@ export function InscripcionesAdmin() {
             {inscripcionesFiltradas.map((i) => (
               <Table.Row
                 key={i.id_inscripcion}
-                onClick={() => navigate(`/admin/inscripciones/${i.id_inscripcion}`)}
+                onClick={() => navigate(`/congresos/${id_congreso}/admin/inscripciones/${i.id_inscripcion}`)}
                 className="cursor-pointer"
               >
                 <Table.Cell>#{i.id_inscripcion}</Table.Cell>

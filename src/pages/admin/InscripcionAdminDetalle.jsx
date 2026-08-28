@@ -147,7 +147,7 @@ function ArchivoItem({ archivo, onRefrescar }) {
 }
 
 export function InscripcionAdminDetalle() {
-  const { id } = useParams();
+  const { id, id_congreso } = useParams();
   const [inscripcion, setInscripcion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -179,11 +179,11 @@ export function InscripcionAdminDetalle() {
       .catch((err) => setArchivosError(err.message))
       .finally(() => setArchivosLoading(false));
 
-    apiFetch('/descuentos')
+    apiFetch(`/congresos/${id_congreso}/descuentos`)
       .then((data) => setDescuentosDisponibles(data ?? []))
       .catch(() => setDescuentosDisponibles([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, id_congreso]);
 
   // --- Descuentos aplicados ---
   const [confirmandoQuitar, setConfirmandoQuitar] = useState(null);
@@ -404,7 +404,7 @@ export function InscripcionAdminDetalle() {
 
       <div>
         <Link
-          to="/admin/inscripciones"
+          to={`/congresos/${id_congreso}/admin/inscripciones`}
           className="text-sm text-text-muted transition-colors hover:text-text-primary"
         >
           ← Inscripciones

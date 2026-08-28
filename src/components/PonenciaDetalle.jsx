@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { capitalizar, formatFecha } from '../utils/formato';
@@ -28,7 +29,7 @@ const FORM_INICIAL = {
 
 const COPONENTE_ERROR_MESSAGES = {
   USUARIO_NOT_FOUND: 'No existe ningún usuario registrado con ese correo.',
-  USUARIO_NO_ES_PONENTE: 'El usuario debe tener rol Ponente para ser agregado como coautor.',
+  USUARIO_NO_ES_PONENTE: 'El usuario debe tener rol Expositor para ser agregado como coautor.',
   USUARIO_SIN_INSCRIPCION_ACTIVA: 'El usuario no tiene ninguna inscripción activa.',
   YA_ES_PONENTE_PRINCIPAL: 'Este usuario ya es el ponente principal de la charla.',
   YA_ES_COPONENTE: 'Este usuario ya es coautor de la charla.',
@@ -57,6 +58,7 @@ function talkToForm(talk) {
 }
 
 export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, onRefresh, adminReviewSlot }) {
+  const { id_congreso } = useParams();
   const [ponentes, setPonentes] = useState([]);
   const [ponentesLoading, setPonentesLoading] = useState(true);
   const [ponentesError, setPonentesError] = useState('');
@@ -98,10 +100,10 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
     setAreasError('');
     setTiposError('');
     setEditModalOpen(true);
-    apiFetch('/areas-estudio?activo=true')
+    apiFetch(`/congresos/${id_congreso}/areas-estudio?activo=true`)
       .then((data) => setAreas(data ?? []))
       .catch((err) => setAreasError(err.message));
-    apiFetch('/tipos-participacion?activo=true')
+    apiFetch(`/congresos/${id_congreso}/tipos-participacion?activo=true`)
       .then((data) => setTipos(data ?? []))
       .catch((err) => setTiposError(err.message));
   }

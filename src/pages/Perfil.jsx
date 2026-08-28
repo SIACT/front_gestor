@@ -13,8 +13,8 @@ import { SelectPais } from '../components/ui/SelectPais';
 import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
 import { capitalizar, capitalizarPais, capitalizarNombrePropio, formatFecha } from '../utils/formato';
+import { ROL_LABELS } from '../utils/roles';
 
-const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };
 const ROL_BADGE = { 1: 'admin', 2: 'ponente', 3: 'estudiante' };
 
 function CheckIcon(props) {

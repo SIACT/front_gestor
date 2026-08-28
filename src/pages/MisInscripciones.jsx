@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Info } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { ROLES } from '../utils/roles';
+import { useCongreso } from '../context/CongresoContext';
 import { capitalizar } from '../utils/formato';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -69,18 +71,22 @@ function CalendarIcon(props) {
 
 export function MisInscripciones() {
   const navigate = useNavigate();
+  const { id_congreso } = useParams();
   const { user } = useAuth();
-  const [inscripciones, setInscripciones] = useState([]);
+  const { misInscripcion } = useCongreso();
   const [categoriasPorId, setCategoriasPorId] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [comprobante, setComprobante] = useState(null);
   const [archivos, setArchivos] = useState([]);
 
+  // Regla de negocio: 1 inscripción por usuario POR CONGRESO. `misInscripcion`
+  // (del CongresoContext) ya es esa única inscripción, o null.
+  const inscripciones = misInscripcion ? [misInscripcion] : [];
+
   useEffect(() => {
-    Promise.all([apiFetch('/inscripciones'), apiFetch('/categorias')])
-      .then(([inscripcionesData, categoriasData]) => {
-        setInscripciones(inscripcionesData ?? []);
+    apiFetch(`/congresos/${id_congreso}/categorias`)
+      .then((categoriasData) => {
         const mapa = {};
         for (const categoria of categoriasData ?? []) {
           mapa[categoria.id_categoria] = categoria.nombre;
@@ -89,10 +95,10 @@ export function MisInscripciones() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [id_congreso]);
 
-  // Solo hay 1 inscripción por usuario. GET /inscripciones no trae comprobante ni
-  // archivos, así que pedimos el detalle liviano solo cuando las burbujas lo necesitan (estado pendiente).
+  // GET /inscripciones no trae comprobante ni archivos, así que pedimos el
+  // detalle liviano solo cuando las burbujas lo necesitan (estado pendiente).
   const inscripcionPendiente = inscripciones.find((i) => i.estado_inscripcion === 'pendiente');
 
   useEffect(() => {
@@ -115,14 +121,14 @@ export function MisInscripciones() {
           <Button
             variant="primary"
             disabled={inscripciones.length > 0}
-            onClick={() => navigate('/inscripciones/nueva')}
+            onClick={() => navigate(`/congresos/${id_congreso}/inscripciones/nueva`)}
           >
             Nueva inscripción
           </Button>
           {inscripciones.length > 0 && (
             <p className="flex items-center gap-1 text-xs text-text-muted">
               <Info className="size-3.5" />
-              Ya tienes una inscripción activa. Solo se permite una por usuario.
+              Ya tienes una inscripción activa en este congreso. Solo se permite una por congreso.
             </p>
           )}
         </div>
@@ -137,7 +143,7 @@ export function MisInscripciones() {
       {!error && inscripciones.length === 0 && (
         <div className="mt-16 flex flex-col items-center gap-4 text-center">
           <p className="text-sm text-text-muted">Todavía no tienes inscripciones.</p>
-          <Button variant="primary" onClick={() => navigate('/inscripciones/nueva')}>
+          <Button variant="primary" onClick={() => navigate(`/congresos/${id_congreso}/inscripciones/nueva`)}>
             Nueva inscripción
           </Button>
         </div>
@@ -155,7 +161,7 @@ export function MisInscripciones() {
 
             return (
               <li key={inscripcion.id_inscripcion}>
-                <Link to={`/inscripciones/${inscripcion.id_inscripcion}`}>
+                <Link to={`/congresos/${id_congreso}/inscripciones/${inscripcion.id_inscripcion}`}>
                   <Card className="transition-colors hover:border-accent">
                     <p className="text-xs font-medium uppercase tracking-wide text-accent">{EVENTO}</p>
 
@@ -183,7 +189,7 @@ export function MisInscripciones() {
                       </div>
                     </div>
 
-                    {user?.id_rol === 1 && (
+                    {user?.id_rol === ROLES.ADMIN && (
                       <div className="mt-4 flex items-center justify-between">
                         <div className="flex items-baseline gap-2">
                           <span className="text-lg font-semibold text-accent">{formatCOP(costoFinal)}</span>

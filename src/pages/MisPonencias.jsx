@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { ROLES } from '../utils/roles';
+import { useCongreso } from '../context/CongresoContext';
 import { formatFecha } from '../utils/formato';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -38,10 +40,12 @@ const CATALOGO_ERROR_MESSAGES = {
 
 export function MisPonencias() {
   const navigate = useNavigate();
+  const { id_congreso } = useParams();
   const { user } = useAuth();
+  const { misInscripcion } = useCongreso();
+  const idInscripcion = misInscripcion?.id_inscripcion ?? null;
+  const sinInscripcion = !misInscripcion;
 
-  const [idInscripcion, setIdInscripcion] = useState(null);
-  const [sinInscripcion, setSinInscripcion] = useState(false);
   const [talks, setTalks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -56,22 +60,16 @@ export function MisPonencias() {
   const [tiposError, setTiposError] = useState('');
 
   useEffect(() => {
-    apiFetch('/inscripciones')
-      .then((data) => {
-        const inscripcion = (data ?? [])[0];
-        if (!inscripcion) {
-          setSinInscripcion(true);
-          return null;
-        }
-        setIdInscripcion(inscripcion.id_inscripcion);
-        return apiFetch(`/inscripciones/${inscripcion.id_inscripcion}/talks`);
-      })
-      .then((data) => {
-        if (data) setTalks(data);
-      })
+    if (!idInscripcion) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    apiFetch(`/inscripciones/${idInscripcion}/talks`)
+      .then((data) => setTalks(data ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [idInscripcion]);
 
   function handleAbrirCrear() {
     setForm(FORM_INICIAL);
@@ -79,10 +77,10 @@ export function MisPonencias() {
     setAreasError('');
     setTiposError('');
     setModalOpen(true);
-    apiFetch('/areas-estudio?activo=true')
+    apiFetch(`/congresos/${id_congreso}/areas-estudio?activo=true`)
       .then((data) => setAreas(data ?? []))
       .catch((err) => setAreasError(err.message));
-    apiFetch('/tipos-participacion?activo=true')
+    apiFetch(`/congresos/${id_congreso}/tipos-participacion?activo=true`)
       .then((data) => setTipos(data ?? []))
       .catch((err) => setTiposError(err.message));
   }
@@ -117,7 +115,7 @@ export function MisPonencias() {
           duracion_minutos: form.duracion_minutos ? Number(form.duracion_minutos) : undefined,
         }),
       });
-      navigate(`/ponencias/${nuevaTalk.id_talk}`);
+      navigate(`/congresos/${id_congreso}/ponencias/${nuevaTalk.id_talk}`);
     } catch (err) {
       setFormError(CATALOGO_ERROR_MESSAGES[err.code] ?? err.message);
     } finally {
@@ -127,7 +125,7 @@ export function MisPonencias() {
 
   if (loading) return <PageLoader />;
 
-  const puedeProponer = user?.id_rol === 2 || user?.id_rol === 1;
+  const puedeProponer = user?.id_rol === ROLES.PONENTE || user?.id_rol === ROLES.ADMIN;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-20">
@@ -149,7 +147,7 @@ export function MisPonencias() {
       {sinInscripcion && (
         <div className="mt-16 flex flex-col items-center gap-4 text-center">
           <p className="text-sm text-text-muted">Necesitas una inscripción activa para proponer ponencias.</p>
-          <Link to="/inscripciones/nueva">
+          <Link to={`/congresos/${id_congreso}/inscripciones/nueva`}>
             <Button type="button" variant="primary">
               Nueva inscripción
             </Button>
@@ -165,7 +163,7 @@ export function MisPonencias() {
         <ul className="mt-6 flex flex-col gap-4">
           {talks.map((talk) => (
             <li key={talk.id_talk}>
-              <Link to={`/ponencias/${talk.id_talk}`}>
+              <Link to={`/congresos/${id_congreso}/ponencias/${talk.id_talk}`}>
                 <Card className="transition-colors hover:border-accent">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">

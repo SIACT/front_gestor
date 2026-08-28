@@ -8,6 +8,7 @@ import { SelectPais } from '../components/ui/SelectPais';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
 import { capitalizarPais, capitalizarNombrePropio } from '../utils/formato';
+import { ROLES, ROL_LABELS } from '../utils/roles';
 
 function ArrowRightIcon(props) {
   return (
@@ -68,7 +69,7 @@ export function Register() {
     cedula: '',
     institucion: '',
     pais: '',
-    id_rol: '3',
+    id_rol: String(ROLES.ESTUDIANTE),
   });
   const [error, setError] = useState('');
   const [contrasenaError, setContrasenaError] = useState('');
@@ -269,8 +270,8 @@ export function Register() {
           onChange={handleChange}
           required
         >
-          <option value="3">Estudiante</option>
-          <option value="2">Ponente</option>
+          <option value={String(ROLES.ESTUDIANTE)}>{ROL_LABELS[ROLES.ESTUDIANTE]}</option>
+          <option value={String(ROLES.PONENTE)}>{ROL_LABELS[ROLES.PONENTE]}</option>
         </Select>
 
         <Button type="submit" variant="primary" loading={submitting} className="w-full">

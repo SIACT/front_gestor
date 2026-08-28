@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { apiFetch } from '../../api/client';
 import { formatCOP } from '../../utils/formato';
 import { Table } from '../../components/ui/Table';
@@ -13,6 +14,7 @@ import { PageLoader } from '../../components/ui/PageLoader';
 const FORM_INICIAL = { tipo: '', costo_base: '', activo: true, id_categoria: '' };
 
 export function TiposAsistente() {
+  const { id_congreso } = useParams();
   const [tipos, setTipos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,14 +30,17 @@ export function TiposAsistente() {
   const [estadoFiltro, setEstadoFiltro] = useState('');
 
   useEffect(() => {
-    Promise.all([apiFetch('/tipos-asistente'), apiFetch('/categorias')])
+    Promise.all([
+      apiFetch(`/congresos/${id_congreso}/tipos-asistente`),
+      apiFetch(`/congresos/${id_congreso}/categorias`),
+    ])
       .then(([tiposData, categoriasData]) => {
         setTipos(tiposData ?? []);
         setCategorias(categoriasData ?? []);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [id_congreso]);
 
   const categoriasDisponibles = useMemo(() => {
     const mapa = new Map();
@@ -104,17 +109,17 @@ export function TiposAsistente() {
           cambios.id_categoria = Number(form.id_categoria);
         }
 
-        const actualizado = await apiFetch(`/tipos-asistente/${editando.id_tipo_asistente}`, {
-          method: 'PATCH',
-          body: JSON.stringify(cambios),
-        });
+        const actualizado = await apiFetch(
+          `/congresos/${id_congreso}/tipos-asistente/${editando.id_tipo_asistente}`,
+          { method: 'PATCH', body: JSON.stringify(cambios) },
+        );
         setTipos((prev) =>
           prev.map((t) =>
             t.id_tipo_asistente === editando.id_tipo_asistente ? { ...t, ...actualizado } : t,
           ),
         );
       } else {
-        const nuevo = await apiFetch('/tipos-asistente', {
+        const nuevo = await apiFetch(`/congresos/${id_congreso}/tipos-asistente`, {
           method: 'POST',
           body: JSON.stringify({
             tipo: form.tipo,

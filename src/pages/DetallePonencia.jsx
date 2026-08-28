@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { ROLES } from '../utils/roles';
 import { PonenciaDetalle } from '../components/PonenciaDetalle';
 import { Alert } from '../components/ui/Alert';
 import { PageLoader } from '../components/ui/PageLoader';
@@ -50,7 +51,7 @@ export function DetallePonencia() {
   if (!talk) return null;
 
   const esPrincipal = talk.inscripcion?.id_usuario === user?.id_usuario;
-  const esAdmin = user?.id_rol === 1;
+  const esAdmin = user?.id_rol === ROLES.ADMIN;
 
   return (
     <PonenciaDetalle

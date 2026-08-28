@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { apiFetch } from '../../api/client';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
@@ -11,6 +12,7 @@ import { PageLoader } from '../../components/ui/PageLoader';
 const FORM_INICIAL = { nombre: '', descripcion: '', activo: true };
 
 export function TiposParticipacion() {
+  const { id_congreso } = useParams();
   const [tipos, setTipos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -22,11 +24,11 @@ export function TiposParticipacion() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    apiFetch('/tipos-participacion')
+    apiFetch(`/congresos/${id_congreso}/tipos-participacion`)
       .then((data) => setTipos(data ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [id_congreso]);
 
   function handleAbrirCrear() {
     setEditando(null);
@@ -64,17 +66,17 @@ export function TiposParticipacion() {
         }
         if (form.activo !== editando.activo) cambios.activo = form.activo;
 
-        const actualizado = await apiFetch(`/tipos-participacion/${editando.id_tipo_participacion}`, {
-          method: 'PATCH',
-          body: JSON.stringify(cambios),
-        });
+        const actualizado = await apiFetch(
+          `/congresos/${id_congreso}/tipos-participacion/${editando.id_tipo_participacion}`,
+          { method: 'PATCH', body: JSON.stringify(cambios) },
+        );
         setTipos((prev) =>
           prev.map((t) =>
             t.id_tipo_participacion === editando.id_tipo_participacion ? { ...t, ...actualizado } : t,
           ),
         );
       } else {
-        const nuevo = await apiFetch('/tipos-participacion', {
+        const nuevo = await apiFetch(`/congresos/${id_congreso}/tipos-participacion`, {
           method: 'POST',
           body: JSON.stringify({ nombre: form.nombre, descripcion: form.descripcion || undefined }),
         });

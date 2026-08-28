@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { apiFetch } from '../api/client';
+import { useCongreso } from '../context/CongresoContext';
 import { formatCOP } from '../utils/formato';
 import { Card } from '../components/ui/Card';
 import { Select } from '../components/ui/Select';
@@ -13,6 +14,9 @@ import { Spinner } from '../components/ui/Spinner';
 
 export function CrearInscripcion() {
   const navigate = useNavigate();
+  const { id_congreso } = useParams();
+  const { misInscripcion, refrescarMisInscripcion } = useCongreso();
+  const yaInscrito = Boolean(misInscripcion);
   const [categorias, setCategorias] = useState([]);
   const [tiposAsistente, setTiposAsistente] = useState([]);
   const [idCategoria, setIdCategoria] = useState('');
@@ -22,25 +26,18 @@ export function CrearInscripcion() {
   const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [yaInscrito, setYaInscrito] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
-    apiFetch('/inscripciones')
-      .then((inscripciones) => {
-        if ((inscripciones ?? []).length > 0) {
-          setYaInscrito(true);
-          return null;
-        }
-        return apiFetch('/categorias');
-      })
-      .then((cats) => {
-        if (!cats) return;
-        setCategorias(cats ?? []);
-      })
+    if (yaInscrito) {
+      setLoadingData(false);
+      return;
+    }
+    apiFetch(`/congresos/${id_congreso}/categorias`)
+      .then((cats) => setCategorias(cats ?? []))
       .catch((err) => setLoadError(err.message))
       .finally(() => setLoadingData(false));
-  }, []);
+  }, [id_congreso, yaInscrito]);
 
   useEffect(() => {
     if (!idCategoria) {
@@ -52,11 +49,11 @@ export function CrearInscripcion() {
     setTiposAsistente([]);
     setLoadingTipos(true);
 
-    apiFetch(`/tipos-asistente?activo=true&id_categoria=${idCategoria}`)
+    apiFetch(`/congresos/${id_congreso}/tipos-asistente?activo=true&id_categoria=${idCategoria}`)
       .then((tipos) => setTiposAsistente(tipos ?? []))
       .catch((err) => setLoadError(err.message))
       .finally(() => setLoadingTipos(false));
-  }, [idCategoria]);
+  }, [id_congreso, idCategoria]);
 
   const categoriaSeleccionada = categorias.find(
     (c) => String(c.id_categoria) === idCategoria,
@@ -81,7 +78,8 @@ export function CrearInscripcion() {
           id_tipo_asistente: Number(idTipoAsistente),
         }),
       });
-      navigate(`/inscripciones/${inscripcion.id_inscripcion}`);
+      await refrescarMisInscripcion();
+      navigate(`/congresos/${id_congreso}/inscripciones/${inscripcion.id_inscripcion}`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -90,7 +88,7 @@ export function CrearInscripcion() {
   }
 
   if (loadingData) return <PageLoader />;
-  if (yaInscrito) return <Navigate to="/inscripciones" replace />;
+  if (yaInscrito) return <Navigate to={`/congresos/${id_congreso}/inscripciones`} replace />;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-12">

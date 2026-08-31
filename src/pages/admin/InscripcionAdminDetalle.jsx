@@ -306,12 +306,19 @@ export function InscripcionAdminDetalle() {
 
   // --- Estado de la inscripción ---
   const [estadoSeleccionado, setEstadoSeleccionado] = useState('');
+  const [notas, setNotas] = useState('');
+  const [notasOriginal, setNotasOriginal] = useState('');
   const [actualizandoEstado, setActualizandoEstado] = useState(false);
   const [estadoError, setEstadoError] = useState('');
 
   useEffect(() => {
     if (inscripcion) {
       setEstadoSeleccionado(inscripcion.estado_inscripcion);
+      // El backend documenta el campo como `nota` (singular) en el PATCH; se
+      // cubre también `notas` por si la respuesta de GET usa otro nombre.
+      const notaActual = inscripcion.nota ?? inscripcion.notas ?? '';
+      setNotas(notaActual);
+      setNotasOriginal(notaActual);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inscripcion]);
@@ -320,9 +327,15 @@ export function InscripcionAdminDetalle() {
     setEstadoError('');
     setActualizandoEstado(true);
     try {
+      const body = { estado_inscripcion: estadoSeleccionado };
+      if (notas !== notasOriginal) {
+        // El campo es nullable en el backend: null borra la nota explícitamente,
+        // distinto de omitirlo (que la dejaría intacta).
+        body.nota = notas.trim() || null;
+      }
       const actualizado = await apiFetch(`/inscripciones/${id}/estado`, {
         method: 'PATCH',
-        body: JSON.stringify({ estado_inscripcion: estadoSeleccionado }),
+        body: JSON.stringify(body),
       });
       setInscripcion(actualizado);
     } catch (err) {
@@ -501,12 +514,23 @@ export function InscripcionAdminDetalle() {
             type="button"
             variant="primary"
             loading={actualizandoEstado}
-            disabled={estadoSeleccionado === inscripcion.estado_inscripcion}
+            disabled={estadoSeleccionado === inscripcion.estado_inscripcion && notas === notasOriginal}
             onClick={handleActualizarEstado}
           >
             Actualizar estado
           </Button>
         </div>
+
+        <div className="mt-4">
+          <Textarea
+            label="Notas internas"
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            placeholder="Notas visibles solo para el equipo administrativo..."
+            rows={3}
+          />
+        </div>
+
         <p className="mt-2 text-xs text-text-muted">
           El estado de la inscripción es independiente del estado del comprobante de pago — debes
           actualizarlo manualmente.

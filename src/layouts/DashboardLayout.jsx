@@ -1,85 +1,40 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import {
   ArrowLeftRight,
-  BookOpen,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
-  FolderTree,
-  LayoutGrid,
   LogOut,
   Menu,
-  Mic,
   Moon,
-  Percent,
-  PlusCircle,
-  Presentation,
-  Receipt,
   Settings,
   Sun,
-  Tag,
   User,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useCongreso } from '../context/CongresoContext';
 import { BannerCedulaFaltante } from '../components/BannerCedulaFaltante';
+import { TopBar } from '../components/TopBar';
+import { Alert } from '../components/ui/Alert';
 import { Logo } from '../components/ui/Logo';
 import { capitalizar } from '../utils/formato';
 import { ROLES, ROL_LABELS } from '../utils/roles';
+import { navItems, adminGroups } from './dashboardNav';
 
-function navItems(idCongreso) {
-  return [
-    {
-      to: `/congresos/${idCongreso}/inscripciones`,
-      label: 'Mis inscripciones',
-      icon: ClipboardList,
-      roles: [ROLES.PONENTE, ROLES.ESTUDIANTE],
-    },
-    {
-      to: `/congresos/${idCongreso}/inscripciones/nueva`,
-      label: 'Nueva inscripción',
-      icon: PlusCircle,
-      roles: [ROLES.PONENTE, ROLES.ESTUDIANTE],
-    },
-    {
-      to: `/congresos/${idCongreso}/ponencias`,
-      label: 'Mis ponencias',
-      icon: Mic,
-      roles: [ROLES.PONENTE],
-    },
-  ];
+function SectionLabel({ collapsed, children }) {
+  if (collapsed) return null;
+  return (
+    <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wide text-text-muted first:pt-0">
+      {children}
+    </p>
+  );
 }
 
-function adminGroups(idCongreso) {
-  return [
-    {
-      label: 'Configuración',
-      icon: Settings,
-      items: [
-        { label: 'Áreas de estudio', path: `/congresos/${idCongreso}/admin/areas-estudio`, icon: BookOpen },
-        { label: 'Tipos de participación', path: `/congresos/${idCongreso}/admin/tipos-participacion`, icon: Presentation },
-        { label: 'Tipos de asistente', path: `/congresos/${idCongreso}/admin/tipos-asistente`, icon: Tag },
-        { label: 'Categorías', path: `/congresos/${idCongreso}/admin/categorias`, icon: FolderTree },
-        { label: 'Descuentos', path: `/congresos/${idCongreso}/admin/descuentos`, icon: Percent },
-      ],
-    },
-    {
-      label: 'Gestión',
-      icon: LayoutGrid,
-      items: [
-        { label: 'Inscripciones', path: `/congresos/${idCongreso}/admin/inscripciones`, icon: Receipt },
-        { label: 'Ponencias', path: `/congresos/${idCongreso}/admin/ponencias`, icon: Mic },
-      ],
-    },
-  ];
-}
-
-function NavItem({ to, icon: Icon, label, collapsed, onClick }) {
+function NavItem({ to, icon: Icon, label, collapsed, onClick, nested = false }) {
   return (
     <NavLink
       to={to}
@@ -90,7 +45,10 @@ function NavItem({ to, icon: Icon, label, collapsed, onClick }) {
           'flex items-center gap-3 rounded-lg border-l-2 px-3 py-2.5 text-sm transition-colors',
           isActive
             ? 'border-accent bg-accent/10 text-accent'
-            : 'border-transparent text-text-muted hover:text-text-primary',
+            : clsx(
+                'border-transparent hover:text-text-primary',
+                nested ? 'text-text-muted/70' : 'text-text-muted',
+              ),
           collapsed && 'justify-center px-0',
         )
       }
@@ -98,6 +56,23 @@ function NavItem({ to, icon: Icon, label, collapsed, onClick }) {
       <Icon className="size-5 shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
     </NavLink>
+  );
+}
+
+function NavButton({ icon: Icon, label, collapsed, onClick, ariaLabel }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={collapsed ? ariaLabel : undefined}
+      className={clsx(
+        'flex w-full items-center gap-3 rounded-lg border-l-2 border-transparent px-3 py-2.5 text-sm text-text-muted transition-colors hover:text-text-primary',
+        collapsed && 'justify-center px-0',
+      )}
+    >
+      <Icon className="size-5 shrink-0" />
+      {!collapsed && <span className="truncate">{label}</span>}
+    </button>
   );
 }
 
@@ -148,6 +123,7 @@ function AdminGroup({ group, onNavigate }) {
               icon={item.icon}
               label={item.label}
               collapsed={false}
+              nested
               onClick={onNavigate}
             />
           ))}
@@ -213,6 +189,7 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
   const { id_congreso } = useParams();
   const navigate = useNavigate();
   const rolLabel = user?.rol?.nombre ?? ROL_LABELS[user?.id_rol] ?? '';
+  const esAdmin = user?.id_rol === ROLES.ADMIN || puedeAdministrarCongreso;
 
   async function handleLogout() {
     await logout();
@@ -223,42 +200,35 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
     <div className="flex h-full flex-col">
       <div
         className={clsx(
-          'flex flex-col gap-2 border-b border-border px-4 py-6',
-          collapsed && 'items-center',
+          'flex items-center gap-3 border-b border-border px-4 py-6',
+          collapsed ? 'flex-col justify-center' : 'justify-between',
         )}
       >
-        <div
-          className={clsx(
-            'flex items-center',
-            collapsed ? 'flex-col gap-3' : 'justify-between',
-          )}
-        >
-          {collapsed ? (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent/10 text-sm font-bold text-accent">
-              A
+        <div className="flex min-w-0 items-center gap-3">
+          <Logo variant="altenua" className="h-8 w-8 shrink-0" />
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="truncate font-display text-sm text-text-primary">Altenua</p>
+              <p className="truncate text-[10px] uppercase tracking-wide text-text-muted">
+                {congreso?.nombre ?? 'Cargando...'}
+              </p>
             </div>
-          ) : (
-            <Logo variant="altenua" className="h-8 w-auto" />
-          )}
-          {onToggleCollapse && (
-            <button
-              type="button"
-              onClick={onToggleCollapse}
-              aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
-              className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-background hover:text-text-primary"
-            >
-              {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-            </button>
           )}
         </div>
-        {!collapsed && congreso?.nombre && (
-          <p className="truncate text-xs font-medium uppercase tracking-wide text-accent">
-            {congreso.nombre}
-          </p>
+        {onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-background hover:text-text-primary"
+          >
+            {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+          </button>
         )}
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        <SectionLabel collapsed={collapsed}>Workspace</SectionLabel>
         {navItems(id_congreso)
           .filter((item) => !item.roles || item.roles.includes(user?.id_rol))
           .map((item) => {
@@ -276,13 +246,16 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
             return <NavItem key={item.to} {...item} collapsed={collapsed} onClick={onNavigate} />;
           })}
 
-        {(user?.id_rol === ROLES.ADMIN || puedeAdministrarCongreso) && (
-          <AdminSection
-            collapsed={collapsed}
-            onNavigate={onNavigate}
-            onExpandSidebar={onExpandSidebar}
-            idCongreso={id_congreso}
-          />
+        {esAdmin && (
+          <>
+            <SectionLabel collapsed={collapsed}>Sistema</SectionLabel>
+            <AdminSection
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+              onExpandSidebar={onExpandSidebar}
+              idCongreso={id_congreso}
+            />
+          </>
         )}
       </nav>
 
@@ -295,55 +268,32 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
             <p className="truncate text-xs text-text-muted">{rolLabel}</p>
           </div>
         )}
-        <Link
-          to="/"
-          onClick={onNavigate}
-          className={clsx(
-            'flex items-center gap-2 rounded-lg text-sm text-text-muted transition-colors hover:text-text-primary',
-            collapsed ? 'justify-center p-2' : 'w-full px-3 py-2',
-          )}
-        >
-          <ArrowLeftRight className="size-4 shrink-0" />
-          {!collapsed && <span>Cambiar de congreso</span>}
-        </Link>
-        <Link
-          to="/perfil"
-          onClick={onNavigate}
-          className={clsx(
-            'flex items-center gap-2 rounded-lg text-sm text-text-muted transition-colors hover:text-text-primary',
-            collapsed ? 'justify-center p-2' : 'w-full px-3 py-2',
-          )}
-        >
-          <User className="size-4 shrink-0" />
-          {!collapsed && <span>Mi perfil</span>}
-        </Link>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-          className={clsx(
-            'flex items-center gap-2 rounded-lg text-sm text-text-muted transition-colors hover:text-text-primary',
-            collapsed ? 'justify-center p-2' : 'w-full px-3 py-2',
-          )}
-        >
-          {theme === 'dark' ? (
-            <Sun className="size-4 shrink-0" />
-          ) : (
-            <Moon className="size-4 shrink-0" />
-          )}
-          {!collapsed && <span>{theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}</span>}
-        </button>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className={clsx(
-            'flex items-center gap-2 rounded-lg text-sm text-text-muted transition-colors hover:text-text-primary',
-            collapsed ? 'justify-center p-2' : 'w-full px-3 py-2',
-          )}
-        >
-          <LogOut className="size-4 shrink-0" />
-          {!collapsed && <span>Cerrar sesión</span>}
-        </button>
+
+        <SectionLabel collapsed={collapsed}>Cuenta</SectionLabel>
+        <div className={clsx('space-y-1', collapsed && 'flex flex-col items-center gap-2 space-y-0')}>
+          <NavItem to="/perfil" icon={User} label="Mi perfil" collapsed={collapsed} onClick={onNavigate} />
+          <NavButton
+            icon={theme === 'dark' ? Sun : Moon}
+            label={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
+            ariaLabel={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+            collapsed={collapsed}
+            onClick={toggleTheme}
+          />
+          <NavItem
+            to="/"
+            icon={ArrowLeftRight}
+            label="Cambiar de congreso"
+            collapsed={collapsed}
+            onClick={onNavigate}
+          />
+          <NavButton
+            icon={LogOut}
+            label="Cerrar sesión"
+            ariaLabel="Cerrar sesión"
+            collapsed={collapsed}
+            onClick={handleLogout}
+          />
+        </div>
       </div>
     </div>
   );
@@ -351,7 +301,7 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
 
 export function DashboardLayout() {
   const location = useLocation();
-  const { misInscripcion } = useCongreso();
+  const { congreso, misInscripcion } = useCongreso();
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('sidebar-collapsed') === 'true',
   );
@@ -368,8 +318,8 @@ export function DashboardLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <aside
-        style={{ width: collapsed ? 72 : 240 }}
-        className="hidden shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 lg:sticky lg:top-0 lg:flex lg:h-screen"
+        style={{ width: collapsed ? 72 : 280 }}
+        className="hidden shrink-0 flex-col bg-surface transition-[width] duration-200 lg:sticky lg:top-0 lg:flex lg:h-screen"
       >
         <SidebarContent
           collapsed={collapsed}
@@ -379,17 +329,34 @@ export function DashboardLayout() {
         />
       </aside>
 
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface px-4 lg:hidden">
-        <Logo variant="altenua" className="h-7 w-auto" />
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Abrir menú"
-          className="flex size-8 items-center justify-center rounded-md text-text-primary transition-colors hover:bg-background"
-        >
-          <Menu className="size-5" />
-        </button>
-      </header>
+      <div className="flex flex-1 flex-col overflow-hidden bg-surface">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-4 lg:hidden">
+          <Logo variant="altenua" className="h-7 w-auto" />
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Abrir menú"
+            className="flex size-8 items-center justify-center rounded-md text-text-primary transition-colors hover:bg-background"
+          >
+            <Menu className="size-5" />
+          </button>
+        </header>
+
+        <div className="flex flex-1 flex-col overflow-hidden bg-surface lg:rounded-tl-xl">
+          <TopBar />
+          <main className="flex-1 overflow-y-auto lg:rounded-tl-xl bg-background">
+            <div className="px-6 py-0! lg:p-10">
+              {congreso?.activo === false && (
+                <Alert variant="warning" className="mt-4 lg:mt-6">
+                  Este congreso no está activo actualmente.
+                </Alert>
+              )}
+              <BannerCedulaFaltante />
+              <Outlet />
+            </div>
+          </main>
+        </div>
+      </div>
 
       <AnimatePresence>
         {mobileOpen && (
@@ -405,7 +372,7 @@ export function DashboardLayout() {
         {mobileOpen && (
           <motion.aside
             key="mobile-drawer"
-            className="fixed inset-y-0 left-0 z-50 flex w-60 flex-col bg-surface lg:hidden"
+            className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-surface lg:hidden"
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
@@ -419,13 +386,6 @@ export function DashboardLayout() {
           </motion.aside>
         )}
       </AnimatePresence>
-
-      <main className="flex-1 overflow-y-auto bg-background px-6  py-0! lg:p-10">
-        <div className="mt-6 lg:mt-0">
-          <BannerCedulaFaltante />
-        </div>
-        <Outlet />
-      </main>
     </div>
   );
 }

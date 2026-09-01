@@ -14,6 +14,7 @@ import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
 import { capitalizar, capitalizarPais, capitalizarNombrePropio, formatFecha } from '../utils/formato';
 import { ROL_LABELS } from '../utils/roles';
+import { avatarUrlDesdeSeed, obtenerSeedAvatar } from '../utils/avatar';
 
 const ROL_BADGE = { 1: 'admin', 2: 'ponente', 3: 'estudiante' };
 
@@ -55,15 +56,6 @@ function validarContrasena(value) {
   return '';
 }
 
-function avatarUrl(seed) {
-  return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
-}
-
-function getStoredSeed(user) {
-  if (!user) return null;
-  return localStorage.getItem(`avatar-seed-${user.id_usuario}`) || user.correo;
-}
-
 function generarSeeds() {
   return Array.from({ length: 8 }, () => Math.random().toString(36).slice(2, 10));
 }
@@ -81,7 +73,7 @@ function userToForm(user) {
 export function Perfil() {
   const { user, logout, actualizarUsuario } = useAuth();
   const navigate = useNavigate();
-  const [avatarSeed, setAvatarSeed] = useState(() => getStoredSeed(user));
+  const [avatarSeed, setAvatarSeed] = useState(() => obtenerSeedAvatar(user));
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSeeds, setModalSeeds] = useState([]);
   const [modalSelected, setModalSelected] = useState(null);
@@ -106,7 +98,7 @@ export function Perfil() {
   const tieneEspecial = /[^a-zA-Z0-9]/.test(contrasenaNueva);
 
   useEffect(() => {
-    setAvatarSeed(getStoredSeed(user));
+    setAvatarSeed(obtenerSeedAvatar(user));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id_usuario]);
 
@@ -240,7 +232,7 @@ export function Perfil() {
       <Card>
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
           <img
-            src={avatarUrl(avatarSeed)}
+            src={avatarUrlDesdeSeed(avatarSeed)}
             alt="Avatar"
             loading="lazy"
             className="size-24 shrink-0 rounded-full border border-border bg-background"
@@ -401,7 +393,7 @@ export function Perfil() {
                   modalSelected === seed ? 'border-accent' : 'border-border hover:border-accent',
                 )}
               >
-                <img src={avatarUrl(seed)} alt="" loading="lazy" className="aspect-square w-full" />
+                <img src={avatarUrlDesdeSeed(seed)} alt="" loading="lazy" className="aspect-square w-full" />
               </button>
             ))}
           </div>

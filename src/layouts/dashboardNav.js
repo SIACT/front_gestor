@@ -4,6 +4,7 @@ import {
   FolderTree,
   LayoutDashboard,
   LayoutGrid,
+  MessageSquare,
   Mic,
   Percent,
   PlusCircle,
@@ -13,12 +14,12 @@ import {
   Tag,
 } from 'lucide-react';
 import { ROLES } from '../utils/roles';
-
+//This file defines the navigation items for the dashboard and admin groups based on the given congress ID. It exports two functions: `navItems` and `adminGroups`, which return arrays of navigation items and admin group configurations, respectively. Each item includes properties such as the path, label, icon, and roles that can access it.
 export function navItems(idCongreso) {
   return [
     {
       to: `/congresos/${idCongreso}`,
-      label: 'Resumen',
+      label: 'Congreso',
       icon: LayoutDashboard,
     },
     {
@@ -53,6 +54,11 @@ export function adminGroups(idCongreso) {
         { label: 'Tipos de asistente', path: `/congresos/${idCongreso}/admin/tipos-asistente`, icon: Tag },
         { label: 'Categorías', path: `/congresos/${idCongreso}/admin/categorias`, icon: FolderTree },
         { label: 'Descuentos', path: `/congresos/${idCongreso}/admin/descuentos`, icon: Percent },
+        {
+          label: 'Mensajes predeterminados',
+          path: `/congresos/${idCongreso}/admin/mensajes-predeterminados`,
+          icon: MessageSquare,
+        },
       ],
     },
     {

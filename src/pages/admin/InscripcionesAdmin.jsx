@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
+import { Spinner } from '../../components/ui/Spinner';
 
 const ESTADOS_INSCRIPCION = ['pendiente', 'confirmada', 'rechazada', 'cancelada'];
 
@@ -20,24 +21,29 @@ export function InscripcionesAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Server-side: GET /inscripciones soporta id_usuario y activo.
+  // Server-side: GET /inscripciones soporta id_congreso, activo y busqueda (nombre/apellido/correo).
   const [busqueda, setBusqueda] = useState('');
-  const [filtroActivo, setFiltroActivo] = useState('');
   const [activoFiltro, setActivoFiltro] = useState('');
 
   // In-memory: el backend NO soporta estado_inscripcion ni id_tipo_asistente en GET /inscripciones,
-  // así que se filtran sobre los datos ya traídos (que sí respetan id_usuario/activo server-side).
+  // así que se filtran sobre los datos ya traídos (que sí respetan activo/busqueda server-side).
   const [estadoFiltro, setEstadoFiltro] = useState('');
   const [tipoAsistenteFiltro, setTipoAsistenteFiltro] = useState('');
   const [tiposAsistente, setTiposAsistente] = useState([]);
 
-  function cargar(idUsuario, activo) {
+  // Solo se manda al backend con 2+ caracteres; con menos, se ignora en vez de filtrar.
+  function textoBusquedaValido() {
+    const texto = busqueda.trim();
+    return texto.length >= 2 ? texto : '';
+  }
+
+  function cargar(activo, busquedaTexto) {
     setLoading(true);
     setError('');
     const params = new URLSearchParams();
     params.set('id_congreso', id_congreso);
-    if (idUsuario) params.set('id_usuario', idUsuario);
     if (activo) params.set('activo', activo);
+    if (busquedaTexto) params.set('busqueda', busquedaTexto);
     return apiFetch(`/inscripciones?${params.toString()}`)
       .then((data) => setInscripciones(data ?? []))
       .catch((err) => setError(err.message))
@@ -52,6 +58,24 @@ export function InscripcionesAdmin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id_congreso]);
 
+  // Debounce del texto libre: igual patrón que useBuscarParticipantes en PonenciasAdmin.jsx.
+  // < 2 caracteres no dispara petición (ni siquiera al llegar a 1 desde 2+); al vaciarse sí
+  // recarga, para volver a mostrar todo sujeto a los demás filtros activos.
+  const esPrimerRender = useRef(true);
+  useEffect(() => {
+    if (esPrimerRender.current) {
+      esPrimerRender.current = false;
+      return;
+    }
+    const texto = busqueda.trim();
+    if (texto.length === 1) return;
+    const timeoutId = setTimeout(() => {
+      cargar(activoFiltro, texto);
+    }, 350);
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda]);
+
   const inscripcionesFiltradas = useMemo(() => {
     return inscripciones.filter((i) => {
       if (estadoFiltro && i.estado_inscripcion !== estadoFiltro) return false;
@@ -60,26 +84,18 @@ export function InscripcionesAdmin() {
     });
   }, [inscripciones, estadoFiltro, tipoAsistenteFiltro]);
 
-  function handleBuscar(e) {
-    e.preventDefault();
-    const valor = busqueda.trim();
-    setFiltroActivo(valor);
-    cargar(valor, activoFiltro);
-  }
-
   function handleActivoChange(e) {
     const valor = e.target.value;
     setActivoFiltro(valor);
-    cargar(filtroActivo, valor);
+    cargar(valor, textoBusquedaValido());
   }
 
   const hayFiltrosActivos = Boolean(
-    filtroActivo || activoFiltro || estadoFiltro || tipoAsistenteFiltro,
+    busqueda.trim() || activoFiltro || estadoFiltro || tipoAsistenteFiltro,
   );
 
   function handleLimpiarFiltros() {
     setBusqueda('');
-    setFiltroActivo('');
     setActivoFiltro('');
     setEstadoFiltro('');
     setTipoAsistenteFiltro('');
@@ -94,19 +110,19 @@ export function InscripcionesAdmin() {
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        <form className="flex flex-wrap items-end gap-2" onSubmit={handleBuscar}>
+        <div className="relative w-full sm:w-64">
           <Input
-            label="Buscar por id de usuario"
             icon={<Search className="size-4" />}
+            placeholder="Buscar por nombre, apellido o correo..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            inputMode="numeric"
-            className="max-w-xs"
           />
-          <Button type="submit" variant="secondary">
-            Buscar
-          </Button>
-        </form>
+          {loading && (
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">
+              <Spinner className="size-4" />
+            </span>
+          )}
+        </div>
 
         <Select label="Activa" value={activoFiltro} onChange={handleActivoChange} className="w-40">
           <option value="">Todas</option>
@@ -162,7 +178,9 @@ export function InscripcionesAdmin() {
       ) : inscripcionesFiltradas.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface px-6 py-12 text-center">
           <p className="text-sm text-text-muted">
-            Ninguna inscripción coincide con los filtros aplicados.
+            {busqueda.trim().length >= 2
+              ? 'Sin resultados para esa búsqueda.'
+              : 'Ninguna inscripción coincide con los filtros aplicados.'}
           </p>
           {hayFiltrosActivos && (
             <Button type="button" variant="ghost" onClick={handleLimpiarFiltros}>
@@ -188,7 +206,7 @@ export function InscripcionesAdmin() {
                 onClick={() => navigate(`/congresos/${id_congreso}/admin/inscripciones/${i.id_inscripcion}`)}
                 className="cursor-pointer"
               >
-                <Table.Cell>#{i.id_inscripcion}</Table.Cell>
+                <Table.Cell>{i.id_inscripcion}</Table.Cell>
                 <Table.Cell className="text-text-muted">
                   {i.usuario
                     ? `${capitalizar(i.usuario.nombre)} ${capitalizar(i.usuario.apellido)}`

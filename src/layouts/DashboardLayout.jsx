@@ -13,6 +13,7 @@ import {
   Settings,
   Sun,
   User,
+  UserCog,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -190,10 +191,20 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
   const navigate = useNavigate();
   const rolLabel = user?.rol?.nombre ?? ROL_LABELS[user?.id_rol] ?? '';
   const esAdmin = user?.id_rol === ROLES.ADMIN || puedeAdministrarCongreso;
+  const [cuentaAbierta, setCuentaAbierta] = useState(false);
 
   async function handleLogout() {
     await logout();
     navigate('/login');
+  }
+
+  function handleToggleCuenta() {
+    if (collapsed) {
+      onExpandSidebar?.();
+      setCuentaAbierta(true);
+      return;
+    }
+    setCuentaAbierta((value) => !value);
   }
 
   return (
@@ -269,31 +280,53 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
           </div>
         )}
 
-        <SectionLabel collapsed={collapsed}>Cuenta</SectionLabel>
-        <div className={clsx('space-y-1', collapsed && 'flex flex-col items-center gap-2 space-y-0')}>
-          <NavItem to="/perfil" icon={User} label="Mi perfil" collapsed={collapsed} onClick={onNavigate} />
-          <NavButton
-            icon={theme === 'dark' ? Sun : Moon}
-            label={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
-            ariaLabel={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-            collapsed={collapsed}
-            onClick={toggleTheme}
-          />
-          <NavItem
-            to="/"
-            icon={ArrowLeftRight}
-            label="Cambiar de congreso"
-            collapsed={collapsed}
-            onClick={onNavigate}
-          />
-          <NavButton
-            icon={LogOut}
-            label="Cerrar sesión"
-            ariaLabel="Cerrar sesión"
-            collapsed={collapsed}
-            onClick={handleLogout}
-          />
-        </div>
+        <button
+          type="button"
+          onClick={handleToggleCuenta}
+          className={clsx(
+            'flex w-full items-center gap-3 rounded-lg border-l-2 border-transparent px-3 py-2.5 text-sm text-text-muted transition-colors hover:text-text-primary',
+            collapsed && 'justify-center px-0',
+          )}
+        >
+          <UserCog className="size-5 shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="flex-1 truncate text-left">Cuenta</span>
+              {cuentaAbierta ? (
+                <ChevronDown className="size-4 shrink-0" />
+              ) : (
+                <ChevronRight className="size-4 shrink-0" />
+              )}
+            </>
+          )}
+        </button>
+
+        {!collapsed && cuentaAbierta && (
+          <div className="ml-4 mt-1 space-y-1 border-l border-border pl-2">
+            <NavItem to="/perfil" icon={User} label="Mi perfil" collapsed={false} onClick={onNavigate} />
+            <NavButton
+              icon={theme === 'dark' ? Sun : Moon}
+              label={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
+              ariaLabel={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+              collapsed={false}
+              onClick={toggleTheme}
+            />
+            <NavItem
+              to="/"
+              icon={ArrowLeftRight}
+              label="Cambiar de congreso"
+              collapsed={false}
+              onClick={onNavigate}
+            />
+            <NavButton
+              icon={LogOut}
+              label="Cerrar sesión"
+              ariaLabel="Cerrar sesión"
+              collapsed={false}
+              onClick={handleLogout}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -466,7 +466,7 @@ export function PonenciasAdmin() {
             </Table>
 
             {totalPaginas > 1 && (
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pb-6">
                 <p className="text-sm text-text-muted">
                   Mostrando {(paginaActual - 1) * PONENCIAS_POR_PAGINA + 1}–
                   {Math.min(paginaActual * PONENCIAS_POR_PAGINA, talksFiltradas.length)} de{' '}

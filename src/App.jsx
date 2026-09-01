@@ -31,6 +31,7 @@ import { PonenciaAdminDetalle } from './pages/admin/PonenciaAdminDetalle';
 import { AreasEstudio } from './pages/admin/AreasEstudio';
 import { Instituciones } from './pages/admin/Instituciones';
 import { TiposParticipacion } from './pages/admin/TiposParticipacion';
+import { MensajesPredeterminados } from './pages/admin/MensajesPredeterminados';
 
 function App() {
   return (
@@ -74,6 +75,7 @@ function App() {
                   <Route path="admin/descuentos" element={<Descuentos />} />
                   <Route path="admin/areas-estudio" element={<AreasEstudio />} />
                   <Route path="admin/tipos-participacion" element={<TiposParticipacion />} />
+                  <Route path="admin/mensajes-predeterminados" element={<MensajesPredeterminados />} />
                   <Route path="admin/inscripciones" element={<InscripcionesAdmin />} />
                   <Route path="admin/inscripciones/:id" element={<InscripcionAdminDetalle />} />
                   <Route path="admin/ponencias" element={<PonenciasAdmin />} />

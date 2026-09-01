@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiFetch } from '../../api/client';
+import { useCongreso } from '../../context/CongresoContext';
 import { PonenciaDetalle } from '../../components/PonenciaDetalle';
+import { SugerenciasMensaje } from '../../components/SugerenciasMensaje';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
 import { Button } from '../../components/ui/Button';
@@ -9,6 +11,7 @@ import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 
 function RevisionTalk({ talk, onRefresh }) {
+  const { congreso } = useCongreso();
   const [estadoTalk, setEstadoTalk] = useState(talk.estado_talk);
   const [observaciones, setObservaciones] = useState(talk.observaciones ?? '');
   const [guardando, setGuardando] = useState(false);
@@ -47,6 +50,7 @@ function RevisionTalk({ talk, onRefresh }) {
           <option value="rechazada">Rechazada</option>
         </Select>
 
+        <SugerenciasMensaje idCongreso={congreso?.id_congreso} contexto="talk" onSelect={setObservaciones} />
         <Textarea
           label="Observaciones (opcional)"
           value={observaciones}

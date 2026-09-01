@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Eye } from 'lucide-react';
 import { apiFetch } from '../../api/client';
+import { useCongreso } from '../../context/CongresoContext';
 import { ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP, formatFecha } from '../../utils/formato';
+import { SugerenciasMensaje } from '../../components/SugerenciasMensaje';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -23,6 +25,7 @@ const ESTADOS = [
 const ESTADOS_INSCRIPCION = ['pendiente', 'confirmada', 'rechazada', 'cancelada'];
 
 function ArchivoItem({ archivo, onRefrescar }) {
+  const { congreso } = useCongreso();
   const [estado, setEstado] = useState(archivo.estado);
   const [comentarios, setComentarios] = useState(archivo.comentarios ?? '');
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +99,12 @@ function ArchivoItem({ archivo, onRefrescar }) {
         Ver archivo
       </Button>
 
+      <SugerenciasMensaje
+        idCongreso={congreso?.id_congreso}
+        contexto="archivo"
+        onSelect={setComentarios}
+      />
+
       <form className="flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={handleSubmit}>
         {!confirmarRechazo && error && (
           <Alert variant="error" className="sm:w-full">
@@ -148,6 +157,7 @@ function ArchivoItem({ archivo, onRefrescar }) {
 
 export function InscripcionAdminDetalle() {
   const { id, id_congreso } = useParams();
+  const { congreso } = useCongreso();
   const [inscripcion, setInscripcion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -521,7 +531,8 @@ export function InscripcionAdminDetalle() {
           </Button>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 flex flex-col gap-1.5">
+          <SugerenciasMensaje idCongreso={congreso?.id_congreso} contexto="inscripcion" onSelect={setNotas} />
           <Textarea
             label="Notas internas"
             value={notas}
@@ -707,6 +718,13 @@ export function InscripcionAdminDetalle() {
                   </option>
                 ))}
               </Select>
+              <SugerenciasMensaje
+                idCongreso={congreso?.id_congreso}
+                contexto="comprobante"
+                onSelect={(texto) =>
+                  setRevisionForm((prev) => ({ ...prev, comentarios_revision: texto }))
+                }
+              />
               <Textarea
                 label="Comentarios de revisión (opcional)"
                 rows={3}

@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ClipboardList, MapPin, Mic, Pencil, UserCog } from 'lucide-react';
 import { apiFetch } from '../api/client';
-import { useAuth } from '../context/AuthContext';
-import { ROLES } from '../utils/roles';
 import { useCongreso } from '../context/CongresoContext';
 import { capitalizar, formatFecha } from '../utils/formato';
 import { Card } from '../components/ui/Card';
@@ -394,8 +392,7 @@ function SeccionAdministradores() {
 export function CongresoOverview() {
   const { id_congreso } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { congreso, puedeAdministrarCongreso, esAdminGlobal } = useCongreso();
+  const { congreso, puedeAdministrarCongreso, esAdminGlobal, esExpositorEnEsteCongreso } = useCongreso();
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 py-6">
@@ -438,7 +435,7 @@ export function CongresoOverview() {
           <p className="mt-1 text-sm text-text-muted">Consulta o crea tu inscripción a este congreso.</p>
         </Card>
 
-        {user?.id_rol === ROLES.PONENTE && (
+        {esExpositorEnEsteCongreso && (
           <Card
             className="cursor-pointer transition-colors hover:border-accent"
             onClick={() => navigate(`/congresos/${id_congreso}/ponencias`)}

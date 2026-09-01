@@ -17,13 +17,18 @@ import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 
 // Roles auto-asignables desde este panel: Admin de Congreso (4) se otorga por
-// /congresos/:id/admins, no desde el selector genérico de cambio de rol.
-const ROLES_ASIGNABLES = [ROLES.ADMIN, ROLES.PONENTE, ROLES.ESTUDIANTE].map((id_rol) => ({
+// /congresos/:id/admins, no desde el selector genérico de cambio de rol — hacerlo
+// aquí dejaría una cuenta con el rol pero sin ningún congreso asignado todavía.
+// Expositor/Asistente ya no son rol de cuenta — ahora son id_rol_participacion,
+// por inscripción (ver src/utils/roles.js).
+const ROLES_ASIGNABLES = [ROLES.ADMIN, ROLES.PARTICIPANTE].map((id_rol) => ({
   id_rol,
   nombre: ROL_LABELS[id_rol],
 }));
 
-const ROL_BADGE = { 1: 'admin', 2: 'ponente', 3: 'estudiante' };
+// Solo Admin tiene variante de color propia; Admin Congreso y Participante caen al
+// 'default' del fallback (`?? 'default'` donde se usa este mapa).
+const ROL_BADGE = { 1: 'admin' };
 
 const FORM_INICIAL = {
   nombre: '',
@@ -33,7 +38,7 @@ const FORM_INICIAL = {
   cedula: '',
   institucion: '',
   pais: '',
-  id_rol: String(ROLES.ESTUDIANTE),
+  id_rol: String(ROLES.PARTICIPANTE),
 };
 
 export function Usuarios() {

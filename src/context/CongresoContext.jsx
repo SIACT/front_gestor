@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { useParams } from 'react-router-dom';
 import { apiFetch } from '../api/client';
 import { useAuth } from './AuthContext';
-import { ROLES } from '../utils/roles';
+import { ROLES, ROL_PARTICIPACION } from '../utils/roles';
 
 const CongresoContext = createContext(null);
 
@@ -75,9 +75,14 @@ export function CongresoProvider({ children }) {
       .finally(() => setLoading(false));
   }, [cargarCongreso, cargarPermisoAdmin, cargarMisInscripcion]);
 
+  // Se elige al inscribirse a ESTE congreso específico (Inscripcion.id_rol_participacion),
+  // puede ser distinto en cada congreso — no confundir con el rol de la cuenta (user.id_rol).
+  const esExpositorEnEsteCongreso = misInscripcion?.id_rol_participacion === ROL_PARTICIPACION.EXPOSITOR;
+
   const value = {
     congreso,
     misInscripcion,
+    esExpositorEnEsteCongreso,
     puedeAdministrarCongreso,
     esAdminGlobal,
     adminsDelCongreso,

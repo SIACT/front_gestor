@@ -16,7 +16,7 @@ import { capitalizar, capitalizarPais, capitalizarNombrePropio, formatFecha } fr
 import { ROL_LABELS } from '../utils/roles';
 import { avatarUrlDesdeSeed, obtenerSeedAvatar } from '../utils/avatar';
 
-const ROL_BADGE = { 1: 'admin', 2: 'ponente', 3: 'estudiante' };
+const ROL_BADGE = { 1: 'admin' };
 
 function CheckIcon(props) {
   return (

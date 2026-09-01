@@ -26,19 +26,21 @@ export function navItems(idCongreso) {
       to: `/congresos/${idCongreso}/inscripciones`,
       label: 'Mis inscripciones',
       icon: ClipboardList,
-      roles: [ROLES.PONENTE, ROLES.ESTUDIANTE],
+      roles: [ROLES.PARTICIPANTE],
     },
     {
       to: `/congresos/${idCongreso}/inscripciones/nueva`,
       label: 'Nueva inscripción',
       icon: PlusCircle,
-      roles: [ROLES.PONENTE, ROLES.ESTUDIANTE],
+      roles: [ROLES.PARTICIPANTE],
     },
     {
+      // Sin `roles`: a diferencia de los otros items, este no se filtra por rol de
+      // cuenta — se filtra en DashboardLayout por esExpositorEnEsteCongreso (rol de
+      // participación de la inscripción en ESTE congreso, no de la cuenta).
       to: `/congresos/${idCongreso}/ponencias`,
       label: 'Mis ponencias',
       icon: Mic,
-      roles: [ROLES.PONENTE],
     },
   ];
 }

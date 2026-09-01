@@ -30,7 +30,7 @@ const FORM_INICIAL = {
 
 const COPONENTE_ERROR_MESSAGES = {
   USUARIO_NOT_FOUND: 'No existe ningún usuario registrado con ese correo.',
-  USUARIO_NO_ES_PONENTE: 'El usuario debe tener rol Expositor para ser agregado en coautoría.',
+  COPONENTE_DEBE_SER_EXPOSITOR: 'El usuario debe tener rol Expositor en su inscripción a este congreso para ser agregado en coautoría.',
   USUARIO_SIN_INSCRIPCION_ACTIVA: 'El usuario no tiene ninguna inscripción activa.',
   YA_ES_PONENTE_PRINCIPAL: 'Este usuario ya tiene la autoría de la charla.',
   YA_ES_COPONENTE: 'Este usuario ya es coautor de la charla.',

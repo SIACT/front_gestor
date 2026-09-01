@@ -186,7 +186,7 @@ function AdminSection({ collapsed, onNavigate, onExpandSidebar, idCongreso }) {
 function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSidebar, tieneInscripcion }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { congreso, puedeAdministrarCongreso } = useCongreso();
+  const { congreso, puedeAdministrarCongreso, esExpositorEnEsteCongreso } = useCongreso();
   const { id_congreso } = useParams();
   const navigate = useNavigate();
   const rolLabel = user?.rol?.nombre ?? ROL_LABELS[user?.id_rol] ?? '';
@@ -242,6 +242,7 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
         <SectionLabel collapsed={collapsed}>Workspace</SectionLabel>
         {navItems(id_congreso)
           .filter((item) => !item.roles || item.roles.includes(user?.id_rol))
+          .filter((item) => item.label !== 'Mis ponencias' || esExpositorEnEsteCongreso)
           .map((item) => {
             if (item.label === 'Nueva inscripción' && tieneInscripcion) {
               return (

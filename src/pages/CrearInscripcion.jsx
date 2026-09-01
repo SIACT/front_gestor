@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
+import { ROL_PARTICIPACION } from '../utils/roles';
 import { formatCOP } from '../utils/formato';
 import { Card } from '../components/ui/Card';
 import { Select } from '../components/ui/Select';
@@ -11,6 +12,11 @@ import { Alert } from '../components/ui/Alert';
 import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
 import { Spinner } from '../components/ui/Spinner';
+
+const ROL_PARTICIPACION_LABELS = {
+  [ROL_PARTICIPACION.EXPOSITOR]: 'Expositor',
+  [ROL_PARTICIPACION.ASISTENTE]: 'Asistente',
+};
 
 export function CrearInscripcion() {
   const navigate = useNavigate();
@@ -21,6 +27,7 @@ export function CrearInscripcion() {
   const [tiposAsistente, setTiposAsistente] = useState([]);
   const [idCategoria, setIdCategoria] = useState('');
   const [idTipoAsistente, setIdTipoAsistente] = useState('');
+  const [idRolParticipacion, setIdRolParticipacion] = useState('');
   const [loadingData, setLoadingData] = useState(true);
   const [loadingTipos, setLoadingTipos] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -76,6 +83,7 @@ export function CrearInscripcion() {
         method: 'POST',
         body: JSON.stringify({
           id_tipo_asistente: Number(idTipoAsistente),
+          id_rol_participacion: Number(idRolParticipacion),
         }),
       });
       await refrescarMisInscripcion();
@@ -147,10 +155,24 @@ export function CrearInscripcion() {
               </Select>
             </div>
 
+            <Select
+              id="crear-rol-participacion"
+              label="¿Cómo participas en este congreso?"
+              value={idRolParticipacion}
+              onChange={(e) => setIdRolParticipacion(e.target.value)}
+              required
+            >
+              <option value="" disabled>
+                Elige una opción
+              </option>
+              <option value={ROL_PARTICIPACION.EXPOSITOR}>Expositor</option>
+              <option value={ROL_PARTICIPACION.ASISTENTE}>Asistente</option>
+            </Select>
+
             <Button
               type="submit"
               variant="primary"
-              disabled={!idCategoria || !idTipoAsistente}
+              disabled={!idCategoria || !idTipoAsistente || !idRolParticipacion}
             >
               Crear inscripción
             </Button>
@@ -209,6 +231,14 @@ export function CrearInscripcion() {
                 Tipo de asistente
               </dt>
               <dd className="mt-1 text-sm text-text-primary">{tipoSeleccionado?.tipo}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                Cómo participas
+              </dt>
+              <dd className="mt-1 text-sm text-text-primary">
+                {ROL_PARTICIPACION_LABELS[Number(idRolParticipacion)]}
+              </dd>
             </div>
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">

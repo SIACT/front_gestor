@@ -36,13 +36,14 @@ const CATALOGO_ERROR_MESSAGES = {
   AREA_INACTIVE: 'El área de estudio seleccionada está inactiva.',
   TIPO_PARTICIPACION_NOT_FOUND: 'El tipo de participación seleccionado no existe.',
   TIPO_PARTICIPACION_INACTIVE: 'El tipo de participación seleccionado está inactivo.',
+  ONLY_EXPOSITOR_CAN_SUBMIT_TALKS: 'Solo quienes se inscribieron como Expositor pueden proponer ponencias.',
 };
 
 export function MisPonencias() {
   const navigate = useNavigate();
   const { id_congreso } = useParams();
   const { user } = useAuth();
-  const { misInscripcion } = useCongreso();
+  const { misInscripcion, esExpositorEnEsteCongreso } = useCongreso();
   const idInscripcion = misInscripcion?.id_inscripcion ?? null;
   const sinInscripcion = !misInscripcion;
 
@@ -125,7 +126,7 @@ export function MisPonencias() {
 
   if (loading) return <PageLoader />;
 
-  const puedeProponer = user?.id_rol === ROLES.PONENTE || user?.id_rol === ROLES.ADMIN;
+  const puedeProponer = esExpositorEnEsteCongreso || user?.id_rol === ROLES.ADMIN;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-20">

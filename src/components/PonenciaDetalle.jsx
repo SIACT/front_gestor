@@ -7,6 +7,7 @@ import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Textarea } from './ui/Textarea';
+import { TextoConFormulas } from './ui/TextoConFormulas';
 import { Select } from './ui/Select';
 import { Modal } from './ui/Modal';
 import { Alert } from './ui/Alert';
@@ -242,8 +243,14 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Descripción</dt>
-              <dd className="mt-1 whitespace-pre-wrap text-sm text-text-primary">
-                {talk.descripcion || '—'}
+              <dd className="mt-1">
+                {talk.descripcion ? (
+                  <div className="text-justify text-sm leading-relaxed text-text-primary [text-wrap:pretty]">
+                    <TextoConFormulas texto={talk.descripcion} />
+                  </div>
+                ) : (
+                  <span className="text-sm text-text-primary">—</span>
+                )}
               </dd>
             </div>
             <div>

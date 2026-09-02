@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import clsx from 'clsx';
 import { Calendar, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../utils/roles';
 import { apiFetch } from '../api/client';
 import { formatFecha } from '../utils/formato';
+import { ESTADO_CONGRESO_LABELS, ESTADO_CONGRESO_VARIANT } from '../utils/estadosCongreso';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Select } from '../components/ui/Select';
@@ -15,6 +17,9 @@ import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { Button } from '../components/ui/Button';
 import { DatePicker } from '../components/ui/DatePicker';
+
+// Mismo límite que en el modal de edición (CongresoOverview.jsx) — mantener sincronizado.
+const DESCRIPCION_MAX_LENGTH = 280;
 
 const FORM_INICIAL = {
   nombre: '',
@@ -161,25 +166,27 @@ export function Home() {
 
                   <div className="flex flex-col gap-2 p-6">
                     <div className="flex items-start justify-between gap-3">
-                      <h2 className="font-sans text-lg font-semibold text-text-primary">
+                      <h2 className="line-clamp-2 h-14 font-sans text-lg font-semibold text-text-primary">
                         {congreso.nombre}
                       </h2>
-                      <Badge variant={congreso.activo ? 'revisado' : 'default'}>
+                      <Badge variant={congreso.activo ? 'revisado' : 'default'} className="shrink-0">
                         {congreso.activo ? 'Activo' : 'Inactivo'}
                       </Badge>
                     </div>
 
-                    {congreso.descripcion && (
-                      <p className="line-clamp-2 text-sm text-text-muted">{congreso.descripcion}</p>
-                    )}
+                    {/* Altura fija (2 líneas a text-sm) + line-clamp-2: reservada siempre,
+                        con o sin descripción, para que todas las cards midan lo mismo. */}
+                    <p className="line-clamp-2 h-10 text-sm text-text-muted">{congreso.descripcion}</p>
 
-                    <p className="text-xs uppercase tracking-wide text-text-muted">{congreso.estado}</p>
+                    <Badge variant={ESTADO_CONGRESO_VARIANT[congreso.estado] ?? 'default'} className="self-start">
+                      {ESTADO_CONGRESO_LABELS[congreso.estado] ?? congreso.estado}
+                    </Badge>
 
-                    <p className="text-sm text-text-primary">
+                    <p className="line-clamp-1 text-sm text-text-primary">
                       {formatFecha(congreso.fecha_inicio)} — {formatFecha(congreso.fecha_fin)}
                     </p>
 
-                    {congreso.lugar && <p className="text-sm text-text-muted">{congreso.lugar}</p>}
+                    <p className="line-clamp-1 text-sm text-text-muted">{congreso.lugar || '—'}</p>
                   </div>
                 </Card>
               </Link>
@@ -210,12 +217,25 @@ export function Home() {
 
           <Input name="lugar" label="Lugar" value={form.lugar} onChange={handleChange} required />
 
-          <Textarea
-            name="descripcion"
-            label="Descripción (opcional)"
-            value={form.descripcion}
-            onChange={handleChange}
-          />
+          <div className="flex flex-col gap-1">
+            <Textarea
+              name="descripcion"
+              label="Descripción (opcional)"
+              value={form.descripcion}
+              onChange={handleChange}
+              maxLength={DESCRIPCION_MAX_LENGTH}
+            />
+            <p
+              className={clsx(
+                'text-right text-xs',
+                form.descripcion.length >= DESCRIPCION_MAX_LENGTH - 20
+                  ? 'text-warning-text'
+                  : 'text-text-muted',
+              )}
+            >
+              {form.descripcion.length}/{DESCRIPCION_MAX_LENGTH}
+            </p>
+          </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input name="area" label="Área (opcional)" value={form.area} onChange={handleChange} />

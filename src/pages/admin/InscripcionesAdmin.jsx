@@ -11,8 +11,59 @@ import { Select } from '../../components/ui/Select';
 import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 import { Spinner } from '../../components/ui/Spinner';
+import { EstadisticasPanel } from '../../components/EstadisticasPanel';
 
 const ESTADOS_INSCRIPCION = ['pendiente', 'confirmada', 'rechazada', 'cancelada'];
+
+function SeccionEstadisticas({ idCongreso }) {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    apiFetch(`/congresos/${idCongreso}/estadisticas/inscripciones`)
+      .then((data) => setStats(data ?? null))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [idCongreso]);
+
+  function totalPorEstado(estado) {
+    return stats?.por_estado?.find((e) => e.estado_inscripcion === estado)?.total ?? 0;
+  }
+
+  return (
+    <EstadisticasPanel
+      titulo="Estadísticas de inscripciones"
+      totalLabel="inscripciones en total"
+      totalValue={stats?.total_inscripciones}
+      loading={loading}
+      error={error}
+      grupos={[
+        {
+          titulo: 'Por tipo de asistente',
+          items: [...(stats?.por_tipo_asistente ?? [])]
+            .sort((a, b) => b.total - a.total)
+            .map((t) => ({ nombre: t.tipo, total: t.total })),
+        },
+        {
+          titulo: 'Por rol de participación',
+          items: (stats?.por_rol_participacion ?? []).map((r) => ({ nombre: r.nombre, total: r.total })),
+        },
+      ]}
+      grupoBadges={{
+        titulo: 'Por estado',
+        items: [
+          { nombre: 'Pendiente', total: totalPorEstado('pendiente'), variant: ESTADO_INSCRIPCION_VARIANT.pendiente },
+          { nombre: 'Confirmada', total: totalPorEstado('confirmada'), variant: ESTADO_INSCRIPCION_VARIANT.confirmada },
+          { nombre: 'Rechazada', total: totalPorEstado('rechazada'), variant: ESTADO_INSCRIPCION_VARIANT.rechazada },
+          { nombre: 'Cancelada', total: totalPorEstado('cancelada'), variant: ESTADO_INSCRIPCION_VARIANT.cancelada },
+        ],
+      }}
+    />
+  );
+}
 
 export function InscripcionesAdmin() {
   const navigate = useNavigate();
@@ -108,6 +159,8 @@ export function InscripcionesAdmin() {
         <h1 className="font-sans text-2xl font-bold text-text-primary">Inscripciones</h1>
         <p className="mt-1 text-sm text-text-muted">Todas las inscripciones registradas en el sistema.</p>
       </div>
+
+      <SeccionEstadisticas idCongreso={id_congreso} />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="relative w-full sm:w-64">

@@ -4,6 +4,7 @@ import { Eye } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
 import { ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP, formatFecha } from '../../utils/formato';
+import { ROL_PARTICIPACION } from '../../utils/roles';
 import { SugerenciasMensaje } from '../../components/SugerenciasMensaje';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -355,6 +356,53 @@ export function InscripcionAdminDetalle() {
     }
   }
 
+  // --- Rol de participación ---
+  const [rolSeleccionado, setRolSeleccionado] = useState('');
+  const [cambiandoRol, setCambiandoRol] = useState(false);
+  const [rolError, setRolError] = useState('');
+  const [rolExito, setRolExito] = useState('');
+  const [confirmarDegradarRol, setConfirmarDegradarRol] = useState(false);
+
+  useEffect(() => {
+    if (inscripcion) {
+      setRolSeleccionado(String(inscripcion.id_rol_participacion));
+    }
+  }, [inscripcion]);
+
+  async function enviarCambioRol() {
+    setRolError('');
+    setCambiandoRol(true);
+    try {
+      const actualizado = await apiFetch(`/inscripciones/${id}/rol-participacion`, {
+        method: 'PATCH',
+        body: JSON.stringify({ id_rol_participacion: Number(rolSeleccionado) }),
+      });
+      setInscripcion(actualizado);
+      setRolSeleccionado(String(actualizado.id_rol_participacion));
+      setRolExito('Rol actualizado');
+      setConfirmarDegradarRol(false);
+    } catch (err) {
+      setRolError(err.code === 'FORBIDDEN' ? 'No tienes permiso para modificar esta inscripción' : err.message);
+      // El cambio no se aplicó — el Select debe volver a reflejar el rol vigente, no el intentado.
+      setRolSeleccionado(String(inscripcion.id_rol_participacion));
+    } finally {
+      setCambiandoRol(false);
+    }
+  }
+
+  function handleCambiarRolClick() {
+    setRolError('');
+    setRolExito('');
+    const esDegradacion =
+      inscripcion.id_rol_participacion === ROL_PARTICIPACION.EXPOSITOR &&
+      Number(rolSeleccionado) === ROL_PARTICIPACION.ASISTENTE;
+    if (esDegradacion) {
+      setConfirmarDegradarRol(true);
+      return;
+    }
+    enviarCambioRol();
+  }
+
   // --- Gestión (soft-delete / reactivar) ---
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
@@ -463,10 +511,72 @@ export function InscripcionAdminDetalle() {
             <dd className="text-text-primary">{inscripcion.tipo_asistente?.tipo ?? '—'}</dd>
           </div>
           <div className="flex items-center justify-between">
+            <dt className="text-text-muted">Rol de participación</dt>
+            <dd className="text-text-primary">
+              <Badge variant="default">
+                {inscripcion.id_rol_participacion === ROL_PARTICIPACION.EXPOSITOR ? 'Expositor' : 'Asistente'}
+              </Badge>
+            </dd>
+          </div>
+          <div className="flex items-center justify-between">
             <dt className="text-text-muted">Fecha de inscripción</dt>
             <dd className="text-text-primary">{formatFecha(inscripcion.fecha_inscripcion)}</dd>
           </div>
         </dl>
+
+        {!confirmarDegradarRol && rolError && (
+          <Alert variant="error" className="mt-4">
+            {rolError}
+          </Alert>
+        )}
+        {rolExito && (
+          <Alert variant="success" className="mt-4">
+            {rolExito}
+          </Alert>
+        )}
+
+        <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end">
+          <Select
+            label="Cambiar rol de participación"
+            value={rolSeleccionado}
+            onChange={(e) => setRolSeleccionado(e.target.value)}
+            className="flex-1"
+          >
+            <option value={ROL_PARTICIPACION.EXPOSITOR}>Expositor</option>
+            <option value={ROL_PARTICIPACION.ASISTENTE}>Asistente</option>
+          </Select>
+          <Button
+            type="button"
+            variant="primary"
+            loading={cambiandoRol}
+            disabled={Number(rolSeleccionado) === inscripcion.id_rol_participacion}
+            onClick={handleCambiarRolClick}
+          >
+            Actualizar rol
+          </Button>
+        </div>
+
+        <Modal
+          open={confirmarDegradarRol}
+          onClose={() => setConfirmarDegradarRol(false)}
+          title="Cambiar rol a Asistente"
+        >
+          <div className="flex flex-col gap-4">
+            {rolError && <Alert variant="error">{rolError}</Alert>}
+            <p className="text-sm text-text-primary">
+              Vas a cambiar el rol a Asistente. Si esta inscripción tiene ponencias propias, el
+              cambio será rechazado. ¿Continuar?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setConfirmarDegradarRol(false)}>
+                Cancelar
+              </Button>
+              <Button type="button" variant="primary" loading={cambiandoRol} onClick={enviarCambioRol}>
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </Card>
 
       <Card>

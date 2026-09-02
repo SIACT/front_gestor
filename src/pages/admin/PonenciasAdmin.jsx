@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
 import { capitalizar, formatFecha } from '../../utils/formato';
@@ -14,6 +13,7 @@ import { Select } from '../../components/ui/Select';
 import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 import { Spinner } from '../../components/ui/Spinner';
+import { EstadisticasPanel } from '../../components/EstadisticasPanel';
 
 const ESTADO_TALK_VARIANT = {
   pendiente: 'pendiente',
@@ -130,21 +130,6 @@ function useBuscarParticipantes() {
   return { idCongreso, query, setQuery, resultados, loading, error };
 }
 
-function BarraEstadistica({ nombre, total, maximo }) {
-  const ancho = total === 0 ? '2px' : `${(total / Math.max(maximo, 1)) * 100}%`;
-  return (
-    <div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-text-primary">{nombre}</span>
-        <span className="text-text-muted">{total}</span>
-      </div>
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface">
-        <div className="h-full rounded-full bg-accent" style={{ width: ancho }} />
-      </div>
-    </div>
-  );
-}
-
 function SeccionEstadisticas() {
   const { congreso } = useCongreso();
   const idCongreso = congreso?.id_congreso;
@@ -152,7 +137,6 @@ function SeccionEstadisticas() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [expandido, setExpandido] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -167,95 +151,39 @@ function SeccionEstadisticas() {
     () => [...(stats?.por_area ?? [])].sort((a, b) => b.total - a.total),
     [stats],
   );
-  const maxArea = Math.max(...porArea.map((a) => a.total), 1);
 
   const porTipo = useMemo(
     () => [...(stats?.por_tipo_participacion ?? [])].sort((a, b) => b.total - a.total),
     [stats],
   );
-  const maxTipo = Math.max(...porTipo.map((t) => t.total), 1);
 
   function totalPorEstado(estado) {
     return stats?.por_estado?.find((e) => e.estado_talk === estado)?.total ?? 0;
   }
 
   return (
-    <Card className="p-4!">
-      <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-        Estadísticas de ponencias
-      </h2>
-
-      {loading && (
-        <div className="mt-4 flex justify-center">
-          <Spinner className="size-5 text-accent" />
-        </div>
-      )}
-
-      {!loading && error && (
-        <Alert variant="error" className="mt-3">
-          {error}
-        </Alert>
-      )}
-
-      {!loading && !error && stats && (
-        <div className="mt-3 flex flex-col gap-3">
-          <div>
-            <p className="text-2xl font-semibold text-accent">{stats.total_ponencias}</p>
-            <p className="text-xs text-text-muted">ponencias en total</p>
-          </div>
-
-          {/* Siempre visible, colapsado o no: es la info más accionable de un vistazo. */}
-          <div className="flex flex-wrap gap-2">
-            <Badge variant={ESTADO_TALK_VARIANT.pendiente}>{totalPorEstado('pendiente')} pendiente</Badge>
-            <Badge variant={ESTADO_TALK_VARIANT.aceptada}>{totalPorEstado('aceptada')} aceptada</Badge>
-            <Badge variant={ESTADO_TALK_VARIANT.rechazada}>{totalPorEstado('rechazada')} rechazada</Badge>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setExpandido((v) => !v)}
-            className="flex items-center gap-1 self-start text-xs font-medium text-accent transition-colors hover:text-accent-hover"
-          >
-            {expandido ? 'Ocultar detalle' : 'Ver detalle completo'}
-            {expandido ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-          </button>
-
-          <motion.div
-            initial={false}
-            animate={{ height: expandido ? 'auto' : 0 }}
-            transition={{ duration: 0.25 }}
-            className="overflow-hidden"
-          >
-            <div className="grid grid-cols-1 gap-4 pt-1 md:grid-cols-2">
-              <div>
-                <h3 className="text-xs font-medium uppercase tracking-wide text-text-muted">Por área</h3>
-                <div className="mt-2 flex max-h-64 flex-col gap-2 overflow-y-auto pr-1">
-                  {porArea.map((a) => (
-                    <BarraEstadistica key={a.id_area} nombre={a.nombre} total={a.total} maximo={maxArea} />
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                  Por tipo de participación
-                </h3>
-                <div className="mt-2 flex max-h-64 flex-col gap-2 overflow-y-auto pr-1">
-                  {porTipo.map((t) => (
-                    <BarraEstadistica
-                      key={t.id_tipo_participacion ?? 'sin-tipo'}
-                      nombre={t.nombre}
-                      total={t.total}
-                      maximo={maxTipo}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </Card>
+    <EstadisticasPanel
+      titulo="Estadísticas de ponencias"
+      totalLabel="ponencias en total"
+      totalValue={stats?.total_ponencias}
+      loading={loading}
+      error={error}
+      grupos={[
+        { titulo: 'Por área', items: porArea.map((a) => ({ nombre: a.nombre, total: a.total })) },
+        {
+          titulo: 'Por tipo de participación',
+          items: porTipo.map((t) => ({ nombre: t.nombre, total: t.total })),
+        },
+      ]}
+      grupoBadges={{
+        titulo: 'Por estado',
+        items: [
+          { nombre: 'Pendiente', total: totalPorEstado('pendiente'), variant: ESTADO_TALK_VARIANT.pendiente },
+          { nombre: 'Aceptada', total: totalPorEstado('aceptada'), variant: ESTADO_TALK_VARIANT.aceptada },
+          { nombre: 'Rechazada', total: totalPorEstado('rechazada'), variant: ESTADO_TALK_VARIANT.rechazada },
+        ],
+      }}
+    />
   );
 }
 

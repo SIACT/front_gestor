@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookOpen,
   ClipboardList,
   FolderTree,
@@ -42,6 +43,15 @@ export function navItems(idCongreso) {
       label: 'Mis ponencias',
       icon: Mic,
     },
+  ];
+}
+
+// Links sueltos bajo "Administración", fuera de los sub-grupos colapsables — para algo
+// transversal como las estadísticas (no encaja solo en "Configuración" ni solo en
+// "Gestión") que además se quiere accesible en un solo click, sin abrir un sub-grupo.
+export function adminLinks(idCongreso) {
+  return [
+    { label: 'Estadísticas', path: `/congresos/${idCongreso}/admin/estadisticas`, icon: BarChart3 },
   ];
 }
 

@@ -32,6 +32,7 @@ import { AreasEstudio } from './pages/admin/AreasEstudio';
 import { Instituciones } from './pages/admin/Instituciones';
 import { TiposParticipacion } from './pages/admin/TiposParticipacion';
 import { MensajesPredeterminados } from './pages/admin/MensajesPredeterminados';
+import { EstadisticasCongreso } from './pages/admin/EstadisticasCongreso';
 
 function App() {
   return (
@@ -80,6 +81,7 @@ function App() {
                   <Route path="admin/inscripciones/:id" element={<InscripcionAdminDetalle />} />
                   <Route path="admin/ponencias" element={<PonenciasAdmin />} />
                   <Route path="admin/ponencias/:id" element={<PonenciaAdminDetalle />} />
+                  <Route path="admin/estadisticas" element={<EstadisticasCongreso />} />
                 </Route>
               </Route>
             </Route>

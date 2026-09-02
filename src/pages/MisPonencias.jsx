@@ -37,13 +37,14 @@ const CATALOGO_ERROR_MESSAGES = {
   TIPO_PARTICIPACION_NOT_FOUND: 'El tipo de participación seleccionado no existe.',
   TIPO_PARTICIPACION_INACTIVE: 'El tipo de participación seleccionado está inactivo.',
   ONLY_EXPOSITOR_CAN_SUBMIT_TALKS: 'Solo quienes se inscribieron como Expositor pueden proponer ponencias.',
+  CONGRESO_NO_ACEPTA_PONENCIAS: 'Este congreso no está aceptando nuevas ponencias en este momento.',
 };
 
 export function MisPonencias() {
   const navigate = useNavigate();
   const { id_congreso } = useParams();
   const { user } = useAuth();
-  const { misInscripcion, esExpositorEnEsteCongreso } = useCongreso();
+  const { congreso, misInscripcion, esExpositorEnEsteCongreso } = useCongreso();
   const idInscripcion = misInscripcion?.id_inscripcion ?? null;
   const sinInscripcion = !misInscripcion;
 
@@ -52,6 +53,7 @@ export function MisPonencias() {
   const [error, setError] = useState('');
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [paso, setPaso] = useState('formulario');
   const [form, setForm] = useState(FORM_INICIAL);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -77,6 +79,7 @@ export function MisPonencias() {
     setFormError('');
     setAreasError('');
     setTiposError('');
+    setPaso('formulario');
     setModalOpen(true);
     apiFetch(`/congresos/${id_congreso}/areas-estudio?activo=true`)
       .then((data) => setAreas(data ?? []))
@@ -91,7 +94,9 @@ export function MisPonencias() {
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
-  async function handleSubmit(e) {
+  // Paso 1: solo valida y avanza al resumen — el POST real ocurre en handleConfirmarEnvio,
+  // recién al confirmar desde el paso 'confirmacion'.
+  function handleValidarYRevisar(e) {
     e.preventDefault();
     setFormError('');
     if (!form.id_area) {
@@ -102,6 +107,11 @@ export function MisPonencias() {
       setFormError('Selecciona un tipo de participación.');
       return;
     }
+    setPaso('confirmacion');
+  }
+
+  async function handleConfirmarEnvio() {
+    setFormError('');
     setSubmitting(true);
     try {
       const nuevaTalk = await apiFetch(`/inscripciones/${idInscripcion}/talks`, {
@@ -116,8 +126,11 @@ export function MisPonencias() {
           duracion_minutos: form.duracion_minutos ? Number(form.duracion_minutos) : undefined,
         }),
       });
+      setModalOpen(false);
+      setPaso('formulario');
       navigate(`/congresos/${id_congreso}/ponencias/${nuevaTalk.id_talk}`);
     } catch (err) {
+      // Se queda en el paso 'confirmacion' — el usuario decide si reintenta o vuelve a editar.
       setFormError(CATALOGO_ERROR_MESSAGES[err.code] ?? err.message);
     } finally {
       setSubmitting(false);
@@ -127,15 +140,27 @@ export function MisPonencias() {
   if (loading) return <PageLoader />;
 
   const puedeProponer = esExpositorEnEsteCongreso || user?.id_rol === ROLES.ADMIN;
+  // Solo se proponen ponencias mientras el congreso está exactamente en
+  // 'inscripciones_abiertas' — mismo criterio que valida el backend (CONGRESO_NO_ACEPTA_PONENCIAS).
+  const aceptaPonencias = congreso?.estado === 'inscripciones_abiertas';
+
+  const areaSeleccionada = areas.find((a) => String(a.id_area) === form.id_area);
+  const tipoSeleccionado = tipos.find((t) => String(t.id_tipo_participacion) === form.id_tipo_participacion);
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-20">
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-sans text-2xl font-bold text-text-primary">Mis ponencias</h1>
         {puedeProponer && idInscripcion && (
-          <Button type="button" variant="primary" onClick={handleAbrirCrear}>
-            Proponer nueva ponencia
-          </Button>
+          aceptaPonencias ? (
+            <Button type="button" variant="primary" onClick={handleAbrirCrear}>
+              Proponer nueva ponencia
+            </Button>
+          ) : (
+            <p className="text-sm text-text-muted">
+              La convocatoria de ponencias no está abierta en este momento.
+            </p>
+          )
         )}
       </div>
 
@@ -193,71 +218,128 @@ export function MisPonencias() {
         </ul>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Proponer nueva ponencia">
-        <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-          {formError && <Alert variant="error">{formError}</Alert>}
-          {areasError && <Alert variant="error">{areasError}</Alert>}
-          {tiposError && <Alert variant="error">{tiposError}</Alert>}
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={paso === 'formulario' ? 'Proponer nueva ponencia' : 'Confirma tu ponencia'}
+      >
+        {paso === 'formulario' ? (
+          <form className="flex flex-col gap-3" onSubmit={handleValidarYRevisar}>
 
-          <Input name="titulo" label="Título" value={form.titulo} onChange={handleChange} required />
+            {formError && <Alert variant="error">{formError}</Alert>}
+            {areasError && <Alert variant="error">{areasError}</Alert>}
+            {tiposError && <Alert variant="error">{tiposError}</Alert>}
 
-          <Select name="id_area" label="Área de estudio" value={form.id_area} onChange={handleChange} required>
-            <option value="">Selecciona un área</option>
-            {areas.map((a) => (
-              <option key={a.id_area} value={a.id_area}>
-                {a.nombre}
+            <Input name="titulo" label="Título" value={form.titulo} onChange={handleChange} required />
+
+            <Select name="id_area" label="Área de estudio" value={form.id_area} onChange={handleChange} required>
+              <option value="">Selecciona un área</option>
+              {areas.map((a) => (
+                <option key={a.id_area} value={a.id_area}>
+                  {a.nombre}
+                </option>
+              ))}
+            </Select>
+
+            <Select
+              name="id_tipo_participacion"
+              label="Tipo de participación *"
+              value={form.id_tipo_participacion}
+              onChange={handleChange}
+              required
+            >
+              <option value="" disabled>
+                Selecciona un tipo
               </option>
-            ))}
-          </Select>
+              {tipos.map((t) => (
+                <option key={t.id_tipo_participacion} value={t.id_tipo_participacion}>
+                  {t.nombre}
+                </option>
+              ))}
+            </Select>
 
-          <Select
-            name="id_tipo_participacion"
-            label="Tipo de participación *"
-            value={form.id_tipo_participacion}
-            onChange={handleChange}
-            required
-          >
-            <option value="" disabled>
-              Selecciona un tipo
-            </option>
-            {tipos.map((t) => (
-              <option key={t.id_tipo_participacion} value={t.id_tipo_participacion}>
-                {t.nombre}
-              </option>
-            ))}
-          </Select>
+            <Textarea
+              name="descripcion"
+              label="Descripción"
+              value={form.descripcion}
+              onChange={handleChange}
+            />
+            <Input
+              name="link_summary"
+              label="Enlace / resumen"
+              value={form.link_summary}
+              onChange={handleChange}
+            />
+            <Input
+              name="palabras_clave"
+              label="Palabras clave"
+              value={form.palabras_clave}
+              onChange={handleChange}
+            />
+            <Input
+              name="duracion_minutos"
+              type="number"
+              min="0"
+              label="Duración (minutos)"
+              value={form.duracion_minutos}
+              onChange={handleChange}
+            />
 
-          <Textarea
-            name="descripcion"
-            label="Descripción"
-            value={form.descripcion}
-            onChange={handleChange}
-          />
-          <Input
-            name="link_summary"
-            label="Enlace / resumen"
-            value={form.link_summary}
-            onChange={handleChange}
-          />
-          <Input
-            name="palabras_clave"
-            label="Palabras clave"
-            value={form.palabras_clave}
-            onChange={handleChange}
-          />
-          <Input
-            name="duracion_minutos"
-            type="number"
-            min="0"
-            label="Duración (minutos)"
-            value={form.duracion_minutos}
-            onChange={handleChange}
-          />
+            <Button type="submit" variant="primary" className="mt-2 w-full">
+              Revisar y continuar
+            </Button>
+          </form>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {formError && <Alert variant="error">{formError}</Alert>}
 
-          <Button type="submit" variant="primary" loading={submitting} className="mt-2 w-full">
-            Proponer ponencia
-          </Button>
-        </form>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Título</p>
+              <p className="mt-1 text-lg font-semibold text-text-primary">{form.titulo}</p>
+            </div>
+
+            <dl className="flex flex-col gap-3 rounded-lg border border-border p-4 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-text-muted">Área</dt>
+                <dd className="text-text-primary">{areaSeleccionada?.nombre ?? '—'}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-text-muted">Tipo de participación</dt>
+                <dd className="text-text-primary">{tipoSeleccionado?.nombre ?? '—'}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-text-muted">Duración</dt>
+                <dd className="text-text-primary">
+                  {form.duracion_minutos ? `${form.duracion_minutos} min` : '—'}
+                </dd>
+              </div>
+            </dl>
+
+            {form.descripcion && (
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Descripción</p>
+                <p className="mt-1 line-clamp-3 text-sm text-text-muted">{form.descripcion}</p>
+              </div>
+            )}
+
+            <Alert variant="info">
+              Al registrar esta ponencia, quedarás como el autor/a principal. Si luego agregas a otras
+              personas como coponentes desde el detalle de la ponencia, el trabajo aparecerá
+              automáticamente en su perfil bajo esa categoría — no necesitan volver a registrarlo ni
+              crear una propuesta duplicada. Para poder agregar a alguien como coponente, esa persona
+              debe tener una inscripción a este congreso con rol Expositor.
+            </Alert>
+
+            <div className="flex justify-between gap-2">
+              <Button type="button" variant="ghost" onClick={() => setPaso('formulario')}>
+                ← Volver a editar
+              </Button>
+              <Button type="button" variant="primary" loading={submitting} onClick={handleConfirmarEnvio}>
+                Confirmar y enviar
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -24,7 +24,7 @@ import { Alert } from '../components/ui/Alert';
 import { Logo } from '../components/ui/Logo';
 import { capitalizar } from '../utils/formato';
 import { ROLES, ROL_LABELS } from '../utils/roles';
-import { navItems, adminGroups } from './dashboardNav';
+import { navItems, adminGroups, adminLinks } from './dashboardNav';
 
 function SectionLabel({ collapsed, children }) {
   if (collapsed) return null;
@@ -174,6 +174,17 @@ function AdminSection({ collapsed, onNavigate, onExpandSidebar, idCongreso }) {
 
       {!collapsed && open && (
         <div className="ml-4 mt-1 space-y-1 border-l border-border pl-2">
+          {adminLinks(idCongreso).map((item) => (
+            <NavItem
+              key={item.path}
+              to={item.path}
+              icon={item.icon}
+              label={item.label}
+              collapsed={false}
+              nested
+              onClick={onNavigate}
+            />
+          ))}
           {adminGroups(idCongreso).map((group) => (
             <AdminGroup key={group.label} group={group} onNavigate={onNavigate} />
           ))}

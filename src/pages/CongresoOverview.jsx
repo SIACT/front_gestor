@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ClipboardList, MapPin, Mic, Pencil, UserCog } from 'lucide-react';
+import clsx from 'clsx';
+import { BarChart3, MapPin, Mic, Pencil, UserCog } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
 import { capitalizar, formatFecha } from '../utils/formato';
+import { ESTADOS_CONGRESO, ESTADO_CONGRESO_LABELS, ESTADO_CONGRESO_VARIANT } from '../utils/estadosCongreso';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -15,7 +17,8 @@ import { Modal } from '../components/ui/Modal';
 import { Alert } from '../components/ui/Alert';
 import { Table } from '../components/ui/Table';
 
-const ESTADOS_CONGRESO = ['planeacion', 'activo', 'finalizado'];
+// Mismo límite que en el modal de creación (Home.jsx) — mantener sincronizado.
+const DESCRIPCION_MAX_LENGTH = 280;
 
 const ADMIN_CONGRESO_ERROR_MESSAGES = {
   CONGRESO_NOT_FOUND: 'Este congreso ya no existe.',
@@ -142,12 +145,25 @@ function SeccionEditarCongreso({ congreso }) {
 
           <Input name="lugar" label="Lugar" value={form.lugar} onChange={handleChange} required />
 
-          <Textarea
-            name="descripcion"
-            label="Descripción (opcional)"
-            value={form.descripcion}
-            onChange={handleChange}
-          />
+          <div className="flex flex-col gap-1">
+            <Textarea
+              name="descripcion"
+              label="Descripción (opcional)"
+              value={form.descripcion}
+              onChange={handleChange}
+              maxLength={DESCRIPCION_MAX_LENGTH}
+            />
+            <p
+              className={clsx(
+                'text-right text-xs',
+                form.descripcion.length >= DESCRIPCION_MAX_LENGTH - 20
+                  ? 'text-warning-text'
+                  : 'text-text-muted',
+              )}
+            >
+              {form.descripcion.length}/{DESCRIPCION_MAX_LENGTH}
+            </p>
+          </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input name="area" label="Área (opcional)" value={form.area} onChange={handleChange} />
@@ -174,7 +190,7 @@ function SeccionEditarCongreso({ congreso }) {
           <Select name="estado" label="Estado" value={form.estado} onChange={handleChange}>
             {ESTADOS_CONGRESO.map((estado) => (
               <option key={estado} value={estado}>
-                {capitalizar(estado)}
+                {ESTADO_CONGRESO_LABELS[estado]}
               </option>
             ))}
           </Select>
@@ -403,6 +419,11 @@ export function CongresoOverview() {
             <Badge variant={congreso?.activo ? 'revisado' : 'default'}>
               {congreso?.activo ? 'Activo' : 'Inactivo'}
             </Badge>
+            {congreso?.estado && (
+              <Badge variant={ESTADO_CONGRESO_VARIANT[congreso.estado] ?? 'default'}>
+                {ESTADO_CONGRESO_LABELS[congreso.estado] ?? congreso.estado}
+              </Badge>
+            )}
             {puedeAdministrarCongreso && <SeccionEditarCongreso congreso={congreso} />}
           </div>
         </div>
@@ -426,15 +447,6 @@ export function CongresoOverview() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Card
-          className="cursor-pointer transition-colors hover:border-accent"
-          onClick={() => navigate(`/congresos/${id_congreso}/inscripciones`)}
-        >
-          <ClipboardList className="size-6 text-accent" />
-          <p className="mt-3 font-medium text-text-primary">Mis inscripciones</p>
-          <p className="mt-1 text-sm text-text-muted">Consulta o crea tu inscripción a este congreso.</p>
-        </Card>
-
         {esExpositorEnEsteCongreso && (
           <Card
             className="cursor-pointer transition-colors hover:border-accent"
@@ -448,6 +460,18 @@ export function CongresoOverview() {
       </div>
 
       {esAdminGlobal && <SeccionAdministradores />}
+
+      {puedeAdministrarCongreso && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="self-start"
+          onClick={() => navigate(`/congresos/${id_congreso}/admin/estadisticas`)}
+        >
+          <BarChart3 className="size-4" />
+          Ver estadísticas del congreso
+        </Button>
+      )}
     </div>
   );
 }

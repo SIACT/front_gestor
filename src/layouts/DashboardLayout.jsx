@@ -230,7 +230,7 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
           <Logo variant="altenua" className="h-8 w-8 shrink-0" />
           {!collapsed && (
             <div className="min-w-0">
-              <p className="truncate font-display text-sm text-text-primary">Altenua</p>
+              <p className="truncate font-display text-sm text-text-primary">ALTENUA</p>
               <p className="truncate text-[10px] uppercase tracking-wide text-text-muted">
                 {congreso?.nombre ?? 'Cargando...'}
               </p>

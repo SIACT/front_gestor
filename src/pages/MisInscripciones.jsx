@@ -206,17 +206,6 @@ export function MisInscripciones() {
                         )}
                       </div>
                     )}
-
-                    {/* TODO: este mensaje se muestra siempre porque GET /inscripciones no incluye el campo "comprobante".
-                        Cuando el backend exponga algo como "tiene_comprobante: boolean" en el listado,
-                        condicionar este bloque a mostrarse solo si tiene_comprobante === false. */}
-                    <div className="mt-4 flex items-center justify-between gap-4 border-t border-border pt-4">
-                      <p className="text-sm text-text-muted">
-                        Completa tu inscripción subiendo tu comprobante de pago y cualquier documento
-                        adicional requerido.
-                      </p>
-                      <span className="shrink-0 text-sm text-accent">Ir al detalle →</span>
-                    </div>
                   </Card>
                 </Link>
               </li>

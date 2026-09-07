@@ -37,12 +37,12 @@ export function AuthLayout() {
 
       <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col-reverse gap-10 px-5 py-8 lg:flex-row lg:items-center lg:gap-16 lg:py-10">
         <div className="flex max-w-md flex-col gap-4 text-center lg:flex-1 lg:text-left">
-          <span className="font-sans text-3xl uppercase tracking-wide text-accent">
+          <span className="font-sans text-4xl uppercase tracking-wide text-accent">
             ALTENCOA11-2026
           </span>
 
           <h1 className="font-sans text-3xl font-bold leading-tight --c-text-primary md:text-5xl">
-            XI Encuentro de Álgebra, Teoría de Números y Combinatoria
+            
           </h1>
 
           <p className="text-sm text-text-muted md:text-base">

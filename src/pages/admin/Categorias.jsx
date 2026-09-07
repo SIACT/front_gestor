@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { apiFetch } from '../../api/client';
 import { Table } from '../../components/ui/Table';
 import { Button } from '../../components/ui/Button';
@@ -10,6 +11,7 @@ import { PageLoader } from '../../components/ui/PageLoader';
 const FORM_INICIAL = { nombre: '', descripcion: '' };
 
 export function Categorias() {
+  const { id_congreso } = useParams();
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,11 +27,11 @@ export function Categorias() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    apiFetch('/categorias')
+    apiFetch(`/congresos/${id_congreso}/categorias`)
       .then((data) => setCategorias(data ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [id_congreso]);
 
   function handleAbrirCrear() {
     setEditando(null);
@@ -60,7 +62,7 @@ export function Categorias() {
         if (form.nombre !== editando.nombre) cambios.nombre = form.nombre;
         if (form.descripcion !== (editando.descripcion ?? '')) cambios.descripcion = form.descripcion;
 
-        const actualizado = await apiFetch(`/categorias/${editando.id_categoria}`, {
+        const actualizado = await apiFetch(`/congresos/${id_congreso}/categorias/${editando.id_categoria}`, {
           method: 'PATCH',
           body: JSON.stringify(cambios),
         });
@@ -68,7 +70,7 @@ export function Categorias() {
           prev.map((c) => (c.id_categoria === editando.id_categoria ? { ...c, ...actualizado } : c)),
         );
       } else {
-        const nueva = await apiFetch('/categorias', {
+        const nueva = await apiFetch(`/congresos/${id_congreso}/categorias`, {
           method: 'POST',
           body: JSON.stringify({
             nombre: form.nombre,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { apiFetch } from '../../api/client';
 import { formatFecha } from '../../utils/formato';
 import { Table } from '../../components/ui/Table';
@@ -26,6 +27,7 @@ function toDateInputValue(value) {
 }
 
 export function Descuentos() {
+  const { id_congreso } = useParams();
   const [descuentos, setDescuentos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,11 +39,11 @@ export function Descuentos() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    apiFetch('/descuentos')
+    apiFetch(`/congresos/${id_congreso}/descuentos`)
       .then((data) => setDescuentos(data ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [id_congreso]);
 
   function handleAbrirCrear() {
     setEditando(null);
@@ -93,7 +95,7 @@ export function Descuentos() {
         if (form.aplicacion !== editando.aplicacion) cambios.aplicacion = form.aplicacion;
         if (form.activo !== editando.activo) cambios.activo = form.activo;
 
-        const actualizado = await apiFetch(`/descuentos/${editando.id_descuento}`, {
+        const actualizado = await apiFetch(`/congresos/${id_congreso}/descuentos/${editando.id_descuento}`, {
           method: 'PATCH',
           body: JSON.stringify(cambios),
         });
@@ -101,7 +103,7 @@ export function Descuentos() {
           prev.map((d) => (d.id_descuento === editando.id_descuento ? { ...d, ...actualizado } : d)),
         );
       } else {
-        const nuevo = await apiFetch('/descuentos', {
+        const nuevo = await apiFetch(`/congresos/${id_congreso}/descuentos`, {
           method: 'POST',
           body: JSON.stringify({
             nombre: form.nombre,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { apiFetch } from '../../api/client';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
@@ -11,6 +12,7 @@ import { PageLoader } from '../../components/ui/PageLoader';
 const FORM_INICIAL = { nombre: '', descripcion: '', activo: true };
 
 export function AreasEstudio() {
+  const { id_congreso } = useParams();
   const [areas, setAreas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -22,11 +24,11 @@ export function AreasEstudio() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    apiFetch('/areas-estudio')
+    apiFetch(`/congresos/${id_congreso}/areas-estudio`)
       .then((data) => setAreas(data ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [id_congreso]);
 
   function handleAbrirCrear() {
     setEditando(null);
@@ -64,7 +66,7 @@ export function AreasEstudio() {
         }
         if (form.activo !== editando.activo) cambios.activo = form.activo;
 
-        const actualizado = await apiFetch(`/areas-estudio/${editando.id_area}`, {
+        const actualizado = await apiFetch(`/congresos/${id_congreso}/areas-estudio/${editando.id_area}`, {
           method: 'PATCH',
           body: JSON.stringify(cambios),
         });
@@ -72,7 +74,7 @@ export function AreasEstudio() {
           prev.map((a) => (a.id_area === editando.id_area ? { ...a, ...actualizado } : a)),
         );
       } else {
-        const nueva = await apiFetch('/areas-estudio', {
+        const nueva = await apiFetch(`/congresos/${id_congreso}/areas-estudio`, {
           method: 'POST',
           body: JSON.stringify({ nombre: form.nombre, descripcion: form.descripcion || undefined }),
         });

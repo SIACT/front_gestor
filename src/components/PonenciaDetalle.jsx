@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { capitalizar, formatFecha } from '../utils/formato';
@@ -6,6 +7,7 @@ import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Textarea } from './ui/Textarea';
+import { TextoConFormulas } from './ui/TextoConFormulas';
 import { Select } from './ui/Select';
 import { Modal } from './ui/Modal';
 import { Alert } from './ui/Alert';
@@ -28,9 +30,9 @@ const FORM_INICIAL = {
 
 const COPONENTE_ERROR_MESSAGES = {
   USUARIO_NOT_FOUND: 'No existe ningún usuario registrado con ese correo.',
-  USUARIO_NO_ES_PONENTE: 'El usuario debe tener rol Ponente para ser agregado como coautor.',
+  COPONENTE_DEBE_SER_EXPOSITOR: 'El usuario debe tener rol Expositor en su inscripción a este congreso para ser agregado en coautoría.',
   USUARIO_SIN_INSCRIPCION_ACTIVA: 'El usuario no tiene ninguna inscripción activa.',
-  YA_ES_PONENTE_PRINCIPAL: 'Este usuario ya es el ponente principal de la charla.',
+  YA_ES_PONENTE_PRINCIPAL: 'Este usuario ya tiene la autoría de la charla.',
   YA_ES_COPONENTE: 'Este usuario ya es coautor de la charla.',
 };
 
@@ -57,6 +59,7 @@ function talkToForm(talk) {
 }
 
 export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, onRefresh, adminReviewSlot }) {
+  const { id_congreso } = useParams();
   const [ponentes, setPonentes] = useState([]);
   const [ponentesLoading, setPonentesLoading] = useState(true);
   const [ponentesError, setPonentesError] = useState('');
@@ -98,10 +101,10 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
     setAreasError('');
     setTiposError('');
     setEditModalOpen(true);
-    apiFetch('/areas-estudio?activo=true')
+    apiFetch(`/congresos/${id_congreso}/areas-estudio?activo=true`)
       .then((data) => setAreas(data ?? []))
       .catch((err) => setAreasError(err.message));
-    apiFetch('/tipos-participacion?activo=true')
+    apiFetch(`/congresos/${id_congreso}/tipos-participacion?activo=true`)
       .then((data) => setTipos(data ?? []))
       .catch((err) => setTiposError(err.message));
   }
@@ -240,8 +243,14 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Descripción</dt>
-              <dd className="mt-1 whitespace-pre-wrap text-sm text-text-primary">
-                {talk.descripcion || '—'}
+              <dd className="mt-1">
+                {talk.descripcion ? (
+                  <div className="text-justify text-sm leading-relaxed text-text-primary [text-wrap:pretty]">
+                    <TextoConFormulas texto={talk.descripcion} />
+                  </div>
+                ) : (
+                  <span className="text-sm text-text-primary">—</span>
+                )}
               </dd>
             </div>
             <div>

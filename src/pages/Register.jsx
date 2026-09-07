@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Input } from '../components/ui/Input';
-import { Select } from '../components/ui/Select';
 import { SelectInstitucion } from '../components/ui/SelectInstitucion';
 import { SelectPais } from '../components/ui/SelectPais';
 import { Button } from '../components/ui/Button';
@@ -68,7 +67,6 @@ export function Register() {
     cedula: '',
     institucion: '',
     pais: '',
-    id_rol: '3',
   });
   const [error, setError] = useState('');
   const [contrasenaError, setContrasenaError] = useState('');
@@ -127,7 +125,6 @@ export function Register() {
         cedula: form.cedula || undefined,
         institucion: form.institucion || undefined,
         pais: capitalizarPais(form.pais),
-        id_rol: Number(form.id_rol),
       });
       navigate('/login', { state: { mensaje: 'Cuenta creada, ya puedes iniciar sesión' } });
     } catch (err) {
@@ -260,18 +257,6 @@ export function Register() {
           onChange={(value) => setForm((prev) => ({ ...prev, pais: value }))}
           required
         />
-
-        <Select
-          id="register-rol"
-          name="id_rol"
-          label="Rol"
-          value={form.id_rol}
-          onChange={handleChange}
-          required
-        >
-          <option value="3">Estudiante</option>
-          <option value="2">Ponente</option>
-        </Select>
 
         <Button type="submit" variant="primary" loading={submitting} className="w-full">
           Crear cuenta

@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { apiFetch } from '../api/client';
+import { useCongreso } from '../context/CongresoContext';
+import { ROL_PARTICIPACION } from '../utils/roles';
 import { formatCOP } from '../utils/formato';
+import { ESTADO_CONGRESO_LABELS, ESTADO_CONGRESO_VARIANT } from '../utils/estadosCongreso';
 import { Card } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
 import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
@@ -11,36 +15,45 @@ import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
 import { Spinner } from '../components/ui/Spinner';
 
+const ROL_PARTICIPACION_LABELS = {
+  [ROL_PARTICIPACION.EXPOSITOR]: 'Expositor',
+  [ROL_PARTICIPACION.ASISTENTE]: 'Asistente',
+};
+
 export function CrearInscripcion() {
   const navigate = useNavigate();
+  const { id_congreso } = useParams();
+  const { congreso, misInscripcion, refrescarMisInscripcion } = useCongreso();
+  const yaInscrito = Boolean(misInscripcion);
+  // 'planeacion'/'finalizado' (o activo=false) bloquean toda inscripción nueva — mismo
+  // criterio que ya aplica el backend en crearInscripcion (ver CONGRESO_NO_ACEPTA_INSCRIPCIONES).
+  const noAceptaInscripciones =
+    congreso?.activo === false || congreso?.estado === 'planeacion' || congreso?.estado === 'finalizado';
+  // Con la convocatoria cerrada, el backend solo acepta id_rol_participacion=Asistente
+  // (CONVOCATORIA_CERRADA si se intenta Expositor) — se refleja acá deshabilitando la opción.
+  const convocatoriaCerrada = congreso?.estado === 'convocatoria_cerrada';
   const [categorias, setCategorias] = useState([]);
   const [tiposAsistente, setTiposAsistente] = useState([]);
   const [idCategoria, setIdCategoria] = useState('');
   const [idTipoAsistente, setIdTipoAsistente] = useState('');
+  const [idRolParticipacion, setIdRolParticipacion] = useState('');
   const [loadingData, setLoadingData] = useState(true);
   const [loadingTipos, setLoadingTipos] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [yaInscrito, setYaInscrito] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
-    apiFetch('/inscripciones')
-      .then((inscripciones) => {
-        if ((inscripciones ?? []).length > 0) {
-          setYaInscrito(true);
-          return null;
-        }
-        return apiFetch('/categorias');
-      })
-      .then((cats) => {
-        if (!cats) return;
-        setCategorias(cats ?? []);
-      })
+    if (yaInscrito) {
+      setLoadingData(false);
+      return;
+    }
+    apiFetch(`/congresos/${id_congreso}/categorias`)
+      .then((cats) => setCategorias(cats ?? []))
       .catch((err) => setLoadError(err.message))
       .finally(() => setLoadingData(false));
-  }, []);
+  }, [id_congreso, yaInscrito]);
 
   useEffect(() => {
     if (!idCategoria) {
@@ -52,11 +65,11 @@ export function CrearInscripcion() {
     setTiposAsistente([]);
     setLoadingTipos(true);
 
-    apiFetch(`/tipos-asistente?activo=true&id_categoria=${idCategoria}`)
+    apiFetch(`/congresos/${id_congreso}/tipos-asistente?activo=true&id_categoria=${idCategoria}`)
       .then((tipos) => setTiposAsistente(tipos ?? []))
       .catch((err) => setLoadError(err.message))
       .finally(() => setLoadingTipos(false));
-  }, [idCategoria]);
+  }, [id_congreso, idCategoria]);
 
   const categoriaSeleccionada = categorias.find(
     (c) => String(c.id_categoria) === idCategoria,
@@ -79,9 +92,11 @@ export function CrearInscripcion() {
         method: 'POST',
         body: JSON.stringify({
           id_tipo_asistente: Number(idTipoAsistente),
+          id_rol_participacion: Number(idRolParticipacion),
         }),
       });
-      navigate(`/inscripciones/${inscripcion.id_inscripcion}`);
+      await refrescarMisInscripcion();
+      navigate(`/congresos/${id_congreso}/inscripciones/${inscripcion.id_inscripcion}`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -90,7 +105,23 @@ export function CrearInscripcion() {
   }
 
   if (loadingData) return <PageLoader />;
-  if (yaInscrito) return <Navigate to="/inscripciones" replace />;
+  if (yaInscrito) return <Navigate to={`/congresos/${id_congreso}/inscripciones`} replace />;
+
+  if (noAceptaInscripciones) {
+    return (
+      <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-3 px-6 py-20 text-center">
+        <h1 className="font-sans text-2xl font-bold text-text-primary">Nueva inscripción</h1>
+        {congreso?.estado && (
+          <Badge variant={congreso.activo === false ? 'default' : ESTADO_CONGRESO_VARIANT[congreso.estado] ?? 'default'}>
+            {congreso.activo === false ? 'Inactivo' : ESTADO_CONGRESO_LABELS[congreso.estado] ?? congreso.estado}
+          </Badge>
+        )}
+        <p className="text-sm text-text-muted">
+          Este congreso no está aceptando inscripciones en este momento.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-12">
@@ -149,10 +180,36 @@ export function CrearInscripcion() {
               </Select>
             </div>
 
+            <div className="flex flex-col gap-1.5 text-left">
+              <Select
+                id="crear-rol-participacion"
+                label="¿Cómo participas en este congreso?"
+                value={idRolParticipacion}
+                onChange={(e) => setIdRolParticipacion(e.target.value)}
+                required
+              >
+                <option value="" disabled>
+                  Elige una opción
+                </option>
+                <option value={ROL_PARTICIPACION.EXPOSITOR} disabled={convocatoriaCerrada}>
+                  Expositor{convocatoriaCerrada ? ' (no disponible)' : ''}
+                </option>
+                <option value={ROL_PARTICIPACION.ASISTENTE}>Asistente</option>
+              </Select>
+              <p className="mt-1 text-xs text-text-muted">
+                Debe coincidir con tu categoría — si es de ponente/expositor, elige "Expositor" aquí.
+              </p>
+              {convocatoriaCerrada && (
+                <p className="text-xs text-text-muted">
+                  La convocatoria de ponencias está cerrada. Solo puedes inscribirte como Asistente.
+                </p>
+              )}
+            </div>
+
             <Button
               type="submit"
               variant="primary"
-              disabled={!idCategoria || !idTipoAsistente}
+              disabled={!idCategoria || !idTipoAsistente || !idRolParticipacion}
             >
               Crear inscripción
             </Button>
@@ -214,6 +271,14 @@ export function CrearInscripcion() {
             </div>
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                Cómo participas
+              </dt>
+              <dd className="mt-1 text-sm text-text-primary">
+                {ROL_PARTICIPACION_LABELS[Number(idRolParticipacion)]}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
                 Costo
               </dt>
               <dd className="mt-1 text-sm text-text-primary">
@@ -226,6 +291,10 @@ export function CrearInscripcion() {
             Verifica que la categoría corresponda a tu perfil (estudiante, ponente, externo, etc.)
             antes de continuar. Este costo es el valor base, antes de descuentos automáticos si
             aplican.
+          </p>
+
+          <p className="text-xs text-text-muted">
+            Verifica que tu categoría y tu rol de participación coincidan antes de confirmar.
           </p>
 
           <div className="flex justify-end gap-2">

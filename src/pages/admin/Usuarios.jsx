@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { capitalizar, capitalizarPais, capitalizarNombrePropio, formatFecha } from '../../utils/formato';
+import { ROLES, ROL_LABELS } from '../../utils/roles';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -15,14 +16,19 @@ import { Modal } from '../../components/ui/Modal';
 import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 
-const ROLES = [
-  { id_rol: 1, nombre: 'Admin' },
-  { id_rol: 2, nombre: 'Ponente' },
-  { id_rol: 3, nombre: 'Estudiante' },
-];
+// Roles auto-asignables desde este panel: Admin de Congreso (4) se otorga por
+// /congresos/:id/admins, no desde el selector genérico de cambio de rol — hacerlo
+// aquí dejaría una cuenta con el rol pero sin ningún congreso asignado todavía.
+// Expositor/Asistente ya no son rol de cuenta — ahora son id_rol_participacion,
+// por inscripción (ver src/utils/roles.js).
+const ROLES_ASIGNABLES = [ROLES.ADMIN, ROLES.PARTICIPANTE].map((id_rol) => ({
+  id_rol,
+  nombre: ROL_LABELS[id_rol],
+}));
 
-const ROL_BADGE = { 1: 'admin', 2: 'ponente', 3: 'estudiante' };
-const ROL_LABELS = { 1: 'Admin', 2: 'Ponente', 3: 'Estudiante' };
+// Solo Admin tiene variante de color propia; Admin Congreso y Participante caen al
+// 'default' del fallback (`?? 'default'` donde se usa este mapa).
+const ROL_BADGE = { 1: 'admin' };
 
 const FORM_INICIAL = {
   nombre: '',
@@ -32,7 +38,7 @@ const FORM_INICIAL = {
   cedula: '',
   institucion: '',
   pais: '',
-  id_rol: '3',
+  id_rol: String(ROLES.PARTICIPANTE),
 };
 
 export function Usuarios() {
@@ -68,16 +74,17 @@ export function Usuarios() {
     const mapa = {};
     for (const i of inscripciones) {
       if (!mapa[i.id_usuario]) mapa[i.id_usuario] = [];
-      mapa[i.id_usuario].push(i.id_inscripcion);
+      mapa[i.id_usuario].push({ id_inscripcion: i.id_inscripcion, id_congreso: i.id_congreso });
     }
     return mapa;
   }, [inscripciones]);
 
+  // GET /usuarios siempre incluye el objeto `rol`, así que no hace falta mapeo local de respaldo.
   const rolesDisponibles = useMemo(() => {
     const mapa = new Map();
     for (const u of usuarios) {
       if (!mapa.has(u.id_rol)) {
-        mapa.set(u.id_rol, u.rol?.nombre ?? ROL_LABELS[u.id_rol] ?? String(u.id_rol));
+        mapa.set(u.id_rol, u.rol?.nombre ?? String(u.id_rol));
       }
     }
     return Array.from(mapa.entries()).map(([id_rol, nombre]) => ({ id_rol, nombre }));
@@ -274,7 +281,7 @@ export function Usuarios() {
                   <Table.Cell className="text-text-muted">{u.correo}</Table.Cell>
                   <Table.Cell>
                     <Badge variant={ROL_BADGE[u.id_rol] ?? 'default'}>
-                      {u.rol?.nombre ?? ROL_LABELS[u.id_rol] ?? u.id_rol}
+                      {u.rol?.nombre ?? u.id_rol}
                     </Badge>
                   </Table.Cell>
                   <Table.Cell>
@@ -284,13 +291,16 @@ export function Usuarios() {
                       <span className="text-text-muted">Sin inscripciones</span>
                     ) : (
                       <div className="flex flex-wrap gap-1">
-                        {idsInscripciones.map((idInscripcion) => (
-                          <Link key={idInscripcion} to={`/admin/inscripciones/${idInscripcion}`}>
+                        {idsInscripciones.map((inscripcion) => (
+                          <Link
+                            key={inscripcion.id_inscripcion}
+                            to={`/congresos/${inscripcion.id_congreso}/admin/inscripciones/${inscripcion.id_inscripcion}`}
+                          >
                             <Badge
                               variant="default"
                               className="cursor-pointer transition-colors hover:border-accent hover:text-accent"
                             >
-                              #{idInscripcion}
+                              #{inscripcion.id_inscripcion}
                             </Badge>
                           </Link>
                         ))}
@@ -306,7 +316,7 @@ export function Usuarios() {
                       onChange={(e) => handleRolChange(u.id_usuario, e.target.value)}
                       className="w-36"
                     >
-                      {ROLES.map((r) => (
+                      {ROLES_ASIGNABLES.map((r) => (
                         <option key={r.id_rol} value={r.id_rol}>
                           {r.nombre}
                         </option>
@@ -384,7 +394,7 @@ export function Usuarios() {
           />
 
           <Select name="id_rol" label="Rol" value={form.id_rol} onChange={handleChange}>
-            {ROLES.map((r) => (
+            {ROLES_ASIGNABLES.map((r) => (
               <option key={r.id_rol} value={r.id_rol}>
                 {r.nombre}
               </option>

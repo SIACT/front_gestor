@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Eye } from 'lucide-react';
 import { apiFetch } from '../../api/client';
+import { useCongreso } from '../../context/CongresoContext';
 import { ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP, formatFecha } from '../../utils/formato';
+import { ROL_PARTICIPACION } from '../../utils/roles';
+import { SugerenciasMensaje } from '../../components/SugerenciasMensaje';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -23,6 +26,7 @@ const ESTADOS = [
 const ESTADOS_INSCRIPCION = ['pendiente', 'confirmada', 'rechazada', 'cancelada'];
 
 function ArchivoItem({ archivo, onRefrescar }) {
+  const { congreso } = useCongreso();
   const [estado, setEstado] = useState(archivo.estado);
   const [comentarios, setComentarios] = useState(archivo.comentarios ?? '');
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +100,12 @@ function ArchivoItem({ archivo, onRefrescar }) {
         Ver archivo
       </Button>
 
+      <SugerenciasMensaje
+        idCongreso={congreso?.id_congreso}
+        contexto="archivo"
+        onSelect={setComentarios}
+      />
+
       <form className="flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={handleSubmit}>
         {!confirmarRechazo && error && (
           <Alert variant="error" className="sm:w-full">
@@ -146,8 +156,30 @@ function ArchivoItem({ archivo, onRefrescar }) {
   );
 }
 
+function PreviewCambioTipoAsistente({ costoActual, categoriaActual, nuevoTipo, mostrarNotaDescuentos }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface p-3 text-sm">
+      <p>
+        Costo actual: <span className="line-through text-text-muted">{formatCOP(costoActual)}</span>{' '}
+        → Nuevo costo: <span className="text-accent font-semibold">{formatCOP(nuevoTipo.costo_base)}</span>
+      </p>
+      {categoriaActual.id_categoria !== nuevoTipo.categoria.id_categoria && (
+        <p className="mt-1 text-xs text-text-muted">
+          Categoría: {categoriaActual.nombre} → {nuevoTipo.categoria.nombre}
+        </p>
+      )}
+      {mostrarNotaDescuentos && (
+        <p className="mt-1 text-xs text-text-muted">
+          Los descuentos ya aplicados se recalcularán proporcionalmente sobre el nuevo costo.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function InscripcionAdminDetalle() {
-  const { id } = useParams();
+  const { id, id_congreso } = useParams();
+  const { congreso } = useCongreso();
   const [inscripcion, setInscripcion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -157,6 +189,7 @@ export function InscripcionAdminDetalle() {
   const [archivosError, setArchivosError] = useState('');
 
   const [descuentosDisponibles, setDescuentosDisponibles] = useState([]);
+  const [tiposAsistente, setTiposAsistente] = useState([]);
 
   function cargarInscripcion() {
     return apiFetch(`/inscripciones/${id}`).then(setInscripcion);
@@ -179,11 +212,15 @@ export function InscripcionAdminDetalle() {
       .catch((err) => setArchivosError(err.message))
       .finally(() => setArchivosLoading(false));
 
-    apiFetch('/descuentos')
+    apiFetch(`/congresos/${id_congreso}/descuentos`)
       .then((data) => setDescuentosDisponibles(data ?? []))
       .catch(() => setDescuentosDisponibles([]));
+
+    apiFetch(`/congresos/${id_congreso}/tipos-asistente?activo=true`)
+      .then((data) => setTiposAsistente(data ?? []))
+      .catch(() => setTiposAsistente([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, id_congreso]);
 
   // --- Descuentos aplicados ---
   const [confirmandoQuitar, setConfirmandoQuitar] = useState(null);
@@ -306,12 +343,19 @@ export function InscripcionAdminDetalle() {
 
   // --- Estado de la inscripción ---
   const [estadoSeleccionado, setEstadoSeleccionado] = useState('');
+  const [notas, setNotas] = useState('');
+  const [notasOriginal, setNotasOriginal] = useState('');
   const [actualizandoEstado, setActualizandoEstado] = useState(false);
   const [estadoError, setEstadoError] = useState('');
 
   useEffect(() => {
     if (inscripcion) {
       setEstadoSeleccionado(inscripcion.estado_inscripcion);
+      // El backend documenta el campo como `nota` (singular) en el PATCH; se
+      // cubre también `notas` por si la respuesta de GET usa otro nombre.
+      const notaActual = inscripcion.nota ?? inscripcion.notas ?? '';
+      setNotas(notaActual);
+      setNotasOriginal(notaActual);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inscripcion]);
@@ -320,15 +364,112 @@ export function InscripcionAdminDetalle() {
     setEstadoError('');
     setActualizandoEstado(true);
     try {
+      const body = { estado_inscripcion: estadoSeleccionado };
+      if (notas !== notasOriginal) {
+        // El campo es nullable en el backend: null borra la nota explícitamente,
+        // distinto de omitirlo (que la dejaría intacta).
+        body.nota = notas.trim() || null;
+      }
       const actualizado = await apiFetch(`/inscripciones/${id}/estado`, {
         method: 'PATCH',
-        body: JSON.stringify({ estado_inscripcion: estadoSeleccionado }),
+        body: JSON.stringify(body),
       });
       setInscripcion(actualizado);
     } catch (err) {
       setEstadoError(err.message);
     } finally {
       setActualizandoEstado(false);
+    }
+  }
+
+  // --- Rol de participación ---
+  const [rolSeleccionado, setRolSeleccionado] = useState('');
+  const [cambiandoRol, setCambiandoRol] = useState(false);
+  const [rolError, setRolError] = useState('');
+  const [rolExito, setRolExito] = useState('');
+  const [confirmarDegradarRol, setConfirmarDegradarRol] = useState(false);
+
+  useEffect(() => {
+    if (inscripcion) {
+      setRolSeleccionado(String(inscripcion.id_rol_participacion));
+    }
+  }, [inscripcion]);
+
+  async function enviarCambioRol() {
+    setRolError('');
+    setCambiandoRol(true);
+    try {
+      const actualizado = await apiFetch(`/inscripciones/${id}/rol-participacion`, {
+        method: 'PATCH',
+        body: JSON.stringify({ id_rol_participacion: Number(rolSeleccionado) }),
+      });
+      setInscripcion(actualizado);
+      setRolSeleccionado(String(actualizado.id_rol_participacion));
+      setRolExito('Rol actualizado');
+      setConfirmarDegradarRol(false);
+    } catch (err) {
+      setRolError(err.code === 'FORBIDDEN' ? 'No tienes permiso para modificar esta inscripción' : err.message);
+      // El cambio no se aplicó — el Select debe volver a reflejar el rol vigente, no el intentado.
+      setRolSeleccionado(String(inscripcion.id_rol_participacion));
+    } finally {
+      setCambiandoRol(false);
+    }
+  }
+
+  function handleCambiarRolClick() {
+    setRolError('');
+    setRolExito('');
+    const esDegradacion =
+      inscripcion.id_rol_participacion === ROL_PARTICIPACION.EXPOSITOR &&
+      Number(rolSeleccionado) === ROL_PARTICIPACION.ASISTENTE;
+    if (esDegradacion) {
+      setConfirmarDegradarRol(true);
+      return;
+    }
+    enviarCambioRol();
+  }
+
+  // --- Tipo de asistente (mueve dinero: requiere confirmación explícita en Modal) ---
+  const [tipoAsistenteSeleccionado, setTipoAsistenteSeleccionado] = useState('');
+  const [actualizandoTipo, setActualizandoTipo] = useState(false);
+  const [tipoError, setTipoError] = useState('');
+  const [tipoExito, setTipoExito] = useState('');
+  const [confirmarCambioTipo, setConfirmarCambioTipo] = useState(false);
+
+  useEffect(() => {
+    if (inscripcion) {
+      setTipoAsistenteSeleccionado(String(inscripcion.id_tipo_asistente));
+    }
+  }, [inscripcion]);
+
+  function handleCambiarTipoClick() {
+    setTipoError('');
+    setTipoExito('');
+    setConfirmarCambioTipo(true);
+  }
+
+  async function enviarCambioTipo() {
+    setTipoError('');
+    setActualizandoTipo(true);
+    try {
+      const actualizado = await apiFetch(`/inscripciones/${id}/tipo-asistente`, {
+        method: 'PATCH',
+        body: JSON.stringify({ id_tipo_asistente: Number(tipoAsistenteSeleccionado) }),
+      });
+      setInscripcion(actualizado);
+      setTipoAsistenteSeleccionado(String(actualizado.id_tipo_asistente));
+      setTipoExito('Tipo de asistente actualizado');
+      setConfirmarCambioTipo(false);
+    } catch (err) {
+      if (err.code === 'TIPO_ASISTENTE_CONGRESO_MISMATCH') {
+        setTipoError('Este tipo de asistente pertenece a otro congreso.');
+      } else if (err.code === 'TIPO_ASISTENTE_INACTIVE') {
+        setTipoError('Este tipo de asistente está desactivado.');
+      } else {
+        setTipoError(err.message);
+      }
+    } finally {
+      setActualizandoTipo(false);
     }
   }
 
@@ -394,6 +535,12 @@ export function InscripcionAdminDetalle() {
     (d) => d.activo && !idsAplicados.has(d.id_descuento),
   );
 
+  const nuevoTipoAsistente = tiposAsistente.find(
+    (t) => String(t.id_tipo_asistente) === tipoAsistenteSeleccionado,
+  );
+  const hayCambioTipoAsistente =
+    Boolean(nuevoTipoAsistente) && tipoAsistenteSeleccionado !== String(inscripcion.id_tipo_asistente);
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       {!inscripcion.activo && (
@@ -404,7 +551,7 @@ export function InscripcionAdminDetalle() {
 
       <div>
         <Link
-          to="/admin/inscripciones"
+          to={`/congresos/${id_congreso}/admin/inscripciones`}
           className="text-sm text-text-muted transition-colors hover:text-text-primary"
         >
           ← Inscripciones
@@ -440,10 +587,72 @@ export function InscripcionAdminDetalle() {
             <dd className="text-text-primary">{inscripcion.tipo_asistente?.tipo ?? '—'}</dd>
           </div>
           <div className="flex items-center justify-between">
+            <dt className="text-text-muted">Rol de participación</dt>
+            <dd className="text-text-primary">
+              <Badge variant="default">
+                {inscripcion.id_rol_participacion === ROL_PARTICIPACION.EXPOSITOR ? 'Expositor' : 'Asistente'}
+              </Badge>
+            </dd>
+          </div>
+          <div className="flex items-center justify-between">
             <dt className="text-text-muted">Fecha de inscripción</dt>
             <dd className="text-text-primary">{formatFecha(inscripcion.fecha_inscripcion)}</dd>
           </div>
         </dl>
+
+        {!confirmarDegradarRol && rolError && (
+          <Alert variant="error" className="mt-4">
+            {rolError}
+          </Alert>
+        )}
+        {rolExito && (
+          <Alert variant="success" className="mt-4">
+            {rolExito}
+          </Alert>
+        )}
+
+        <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end">
+          <Select
+            label="Cambiar rol de participación"
+            value={rolSeleccionado}
+            onChange={(e) => setRolSeleccionado(e.target.value)}
+            className="flex-1"
+          >
+            <option value={ROL_PARTICIPACION.EXPOSITOR}>Expositor</option>
+            <option value={ROL_PARTICIPACION.ASISTENTE}>Asistente</option>
+          </Select>
+          <Button
+            type="button"
+            variant="primary"
+            loading={cambiandoRol}
+            disabled={Number(rolSeleccionado) === inscripcion.id_rol_participacion}
+            onClick={handleCambiarRolClick}
+          >
+            Actualizar rol
+          </Button>
+        </div>
+
+        <Modal
+          open={confirmarDegradarRol}
+          onClose={() => setConfirmarDegradarRol(false)}
+          title="Cambiar rol a Asistente"
+        >
+          <div className="flex flex-col gap-4">
+            {rolError && <Alert variant="error">{rolError}</Alert>}
+            <p className="text-sm text-text-primary">
+              Vas a cambiar el rol a Asistente. Si esta inscripción tiene ponencias propias, el
+              cambio será rechazado. ¿Continuar?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setConfirmarDegradarRol(false)}>
+                Cancelar
+              </Button>
+              <Button type="button" variant="primary" loading={cambiandoRol} onClick={enviarCambioRol}>
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </Card>
 
       <Card>
@@ -466,6 +675,83 @@ export function InscripcionAdminDetalle() {
             <dd className="text-2xl font-bold text-accent">{formatCOP(costoFinal)}</dd>
           </div>
         </dl>
+
+        {tipoExito && (
+          <Alert variant="success" className="mt-4">
+            {tipoExito}
+          </Alert>
+        )}
+        {!confirmarCambioTipo && tipoError && (
+          <Alert variant="error" className="mt-4">
+            {tipoError}
+          </Alert>
+        )}
+
+        <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
+          <p className="text-sm text-text-muted">
+            Tipo de asistente actual: {inscripcion.tipo_asistente?.tipo ?? '—'} (
+            {inscripcion.categoria?.nombre ?? '—'}) — {formatCOP(inscripcion.tipo_asistente?.costo_base)}
+          </p>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <Select
+              label="Cambiar tipo de asistente"
+              value={tipoAsistenteSeleccionado}
+              onChange={(e) => setTipoAsistenteSeleccionado(e.target.value)}
+              className="flex-1"
+            >
+              {tiposAsistente.map((t) => (
+                <option key={t.id_tipo_asistente} value={t.id_tipo_asistente}>
+                  {t.tipo} ({t.categoria.nombre}) — {formatCOP(t.costo_base)}
+                </option>
+              ))}
+            </Select>
+            <Button
+              type="button"
+              variant="primary"
+              loading={actualizandoTipo}
+              disabled={tipoAsistenteSeleccionado === String(inscripcion.id_tipo_asistente)}
+              onClick={handleCambiarTipoClick}
+            >
+              Actualizar tipo de asistente
+            </Button>
+          </div>
+
+          {hayCambioTipoAsistente && (
+            <PreviewCambioTipoAsistente
+              costoActual={costoBase}
+              categoriaActual={inscripcion.categoria}
+              nuevoTipo={nuevoTipoAsistente}
+              mostrarNotaDescuentos={descuentosAplicados.length > 0}
+            />
+          )}
+        </div>
+
+        <Modal
+          open={confirmarCambioTipo}
+          onClose={() => setConfirmarCambioTipo(false)}
+          title="Cambiar tipo de asistente"
+        >
+          <div className="flex flex-col gap-4">
+            {tipoError && <Alert variant="error">{tipoError}</Alert>}
+            {hayCambioTipoAsistente && (
+              <PreviewCambioTipoAsistente
+                costoActual={costoBase}
+                categoriaActual={inscripcion.categoria}
+                nuevoTipo={nuevoTipoAsistente}
+                mostrarNotaDescuentos={descuentosAplicados.length > 0}
+              />
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setConfirmarCambioTipo(false)}>
+                Cancelar
+              </Button>
+              <Button type="button" variant="primary" loading={actualizandoTipo} onClick={enviarCambioTipo}>
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </Card>
 
       <Card>
@@ -501,12 +787,24 @@ export function InscripcionAdminDetalle() {
             type="button"
             variant="primary"
             loading={actualizandoEstado}
-            disabled={estadoSeleccionado === inscripcion.estado_inscripcion}
+            disabled={estadoSeleccionado === inscripcion.estado_inscripcion && notas === notasOriginal}
             onClick={handleActualizarEstado}
           >
             Actualizar estado
           </Button>
         </div>
+
+        <div className="mt-4 flex flex-col gap-1.5">
+          <SugerenciasMensaje idCongreso={congreso?.id_congreso} contexto="inscripcion" onSelect={setNotas} />
+          <Textarea
+            label="Notas internas"
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            placeholder="Notas visibles solo para el equipo administrativo..."
+            rows={3}
+          />
+        </div>
+
         <p className="mt-2 text-xs text-text-muted">
           El estado de la inscripción es independiente del estado del comprobante de pago — debes
           actualizarlo manualmente.
@@ -683,6 +981,13 @@ export function InscripcionAdminDetalle() {
                   </option>
                 ))}
               </Select>
+              <SugerenciasMensaje
+                idCongreso={congreso?.id_congreso}
+                contexto="comprobante"
+                onSelect={(texto) =>
+                  setRevisionForm((prev) => ({ ...prev, comentarios_revision: texto }))
+                }
+              />
               <Textarea
                 label="Comentarios de revisión (opcional)"
                 rows={3}

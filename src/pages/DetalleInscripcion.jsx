@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { FileText } from 'lucide-react';
 import { apiFetch, API_URL } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { ROLES } from '../utils/roles';
 import { ESTADO_INSCRIPCION_VARIANT } from '../utils/formato';
 import { evaluarRecordatorioArchivo, evaluarRecordatorioComprobante } from '../utils/recordatorios';
 import { Card } from '../components/ui/Card';
@@ -280,7 +281,7 @@ export function DetalleInscripcion() {
         </Card>
       )}
 
-      {user?.id_rol === 1 && (
+      {user?.id_rol === ROLES.ADMIN && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">

@@ -4,6 +4,7 @@ const VARIANT_CLASSES = {
   error: 'bg-error-bg text-error-text',
   success: 'bg-success-bg text-success-text',
   warning: 'bg-warning-bg text-warning-text',
+  info: 'bg-blue-bg text-blue-text',
 };
 
 export function Alert({ variant = 'error', className, children, ...props }) {

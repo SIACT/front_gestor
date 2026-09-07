@@ -50,9 +50,9 @@
 
 /* Tema claro */
 [data-theme="light"] {
-  --c-background: #FAFAF7;
+  --c-background: #d1e4b6;
   --c-surface: #FFFFFF;
-  --c-border: #E2E5E0;
+  --c-border: #b3c9a5;
   --c-accent: #5C8A1E;
   --c-accent-hover: #4A7018;
   --c-text-primary: #14181A;

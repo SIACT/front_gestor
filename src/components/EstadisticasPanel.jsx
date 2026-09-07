@@ -6,7 +6,7 @@ import { Card } from './ui/Card';
 import { Alert } from './ui/Alert';
 import { Spinner } from './ui/Spinner';
 
-function BarraEstadistica({ nombre, total, maximo }) {
+export function BarraEstadistica({ nombre, total, maximo }) {
   const ancho = total === 0 ? '2px' : `${(total / Math.max(maximo, 1)) * 100}%`;
   return (
     <div>
@@ -25,7 +25,7 @@ function BarraEstadistica({ nombre, total, maximo }) {
 // una lista más larga que el límite se trunca a los N primeros (ya vienen ordenados
 // de mayor a menor) + un link para expandir el resto dentro de la misma columna —
 // no colapsa toda la Card, solo revela el resto de esta lista puntual.
-function GrupoBarras({ titulo, items, limiteInicial }) {
+export function GrupoBarras({ titulo, items, limiteInicial }) {
   const [expandido, setExpandido] = useState(false);
   const maximo = Math.max(...items.map((item) => item.total), 1);
   const truncado = typeof limiteInicial === 'number' && items.length > limiteInicial;

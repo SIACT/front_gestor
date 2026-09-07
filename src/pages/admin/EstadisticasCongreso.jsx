@@ -9,7 +9,7 @@ import { Alert } from '../../components/ui/Alert';
 import { Badge } from '../../components/ui/Badge';
 import { PageLoader } from '../../components/ui/PageLoader';
 import { GraficoCircular } from '../../components/ui/GraficoCircular';
-import { EstadisticasPanel } from '../../components/EstadisticasPanel';
+import { BarraEstadistica, EstadisticasPanel, GrupoBarras } from '../../components/EstadisticasPanel';
 
 // Barra grande y coloreada — reemplaza el tratamiento monocromático de EstadisticasPanel
 // para "Por rol de participación" (Inscripciones) y "Por tipo de participación"
@@ -37,6 +37,43 @@ function BarraGrande({ nombre, total, maximo, color }) {
       </div>
     </div>
   );
+}
+
+// "Por tipo de asistente" viene agrupado por categoría (por_categoria): cada grupo tiene
+// su propio sub-header (nombre + subtotal) y sus barras usan como máximo el mayor total
+// DENTRO del grupo, no el global — así la comparación de proporciones tiene sentido entre
+// tipos de una misma categoría. Reutiliza BarraEstadistica (mismo estilo monocromático que
+// el resto del dashboard); cada categoría ocupa su propia columna del grid debajo del
+// GraficoCircular (donut), separadas entre sí por el gap del grid, no por un divider propio.
+function GrupoCategoriaTipoAsistente({ categoria, subtotal, tipos }) {
+  const maximo = Math.max(...tipos.map((t) => t.total), 1);
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-text-primary">{categoria}</span>
+        <span className="text-sm font-semibold text-accent">{subtotal}</span>
+      </div>
+      <div className="mt-2 flex flex-col gap-2">
+        {tipos.map((t) => (
+          <BarraEstadistica key={t.id_tipo_asistente} nombre={t.tipo} total={t.total} maximo={maximo} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// El donut sigue mostrando el desglose por tipo de asistente (mismo nivel de detalle que
+// antes de por_categoria), agregando los totales de un mismo `tipo` entre categorías — el
+// desglose agrupado al lado ya distingue por categoría, así el donut no lo duplica y en
+// cambio da la vista "aplanada" que tenía originalmente.
+function agruparTiposAsistentePorNombre(porCategoria) {
+  const totales = new Map();
+  for (const categoria of porCategoria ?? []) {
+    for (const tipo of categoria.tipos ?? []) {
+      totales.set(tipo.tipo, (totales.get(tipo.tipo) ?? 0) + tipo.total);
+    }
+  }
+  return Array.from(totales, ([nombre, total]) => ({ nombre, total }));
 }
 
 // Ciclo de color para la sección "Procedencia" — reutiliza tokens ya definidos en
@@ -69,6 +106,7 @@ const ESTADO_TALK_VARIANT = {
 
 const ENDPOINTS = {
   ponencias: (id) => `/congresos/${id}/estadisticas/ponencias`,
+  ponenciasPaises: (id) => `/congresos/${id}/estadisticas/ponencias/paises`,
   inscripciones: (id) => `/congresos/${id}/estadisticas/inscripciones`,
   paises: (id) => `/congresos/${id}/estadisticas/paises`,
   instituciones: (id) => `/congresos/${id}/estadisticas/instituciones`,
@@ -193,6 +231,7 @@ export function EstadisticasCongreso() {
   if (loading) return <PageLoader />;
 
   const ponencias = datos.ponencias;
+  const ponenciasPaises = datos.ponenciasPaises;
   const inscripciones = datos.inscripciones;
   const paises = datos.paises;
   const instituciones = datos.instituciones;
@@ -221,12 +260,16 @@ export function EstadisticasCongreso() {
   const porTipoParticipacion = ordenarDesc(ponencias?.por_tipo_participacion);
   const maxTipoParticipacion = Math.max(...porTipoParticipacion.map((t) => t.total), 1);
 
+  // Un solo cálculo compartido por el donut (sin leyenda propia) y la leyenda renderizada
+  // aparte más abajo, junto al desglose por categoría — mismo orden → mismos colores.
+  const datosTipoAsistente = ordenarDesc(agruparTiposAsistentePorNombre(inscripciones?.por_categoria));
+
   return (
     <div className="flex flex-col gap-6 pt-6">
       <div>
         <h1 className="font-sans text-2xl font-bold text-text-primary">Estadísticas del congreso</h1>
         <p className="mt-1 text-sm text-text-muted">
-          Vista combinada de ponencias, inscripciones, procedencia y comprobantes de pago.
+          Vista combinada de trabajos, inscripciones, procedencia y comprobantes de pago.
         </p>
       </div>
 
@@ -235,7 +278,7 @@ export function EstadisticasCongreso() {
           value={errores.inscripciones ? '—' : inscripciones?.total_inscripciones}
           label="Inscripciones en total"
         />
-        <MetricaTile value={errores.ponencias ? '—' : ponencias?.total_ponencias} label="Ponencias en total" />
+        <MetricaTile value={errores.ponencias ? '—' : ponencias?.total_ponencias} label="Trabajos en total" />
         <MetricaTile
           value={errores.paises ? '—' : (paises?.pais_con_mas_participantes?.total ?? 0)}
           label={`País líder: ${paises?.pais_con_mas_participantes?.pais ?? 'Sin datos'}`}
@@ -252,7 +295,7 @@ export function EstadisticasCongreso() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">Ponencias</h2>
+        <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">Trabajos</h2>
 
         {errores.ponencias ? (
           <Alert variant="error">{errores.ponencias}</Alert>
@@ -260,7 +303,7 @@ export function EstadisticasCongreso() {
           <>
             <div>
               <p className="text-2xl font-semibold text-accent">{ponencias?.total_ponencias}</p>
-              <p className="text-xs text-text-muted">ponencias en total</p>
+              <p className="text-xs text-text-muted">trabajos en total</p>
             </div>
 
             {/* Por estado — sin cambios respecto al tratamiento genérico de EstadisticasPanel. */}
@@ -297,6 +340,43 @@ export function EstadisticasCongreso() {
                 </div>
               </Card>
             </div>
+
+            {/* Bloque separado: depende de un fetch propio (ponenciasPaises), independiente
+                del resto de "Trabajos" — si falla, no afecta a Por área/Por tipo/Por estado. */}
+            {errores.ponenciasPaises ? (
+              <Alert variant="error">{errores.ponenciasPaises}</Alert>
+            ) : (
+              <Card className="p-4!">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                  Trabajos por país
+                </h3>
+
+                {ponenciasPaises?.pais_con_mas_ponencias ? (
+                  <p className="mt-2 text-lg font-semibold text-accent">
+                    {ponenciasPaises.pais_con_mas_ponencias.pais} —{' '}
+                    {ponenciasPaises.pais_con_mas_ponencias.total}{' '}
+                    {ponenciasPaises.pais_con_mas_ponencias.total === 1 ? 'trabajo' : 'trabajos'}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-text-muted">
+                    Sin datos de país para los trabajos de este congreso.
+                  </p>
+                )}
+
+                {(ponenciasPaises?.por_pais?.length ?? 0) > 0 && (
+                  <div className="mt-4">
+                    <GrupoBarras
+                      titulo="Por país"
+                      items={ordenarDesc(ponenciasPaises.por_pais).map((p) => ({
+                        nombre: p.pais,
+                        total: p.total,
+                      }))}
+                      limiteInicial={10}
+                    />
+                  </div>
+                )}
+              </Card>
+            )}
           </>
         )}
       </div>
@@ -334,13 +414,20 @@ export function EstadisticasCongreso() {
                 <h3 className="text-xs font-medium uppercase tracking-wide text-text-muted">
                   Por tipo de asistente
                 </h3>
-                <div className="mt-4">
-                  <GraficoCircular
-                    data={ordenarDesc(inscripciones?.por_tipo_asistente).map((t) => ({
-                      nombre: t.tipo,
-                      total: t.total,
-                    }))}
-                  />
+                <div className="mt-4 flex flex-col items-center gap-4">
+                  {/* GraficoCircular ya incluye su propia leyenda (ver componente) */}
+                  <GraficoCircular data={datosTipoAsistente} />
+                </div>
+
+                <div className="mt-6 grid grid-cols-1 gap-6 border-t border-border pt-4 lg:grid-cols-2">
+                  {(inscripciones?.por_categoria ?? []).map((cat) => (
+                    <GrupoCategoriaTipoAsistente
+                      key={cat.id_categoria}
+                      categoria={cat.categoria}
+                      subtotal={cat.subtotal}
+                      tipos={cat.tipos}
+                    />
+                  ))}
                 </div>
               </Card>
 
@@ -359,6 +446,36 @@ export function EstadisticasCongreso() {
                     />
                   ))}
                 </div>
+
+                {(inscripciones?.por_pais_y_rol?.length ?? 0) > 0 && (
+                  <div className="mt-4 border-t border-border pt-4">
+                    <h4 className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                      Por país y rol
+                    </h4>
+                    <div className="mt-2 max-h-48 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-text-muted">
+                            <th className="text-left font-normal">País</th>
+                            <th className="text-right font-normal">Expositor</th>
+                            <th className="text-right font-normal">Asistente</th>
+                            <th className="text-right font-normal">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {inscripciones.por_pais_y_rol.map((fila) => (
+                            <tr key={fila.pais} className="border-t border-border">
+                              <td className="py-1">{fila.pais}</td>
+                              <td className="py-1 text-right">{fila.expositor}</td>
+                              <td className="py-1 text-right">{fila.asistente}</td>
+                              <td className="py-1 text-right font-medium">{fila.total}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </Card>
             </div>
           </>

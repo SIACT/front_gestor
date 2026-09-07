@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Building2, Globe, Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP } from '../../utils/formato';
+import { ROL_PARTICIPACION } from '../../utils/roles';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -72,9 +73,13 @@ export function InscripcionesAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Server-side: GET /inscripciones soporta id_congreso, activo y busqueda (nombre/apellido/correo).
+  // Server-side: GET /inscripciones soporta id_congreso, activo, busqueda (nombre/apellido/correo),
+  // pais, institucion e id_rol_participacion.
   const [busqueda, setBusqueda] = useState('');
   const [activoFiltro, setActivoFiltro] = useState('');
+  const [pais, setPais] = useState('');
+  const [institucion, setInstitucion] = useState('');
+  const [rolFiltro, setRolFiltro] = useState('');
 
   // In-memory: el backend NO soporta estado_inscripcion ni id_tipo_asistente en GET /inscripciones,
   // así que se filtran sobre los datos ya traídos (que sí respetan activo/busqueda server-side).
@@ -88,13 +93,16 @@ export function InscripcionesAdmin() {
     return texto.length >= 2 ? texto : '';
   }
 
-  function cargar(activo, busquedaTexto) {
+  function cargar(activo, busquedaTexto, paisTexto, institucionTexto, rol) {
     setLoading(true);
     setError('');
     const params = new URLSearchParams();
     params.set('id_congreso', id_congreso);
     if (activo) params.set('activo', activo);
     if (busquedaTexto) params.set('busqueda', busquedaTexto);
+    if (paisTexto) params.set('pais', paisTexto);
+    if (institucionTexto) params.set('institucion', institucionTexto);
+    if (rol) params.set('id_rol_participacion', rol);
     return apiFetch(`/inscripciones?${params.toString()}`)
       .then((data) => setInscripciones(data ?? []))
       .catch((err) => setError(err.message))
@@ -121,11 +129,39 @@ export function InscripcionesAdmin() {
     const texto = busqueda.trim();
     if (texto.length === 1) return;
     const timeoutId = setTimeout(() => {
-      cargar(activoFiltro, texto);
+      cargar(activoFiltro, texto, pais.trim(), institucion.trim(), rolFiltro);
     }, 350);
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda]);
+
+  // Igual patrón de debounce que busqueda, pero sin longitud mínima: cualquier
+  // carácter (incluyendo 1) dispara la petición tras el debounce.
+  const esPrimerRenderPais = useRef(true);
+  useEffect(() => {
+    if (esPrimerRenderPais.current) {
+      esPrimerRenderPais.current = false;
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      cargar(activoFiltro, textoBusquedaValido(), pais.trim(), institucion.trim(), rolFiltro);
+    }, 350);
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pais]);
+
+  const esPrimerRenderInstitucion = useRef(true);
+  useEffect(() => {
+    if (esPrimerRenderInstitucion.current) {
+      esPrimerRenderInstitucion.current = false;
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      cargar(activoFiltro, textoBusquedaValido(), pais.trim(), institucion.trim(), rolFiltro);
+    }, 350);
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [institucion]);
 
   const inscripcionesFiltradas = useMemo(() => {
     return inscripciones.filter((i) => {
@@ -138,11 +174,23 @@ export function InscripcionesAdmin() {
   function handleActivoChange(e) {
     const valor = e.target.value;
     setActivoFiltro(valor);
-    cargar(valor, textoBusquedaValido());
+    cargar(valor, textoBusquedaValido(), pais.trim(), institucion.trim(), rolFiltro);
+  }
+
+  function handleRolChange(e) {
+    const valor = e.target.value;
+    setRolFiltro(valor);
+    cargar(activoFiltro, textoBusquedaValido(), pais.trim(), institucion.trim(), valor);
   }
 
   const hayFiltrosActivos = Boolean(
-    busqueda.trim() || activoFiltro || estadoFiltro || tipoAsistenteFiltro,
+    busqueda.trim() ||
+      activoFiltro ||
+      estadoFiltro ||
+      tipoAsistenteFiltro ||
+      pais.trim() ||
+      institucion.trim() ||
+      rolFiltro,
   );
 
   function handleLimpiarFiltros() {
@@ -150,7 +198,10 @@ export function InscripcionesAdmin() {
     setActivoFiltro('');
     setEstadoFiltro('');
     setTipoAsistenteFiltro('');
-    cargar('', '');
+    setPais('');
+    setInstitucion('');
+    setRolFiltro('');
+    cargar('', '', '', '', '');
   }
 
   return (
@@ -177,6 +228,22 @@ export function InscripcionesAdmin() {
           )}
         </div>
 
+        <Input
+          icon={<Globe className="size-4" />}
+          placeholder="País..."
+          value={pais}
+          onChange={(e) => setPais(e.target.value)}
+          className="w-40"
+        />
+
+        <Input
+          icon={<Building2 className="size-4" />}
+          placeholder="Institución..."
+          value={institucion}
+          onChange={(e) => setInstitucion(e.target.value)}
+          className="w-48"
+        />
+
         <Select label="Activa" value={activoFiltro} onChange={handleActivoChange} className="w-40">
           <option value="">Todas</option>
           <option value="true">Solo activas</option>
@@ -195,6 +262,12 @@ export function InscripcionesAdmin() {
               {capitalizar(estado)}
             </option>
           ))}
+        </Select>
+
+        <Select label="Rol" value={rolFiltro} onChange={handleRolChange} className="w-40">
+          <option value="">Todos</option>
+          <option value={ROL_PARTICIPACION.EXPOSITOR}>Expositor</option>
+          <option value={ROL_PARTICIPACION.ASISTENTE}>Asistente</option>
         </Select>
 
         <Select

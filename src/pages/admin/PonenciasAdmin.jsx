@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Globe, Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
 import { capitalizar, formatFecha } from '../../utils/formato';
@@ -89,7 +89,7 @@ function ParticipanteCard({ persona, idCongreso }) {
         </div>
       )}
 
-      {sinPonencias && <p className="mt-4 text-sm text-text-muted">Sin ponencias registradas</p>}
+      {sinPonencias && <p className="mt-4 text-sm text-text-muted">Sin trabajos registrados</p>}
     </Card>
   );
 }
@@ -163,8 +163,8 @@ function SeccionEstadisticas() {
 
   return (
     <EstadisticasPanel
-      titulo="Estadísticas de ponencias"
-      totalLabel="ponencias en total"
+      titulo="Estadísticas de trabajos"
+      totalLabel="trabajos en total"
       totalValue={stats?.total_ponencias}
       loading={loading}
       error={error}
@@ -199,17 +199,20 @@ export function PonenciasAdmin() {
   const [areaFiltro, setAreaFiltro] = useState('');
   const [tipos, setTipos] = useState([]);
   const [tipoFiltro, setTipoFiltro] = useState('');
+  const [paisFiltro, setPaisFiltro] = useState('');
   const [paginaActual, setPaginaActual] = useState(1);
 
-  // Filtros server-side: el backend (GET /talks) soporta id_congreso, estado_talk
-  // e id_area, combinables entre sí.
-  function cargar(estado, idArea) {
+  // Filtros server-side: el backend (GET /talks) soporta id_congreso, estado_talk,
+  // id_area y pais (coincidencia parcial sobre el país del ponente principal),
+  // combinables entre sí.
+  function cargar(estado, idArea, paisTexto) {
     setLoading(true);
     setError('');
     const params = new URLSearchParams();
     params.set('id_congreso', id_congreso);
     if (estado) params.set('estado_talk', estado);
     if (idArea) params.set('id_area', idArea);
+    if (paisTexto) params.set('pais', paisTexto);
     return apiFetch(`/talks?${params.toString()}`)
       .then((data) => setTalks(data ?? []))
       .catch((err) => setError(err.message))
@@ -230,20 +233,35 @@ export function PonenciasAdmin() {
   function handleFiltroChange(e) {
     const valor = e.target.value;
     setFiltro(valor);
-    cargar(valor, areaFiltro);
+    cargar(valor, areaFiltro, paisFiltro.trim());
   }
 
   function handleAreaChange(e) {
     const valor = e.target.value;
     setAreaFiltro(valor);
-    cargar(filtro, valor);
+    cargar(filtro, valor, paisFiltro.trim());
   }
 
-  // Los filtros server-side (estado/área) siempre implican una tabla nueva:
+  // Debounce del país: mismo patrón (350ms, sin longitud mínima) ya usado para
+  // país/institución en InscripcionesAdmin.jsx.
+  const esPrimerRenderPais = useRef(true);
+  useEffect(() => {
+    if (esPrimerRenderPais.current) {
+      esPrimerRenderPais.current = false;
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      cargar(filtro, areaFiltro, paisFiltro.trim());
+    }, 350);
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paisFiltro]);
+
+  // Los filtros server-side (estado/área/país) siempre implican una tabla nueva:
   // evita quedar "atascado" en una página que ya no existe.
   useEffect(() => {
     setPaginaActual(1);
-  }, [filtro, areaFiltro]);
+  }, [filtro, areaFiltro, paisFiltro]);
 
   // Filtro de tipo en memoria: el backend GET /talks no soporta id_tipo_participacion
   // (solo id_congreso, estado_talk e id_area, ver listarTodasLasTalks en el backend).
@@ -264,8 +282,8 @@ export function PonenciasAdmin() {
   return (
     <div className="flex flex-col gap-6 pt-6">
       <div>
-        <h1 className="font-sans text-2xl font-bold text-text-primary">Ponencias</h1>
-        <p className="mt-1 text-sm text-text-muted">Propuestas de ponencia enviadas por los ponentes.</p>
+        <h1 className="font-sans text-2xl font-bold text-text-primary">Trabajos</h1>
+        <p className="mt-1 text-sm text-text-muted">Propuestas de trabajos enviadas por los ponentes.</p>
       </div>
 
       <SeccionEstadisticas />
@@ -284,6 +302,14 @@ export function PonenciasAdmin() {
             </span>
           )}
         </div>
+
+        <Input
+          icon={<Globe className="size-4" />}
+          placeholder="País..."
+          value={paisFiltro}
+          onChange={(e) => setPaisFiltro(e.target.value)}
+          className="w-40"
+        />
 
         <div className="w-40">
           <Select label="Estado" value={filtro} onChange={handleFiltroChange}>
@@ -345,7 +371,7 @@ export function PonenciasAdmin() {
 
       {!loading && (
         <p className="text-sm text-text-muted">
-          Mostrando {talksFiltradas.length} de {talks.length} ponencias
+          Mostrando {talksFiltradas.length} de {talks.length} trabajos
         </p>
       )}
 
@@ -353,7 +379,7 @@ export function PonenciasAdmin() {
         {loading ? (
           <PageLoader />
         ) : talksFiltradas.length === 0 ? (
-          <p className="text-sm text-text-muted">No hay ponencias para este filtro.</p>
+          <p className="text-sm text-text-muted">No hay trabajos para este filtro.</p>
         ) : (
           <>
             <Table>
@@ -398,7 +424,7 @@ export function PonenciasAdmin() {
                 <p className="text-sm text-text-muted">
                   Mostrando {(paginaActual - 1) * PONENCIAS_POR_PAGINA + 1}–
                   {Math.min(paginaActual * PONENCIAS_POR_PAGINA, talksFiltradas.length)} de{' '}
-                  {talksFiltradas.length} ponencias
+                  {talksFiltradas.length} trabajos
                 </p>
                 <div className="flex gap-2">
                   <Button

@@ -156,6 +156,27 @@ function ArchivoItem({ archivo, onRefrescar }) {
   );
 }
 
+function PreviewCambioTipoAsistente({ costoActual, categoriaActual, nuevoTipo, mostrarNotaDescuentos }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface p-3 text-sm">
+      <p>
+        Costo actual: <span className="line-through text-text-muted">{formatCOP(costoActual)}</span>{' '}
+        → Nuevo costo: <span className="text-accent font-semibold">{formatCOP(nuevoTipo.costo_base)}</span>
+      </p>
+      {categoriaActual.id_categoria !== nuevoTipo.categoria.id_categoria && (
+        <p className="mt-1 text-xs text-text-muted">
+          Categoría: {categoriaActual.nombre} → {nuevoTipo.categoria.nombre}
+        </p>
+      )}
+      {mostrarNotaDescuentos && (
+        <p className="mt-1 text-xs text-text-muted">
+          Los descuentos ya aplicados se recalcularán proporcionalmente sobre el nuevo costo.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function InscripcionAdminDetalle() {
   const { id, id_congreso } = useParams();
   const { congreso } = useCongreso();
@@ -168,6 +189,7 @@ export function InscripcionAdminDetalle() {
   const [archivosError, setArchivosError] = useState('');
 
   const [descuentosDisponibles, setDescuentosDisponibles] = useState([]);
+  const [tiposAsistente, setTiposAsistente] = useState([]);
 
   function cargarInscripcion() {
     return apiFetch(`/inscripciones/${id}`).then(setInscripcion);
@@ -193,6 +215,10 @@ export function InscripcionAdminDetalle() {
     apiFetch(`/congresos/${id_congreso}/descuentos`)
       .then((data) => setDescuentosDisponibles(data ?? []))
       .catch(() => setDescuentosDisponibles([]));
+
+    apiFetch(`/congresos/${id_congreso}/tipos-asistente?activo=true`)
+      .then((data) => setTiposAsistente(data ?? []))
+      .catch(() => setTiposAsistente([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, id_congreso]);
 
@@ -403,6 +429,50 @@ export function InscripcionAdminDetalle() {
     enviarCambioRol();
   }
 
+  // --- Tipo de asistente (mueve dinero: requiere confirmación explícita en Modal) ---
+  const [tipoAsistenteSeleccionado, setTipoAsistenteSeleccionado] = useState('');
+  const [actualizandoTipo, setActualizandoTipo] = useState(false);
+  const [tipoError, setTipoError] = useState('');
+  const [tipoExito, setTipoExito] = useState('');
+  const [confirmarCambioTipo, setConfirmarCambioTipo] = useState(false);
+
+  useEffect(() => {
+    if (inscripcion) {
+      setTipoAsistenteSeleccionado(String(inscripcion.id_tipo_asistente));
+    }
+  }, [inscripcion]);
+
+  function handleCambiarTipoClick() {
+    setTipoError('');
+    setTipoExito('');
+    setConfirmarCambioTipo(true);
+  }
+
+  async function enviarCambioTipo() {
+    setTipoError('');
+    setActualizandoTipo(true);
+    try {
+      const actualizado = await apiFetch(`/inscripciones/${id}/tipo-asistente`, {
+        method: 'PATCH',
+        body: JSON.stringify({ id_tipo_asistente: Number(tipoAsistenteSeleccionado) }),
+      });
+      setInscripcion(actualizado);
+      setTipoAsistenteSeleccionado(String(actualizado.id_tipo_asistente));
+      setTipoExito('Tipo de asistente actualizado');
+      setConfirmarCambioTipo(false);
+    } catch (err) {
+      if (err.code === 'TIPO_ASISTENTE_CONGRESO_MISMATCH') {
+        setTipoError('Este tipo de asistente pertenece a otro congreso.');
+      } else if (err.code === 'TIPO_ASISTENTE_INACTIVE') {
+        setTipoError('Este tipo de asistente está desactivado.');
+      } else {
+        setTipoError(err.message);
+      }
+    } finally {
+      setActualizandoTipo(false);
+    }
+  }
+
   // --- Gestión (soft-delete / reactivar) ---
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
@@ -464,6 +534,12 @@ export function InscripcionAdminDetalle() {
   const opcionesDisponibles = descuentosDisponibles.filter(
     (d) => d.activo && !idsAplicados.has(d.id_descuento),
   );
+
+  const nuevoTipoAsistente = tiposAsistente.find(
+    (t) => String(t.id_tipo_asistente) === tipoAsistenteSeleccionado,
+  );
+  const hayCambioTipoAsistente =
+    Boolean(nuevoTipoAsistente) && tipoAsistenteSeleccionado !== String(inscripcion.id_tipo_asistente);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -599,6 +675,83 @@ export function InscripcionAdminDetalle() {
             <dd className="text-2xl font-bold text-accent">{formatCOP(costoFinal)}</dd>
           </div>
         </dl>
+
+        {tipoExito && (
+          <Alert variant="success" className="mt-4">
+            {tipoExito}
+          </Alert>
+        )}
+        {!confirmarCambioTipo && tipoError && (
+          <Alert variant="error" className="mt-4">
+            {tipoError}
+          </Alert>
+        )}
+
+        <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
+          <p className="text-sm text-text-muted">
+            Tipo de asistente actual: {inscripcion.tipo_asistente?.tipo ?? '—'} (
+            {inscripcion.categoria?.nombre ?? '—'}) — {formatCOP(inscripcion.tipo_asistente?.costo_base)}
+          </p>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <Select
+              label="Cambiar tipo de asistente"
+              value={tipoAsistenteSeleccionado}
+              onChange={(e) => setTipoAsistenteSeleccionado(e.target.value)}
+              className="flex-1"
+            >
+              {tiposAsistente.map((t) => (
+                <option key={t.id_tipo_asistente} value={t.id_tipo_asistente}>
+                  {t.tipo} ({t.categoria.nombre}) — {formatCOP(t.costo_base)}
+                </option>
+              ))}
+            </Select>
+            <Button
+              type="button"
+              variant="primary"
+              loading={actualizandoTipo}
+              disabled={tipoAsistenteSeleccionado === String(inscripcion.id_tipo_asistente)}
+              onClick={handleCambiarTipoClick}
+            >
+              Actualizar tipo de asistente
+            </Button>
+          </div>
+
+          {hayCambioTipoAsistente && (
+            <PreviewCambioTipoAsistente
+              costoActual={costoBase}
+              categoriaActual={inscripcion.categoria}
+              nuevoTipo={nuevoTipoAsistente}
+              mostrarNotaDescuentos={descuentosAplicados.length > 0}
+            />
+          )}
+        </div>
+
+        <Modal
+          open={confirmarCambioTipo}
+          onClose={() => setConfirmarCambioTipo(false)}
+          title="Cambiar tipo de asistente"
+        >
+          <div className="flex flex-col gap-4">
+            {tipoError && <Alert variant="error">{tipoError}</Alert>}
+            {hayCambioTipoAsistente && (
+              <PreviewCambioTipoAsistente
+                costoActual={costoBase}
+                categoriaActual={inscripcion.categoria}
+                nuevoTipo={nuevoTipoAsistente}
+                mostrarNotaDescuentos={descuentosAplicados.length > 0}
+              />
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setConfirmarCambioTipo(false)}>
+                Cancelar
+              </Button>
+              <Button type="button" variant="primary" loading={actualizandoTipo} onClick={enviarCambioTipo}>
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </Card>
 
       <Card>

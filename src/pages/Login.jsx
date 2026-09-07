@@ -141,7 +141,7 @@ export function Login() {
       <div className="mt-0 overflow-hidden rounded-2xl bg-white p-3">
         <div className="overflow-x-auto">
           <img
-            src="https://res.cloudinary.com/dspprxtpr/image/upload/v1787628489/Captura_desde_2026-08-24_22-27-35_wnswwp.png"
+            src="https://res.cloudinary.com/dspprxtpr/image/upload/v1788807057/Captura_desde_2026-09-07_13-48-55_gh23d1.png"
             alt="ICETEX, ALTENUA, y universidades e instituciones aliadas del evento"
             className="h-auto w-full min-w-[480px] object-contain sm:min-w-0"
             loading="lazy"

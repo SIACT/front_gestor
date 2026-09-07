@@ -225,7 +225,9 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
               <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>{talk.estado_talk}</Badge>
               {talk.area?.nombre && <Badge variant="default">{talk.area.nombre}</Badge>}
               <Badge variant="default">{talk.tipo_participacion?.nombre ?? 'Sin tipo asignado'}</Badge>
-              <span className="text-xs text-text-muted">Propuesta el {formatFecha(talk.fecha_creacion)}</span>
+              {isAdmin && (
+                <span className="text-xs text-text-muted">Propuesta el {formatFecha(talk.fecha_creacion)}</span>
+              )}
             </div>
           </div>
           {canEdit && (
@@ -280,7 +282,7 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
                 {talk.duracion_minutos ? `${talk.duracion_minutos} minutos` : '—'}
               </dd>
             </div>
-            {talk.fecha_aceptacion && (
+            {isAdmin && talk.fecha_aceptacion && (
               <div>
                 <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Fecha de aceptación</dt>
                 <dd className="mt-1 text-sm text-text-primary">{formatFecha(talk.fecha_aceptacion)}</dd>
@@ -371,17 +373,13 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
           Lugar
         </h2>
 
-        <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Sala / Auditorio</dt>
             <dd className="mt-1 text-sm text-text-primary">Por definir</dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Fecha y hora</dt>
-            <dd className="mt-1 text-sm text-text-primary">Por definir</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Capacidad</dt>
             <dd className="mt-1 text-sm text-text-primary">Por definir</dd>
           </div>
         </dl>

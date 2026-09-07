@@ -4,7 +4,6 @@ import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../utils/roles';
 import { useCongreso } from '../context/CongresoContext';
-import { formatFecha } from '../utils/formato';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -202,8 +201,7 @@ export function MisPonencias() {
                   </div>
                   <p className="mt-2 text-xs text-text-muted">
                     {talk.area?.nombre && <>{talk.area.nombre} · </>}
-                    {talk.tipo_participacion?.nombre ?? 'Sin tipo asignado'} ·{' '}
-                    {formatFecha(talk.fecha_creacion)}
+                    {talk.tipo_participacion?.nombre ?? 'Sin tipo asignado'}
                   </p>
 
                   {talk.estado_talk === 'rechazada' && talk.observaciones && (

@@ -356,19 +356,31 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
           )}
 
           {canManageCoponentes && (
-            <form className="mt-4 flex items-end gap-2" onSubmit={handleAgregarCoponente}>
-              <Input
-                label="Correo del CoAutor"
-                type="email"
-                value={correoCoponente}
-                onChange={(e) => setCorreoCoponente(e.target.value)}
-                required
-                className="flex-1"
-              />
-              <Button type="submit" variant="secondary" loading={agregandoCoponente}>
-                Agregar Coautor
-              </Button>
-            </form>
+            <>
+              <form className="mt-4 flex items-end gap-2" onSubmit={handleAgregarCoponente}>
+                <Input
+                  label="Correo del CoAutor"
+                  type="email"
+                  value={correoCoponente}
+                  onChange={(e) => setCorreoCoponente(e.target.value)}
+                  required
+                  disabled={convocatoriaFinalizada}
+                  className="flex-1 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  loading={agregandoCoponente}
+                  disabled={convocatoriaFinalizada}
+                  title={convocatoriaFinalizada ? 'La convocatoria de ponencias ya finalizó' : undefined}
+                >
+                  Agregar Coautor
+                </Button>
+              </form>
+              {convocatoriaFinalizada && (
+                <p className="mt-1 text-xs text-text-muted">La convocatoria de ponencias ya finalizó</p>
+              )}
+            </>
           )}
           {coponenteError && (
             <Alert variant="error" className="mt-2">

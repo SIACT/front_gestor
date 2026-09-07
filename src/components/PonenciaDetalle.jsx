@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
 import { apiFetch } from '../api/client';
+import { useCongreso } from '../context/CongresoContext';
 import { capitalizar, formatFecha } from '../utils/formato';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
@@ -60,6 +61,8 @@ function talkToForm(talk) {
 
 export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, onRefresh, adminReviewSlot }) {
   const { id_congreso } = useParams();
+  const { congreso } = useCongreso();
+  const convocatoriaFinalizada = !isAdmin && congreso?.estado === 'convocatoria_cerrada';
   const [ponentes, setPonentes] = useState([]);
   const [ponentesLoading, setPonentesLoading] = useState(true);
   const [ponentesError, setPonentesError] = useState('');
@@ -231,9 +234,20 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
             </div>
           </div>
           {canEdit && (
-            <Button type="button" variant="secondary" onClick={handleAbrirEditar}>
-              Editar
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={convocatoriaFinalizada}
+                title={convocatoriaFinalizada ? 'La convocatoria de ponencias ya finalizó' : undefined}
+                onClick={handleAbrirEditar}
+              >
+                Editar
+              </Button>
+              {convocatoriaFinalizada && (
+                <p className="text-xs text-text-muted">La convocatoria de ponencias ya finalizó</p>
+              )}
+            </div>
           )}
         </div>
       </div>

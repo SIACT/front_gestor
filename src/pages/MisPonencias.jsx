@@ -193,7 +193,7 @@ export function MisPonencias() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-base font-medium text-text-primary">{talk.titulo}</p>
-                      {talk.es_principal === false && <Badge variant="default">Coponente</Badge>}
+                      {talk.es_principal === false && <Badge variant="default">Coautoría</Badge>}
                     </div>
                     <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>
                       {talk.estado_talk}

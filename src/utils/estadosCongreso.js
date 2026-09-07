@@ -11,7 +11,7 @@ export const ESTADOS_CONGRESO = [
 export const ESTADO_CONGRESO_LABELS = {
   planeacion: 'En planeación',
   inscripciones_abiertas: 'Inscripciones abiertas',
-  convocatoria_cerrada: 'Convocatoria de ponencias cerrada',
+  convocatoria_cerrada: 'Convocatoria de ponencia finalizada',
   finalizado: 'Finalizado',
 };
 

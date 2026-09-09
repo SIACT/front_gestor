@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, Globe, Search } from 'lucide-react';
+import { Building2, Globe, Search, UserPlus } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP } from '../../utils/formato';
 import { ROL_PARTICIPACION } from '../../utils/roles';
@@ -10,9 +10,12 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Alert } from '../../components/ui/Alert';
+import { Modal } from '../../components/ui/Modal';
 import { PageLoader } from '../../components/ui/PageLoader';
 import { Spinner } from '../../components/ui/Spinner';
 import { EstadisticasPanel } from '../../components/EstadisticasPanel';
+
+const INSCRIBIR_FORM_INICIAL = { correo: '', id_rol_participacion: '', id_tipo_asistente: '' };
 
 const ESTADOS_INSCRIPCION = ['pendiente', 'confirmada', 'rechazada', 'cancelada'];
 
@@ -87,6 +90,14 @@ export function InscripcionesAdmin() {
   const [tipoAsistenteFiltro, setTipoAsistenteFiltro] = useState('');
   const [tiposAsistente, setTiposAsistente] = useState([]);
 
+  // Modal "Inscribir a alguien": reutiliza el catálogo de tiposAsistente ya cargado
+  // arriba (mismo `activo=true` que usa el filtro), sin refetch propio.
+  const [inscribirModalOpen, setInscribirModalOpen] = useState(false);
+  const [inscribirForm, setInscribirForm] = useState(INSCRIBIR_FORM_INICIAL);
+  const [inscribirError, setInscribirError] = useState('');
+  const [inscribirSubmitting, setInscribirSubmitting] = useState(false);
+  const [inscribirExito, setInscribirExito] = useState('');
+
   // Solo se manda al backend con 2+ caracteres; con menos, se ignora en vez de filtrar.
   function textoBusquedaValido() {
     const texto = busqueda.trim();
@@ -107,6 +118,54 @@ export function InscripcionesAdmin() {
       .then((data) => setInscripciones(data ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+  }
+
+  function handleAbrirInscribir() {
+    setInscribirForm(INSCRIBIR_FORM_INICIAL);
+    setInscribirError('');
+    setInscribirExito('');
+    setInscribirModalOpen(true);
+  }
+
+  function handleInscribirChange(e) {
+    const { name, value } = e.target;
+    setInscribirForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handleInscribirSubmit(e) {
+    e.preventDefault();
+    setInscribirError('');
+    setInscribirSubmitting(true);
+    try {
+      await apiFetch('/inscripciones', {
+        method: 'POST',
+        body: JSON.stringify({
+          id_tipo_asistente: Number(inscribirForm.id_tipo_asistente),
+          id_rol_participacion: Number(inscribirForm.id_rol_participacion),
+          correo_usuario_objetivo: inscribirForm.correo.trim(),
+        }),
+      });
+      setInscribirModalOpen(false);
+      setInscribirExito('Inscripción creada correctamente.');
+      // La respuesta del POST no trae usuario/tipo_asistente poblados (a diferencia del
+      // GET), así que recargamos el listado en vez de armar la fila a mano — mantiene
+      // los filtros server-side ya activos en pantalla.
+      cargar(activoFiltro, textoBusquedaValido(), pais.trim(), institucion.trim(), rolFiltro);
+    } catch (err) {
+      if (err.code === 'USUARIO_NOT_FOUND') {
+        setInscribirError(
+          'No existe ninguna cuenta registrada con ese correo. La persona debe registrarse primero en la plataforma.',
+        );
+      } else if (err.code === 'YA_TIENE_INSCRIPCION_EN_ESTE_CONGRESO') {
+        setInscribirError('Esta persona ya tiene una inscripción en este congreso.');
+      } else if (err.code === 'FORBIDDEN') {
+        setInscribirError('Solo un administrador puede crear inscripciones a nombre de otra persona.');
+      } else {
+        setInscribirError(err.message);
+      }
+    } finally {
+      setInscribirSubmitting(false);
+    }
   }
 
   useEffect(() => {
@@ -206,10 +265,18 @@ export function InscripcionesAdmin() {
 
   return (
     <div className="flex flex-col gap-6 pt-6">
-      <div>
-        <h1 className="font-sans text-2xl font-bold text-text-primary">Inscripciones</h1>
-        <p className="mt-1 text-sm text-text-muted">Todas las inscripciones registradas en el sistema.</p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="font-sans text-2xl font-bold text-text-primary">Inscripciones</h1>
+          <p className="mt-1 text-sm text-text-muted">Todas las inscripciones registradas en el sistema.</p>
+        </div>
+        <Button type="button" variant="primary" onClick={handleAbrirInscribir}>
+          <UserPlus className="size-4" />
+          Inscribir a alguien
+        </Button>
       </div>
+
+      {inscribirExito && <Alert variant="success">{inscribirExito}</Alert>}
 
       <SeccionEstadisticas idCongreso={id_congreso} />
 
@@ -355,6 +422,56 @@ export function InscripcionesAdmin() {
           </tbody>
         </Table>
       )}
+
+      <Modal open={inscribirModalOpen} onClose={() => setInscribirModalOpen(false)} title="Inscribir a alguien">
+        <form className="flex flex-col gap-3" onSubmit={handleInscribirSubmit}>
+          {inscribirError && <Alert variant="error">{inscribirError}</Alert>}
+
+          <Input
+            name="correo"
+            type="email"
+            label="Correo de la persona"
+            value={inscribirForm.correo}
+            onChange={handleInscribirChange}
+            required
+          />
+
+          <Select
+            name="id_rol_participacion"
+            label="¿Cómo participa?"
+            value={inscribirForm.id_rol_participacion}
+            onChange={handleInscribirChange}
+            required
+          >
+            <option value="" disabled>
+              Elige una opción
+            </option>
+            <option value={ROL_PARTICIPACION.EXPOSITOR}>Expositor</option>
+            <option value={ROL_PARTICIPACION.ASISTENTE}>Asistente</option>
+          </Select>
+
+          <Select
+            name="id_tipo_asistente"
+            label="Tipo de asistente"
+            value={inscribirForm.id_tipo_asistente}
+            onChange={handleInscribirChange}
+            required
+          >
+            <option value="" disabled>
+              Elige un tipo de asistente
+            </option>
+            {tiposAsistente.map((t) => (
+              <option key={t.id_tipo_asistente} value={t.id_tipo_asistente}>
+                {t.tipo}
+              </option>
+            ))}
+          </Select>
+
+          <Button type="submit" variant="primary" loading={inscribirSubmitting} className="mt-2 w-full">
+            Inscribir
+          </Button>
+        </form>
+      </Modal>
     </div>
   );
 }

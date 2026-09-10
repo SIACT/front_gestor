@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { FileText } from 'lucide-react';
 import { apiFetch, API_URL } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useCongreso } from '../context/CongresoContext';
 import { ROLES } from '../utils/roles';
 import { ESTADO_INSCRIPCION_VARIANT } from '../utils/formato';
 import { evaluarRecordatorioArchivo, evaluarRecordatorioComprobante } from '../utils/recordatorios';
@@ -62,6 +63,7 @@ function PanelRecordatorios({ comprobante, archivos, estadoInscripcion }) {
 export function DetalleInscripcion() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { congreso } = useCongreso();
   const [inscripcion, setInscripcion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -195,8 +197,11 @@ export function DetalleInscripcion() {
   const costoFinal = Number(inscripcion.costo_final);
   const descuentos = inscripcion.inscripcion_descuentos ?? [];
   const comprobante = inscripcion.comprobante;
-  const mostrarFormularioSubida = !comprobante || comprobante.estado_comprobante !== 'revisado';
   const estadoInscripcion = inscripcion.estado_inscripcion;
+  // Con la inscripción ya confirmada, la subida se bloquea sin importar el estado
+  // individual del comprobante (aunque esté 'pendiente' o 'rechazado').
+  const mostrarFormularioSubida =
+    estadoInscripcion !== 'confirmada' && (!comprobante || comprobante.estado_comprobante !== 'revisado');
 
   const linkCartaAceptacion = (
     <a
@@ -206,7 +211,7 @@ export function DetalleInscripcion() {
       className="inline-flex  items-center gap-1.5 text-sm text-accent hover:text-accent-hover transition-colors"
     >
       <FileText className="size-4" />
-      Ver formato de carta de aceptación
+      Ver formato de carta de compromiso (si aplica)
     </a>
   );
 
@@ -214,7 +219,7 @@ export function DetalleInscripcion() {
     <div className="mx-auto flex w-full flex-col gap-6 px-6 py-20">
       <div>
         <h2 className="font-sans text-2xl font-bold text-text-primary">
-         ALTENCOA 11-2026 <span className="text-lg font-normal text-text-muted ml-20">Inscripción {inscripcion.tipo_asistente?.tipo}</span>
+         {congreso?.nombre} <span className="text-lg font-normal text-text-muted ml-20">Inscripción {inscripcion.tipo_asistente?.tipo}</span>
         </h2>
       </div>
 
@@ -229,6 +234,12 @@ export function DetalleInscripcion() {
           {estadoInscripcion}
         </Badge>
       </div>
+
+      {estadoInscripcion === 'confirmada' && (
+        <Alert variant="success">
+          ¡Todo listo! Tu inscripción a {congreso?.nombre} ha sido confirmada. Te esperamos en el congreso.
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
       <div className="flex flex-col gap-6 lg:col-span-3">
@@ -342,7 +353,17 @@ export function DetalleInscripcion() {
           </Alert>
         )}
 
-        {mostrarFormularioSubida ? (
+        {estadoInscripcion === 'confirmada' ? (
+          comprobante ? (
+            <Alert variant="success" className="mt-4">
+              Tu comprobante de pago fue verificado correctamente por el sistema de Altenua.
+            </Alert>
+          ) : (
+            <p className="mt-4 text-sm text-text-muted">
+              No se registró comprobante para esta inscripción por la plataforma.
+            </p>
+          )
+        ) : mostrarFormularioSubida ? (
           <form className="mt-4 flex flex-col gap-3" onSubmit={handleUpload}>
             {uploadError && <Alert variant="error">{uploadError}</Alert>}
             <input
@@ -354,7 +375,7 @@ export function DetalleInscripcion() {
             />
             <input
               type="text"
-              placeholder="Link externo opcional (ej. Google Drive) — no reemplaza el archivo"
+              placeholder="Link externo opcional (ej. Google Drive)"
               value={linkExterno}
               onChange={(e) => setLinkExterno(e.target.value)}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted"
@@ -427,34 +448,46 @@ export function DetalleInscripcion() {
           </ul>
         )}
 
-        <form
-          className="mt-6 flex flex-col gap-3 border-t border-border pt-4"
-          onSubmit={handleUploadArchivo}
-        >
-          {uploadArchivoError && <Alert variant="error">{uploadArchivoError}</Alert>}
-          <Input
-            label="Tipo de archivo (opcional)"
-            placeholder="ej. carta_aceptacion, cv"
-            value={tipoArchivo}
-            onChange={(e) => setTipoArchivo(e.target.value)}
-          />
-          <input
-            key={uploadArchivoKey}
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png"
-            onChange={(e) => setArchivoNuevo(e.target.files?.[0] ?? null)}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-text-muted file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-background hover:file:bg-accent-hover"
-          />
-          <Button
-            type="submit"
-            variant="primary"
-            loading={uploadingArchivo}
-            disabled={!archivoNuevo}
-            className="self-start"
+        {estadoInscripcion === 'confirmada' ? (
+          archivos.length > 0 ? (
+            <Alert variant="success" className="mt-6 border-t border-border pt-4">
+              Tus archivos adicionales fueron verificados correctamente por el sistema de Altenua.
+            </Alert>
+          ) : (
+            <p className="mt-6 border-t border-border pt-4 text-sm text-text-muted">
+              No se registraron archivos adicionales para esta inscripción por la plataforma.
+            </p>
+          )
+        ) : (
+          <form
+            className="mt-6 flex flex-col gap-3 border-t border-border pt-4"
+            onSubmit={handleUploadArchivo}
           >
-            Subir archivo
-          </Button>
-        </form>
+            {uploadArchivoError && <Alert variant="error">{uploadArchivoError}</Alert>}
+            <Input
+              label="Tipo de archivo (opcional)"
+              placeholder="ej. carta_aceptacion, cv"
+              value={tipoArchivo}
+              onChange={(e) => setTipoArchivo(e.target.value)}
+            />
+            <input
+              key={uploadArchivoKey}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(e) => setArchivoNuevo(e.target.files?.[0] ?? null)}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-text-muted file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-background hover:file:bg-accent-hover"
+            />
+            <Button
+              type="submit"
+              variant="primary"
+              loading={uploadingArchivo}
+              disabled={!archivoNuevo}
+              className="self-start"
+            >
+              Subir archivo
+            </Button>
+          </form>
+        )}
 
         <Modal
           open={Boolean(archivoAEliminar)}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import clsx from 'clsx';
+import { FileText, Layers, Tag } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../utils/roles';
@@ -18,6 +20,20 @@ const ESTADO_TALK_VARIANT = {
   pendiente: 'pendiente',
   aceptada: 'revisado',
   rechazada: 'rechazado',
+};
+
+// Frase del footer de cada Card — deliberadamente distinta al texto del Badge de arriba.
+const ESTADO_TALK_DESCRIPCION = {
+  pendiente: 'En revisión',
+  aceptada: 'Aceptada',
+  rechazada: 'Rechazada',
+};
+
+// Mismo criterio que ESTADO_INSCRIPCION_BORDER en MisInscripciones.jsx/DetalleInscripcion.jsx.
+const ESTADO_TALK_BORDER = {
+  pendiente: 'border-warning-text',
+  aceptada: 'border-success-text',
+  rechazada: 'border-error-text',
 };
 
 const FORM_INICIAL = {
@@ -189,26 +205,67 @@ export function MisPonencias() {
           {talks.map((talk) => (
             <li key={talk.id_talk}>
               <Link to={`/congresos/${id_congreso}/ponencias/${talk.id_talk}`}>
-                <Card className="transition-colors hover:border-accent">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
+                <Card
+                  className={clsx(
+                    'border-l-4 transition-colors hover:border-accent',
+                    ESTADO_TALK_BORDER[talk.estado_talk] ?? 'border-border',
+                  )}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-base font-medium text-text-primary">{talk.titulo}</p>
+                      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-text-muted">
+                        <FileText className="size-3.5" />
+                        Ponencia
+                      </div>
                       {talk.es_principal === false && <Badge variant="default">Coautoría</Badge>}
                     </div>
                     <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>
                       {talk.estado_talk}
                     </Badge>
                   </div>
-                  <p className="mt-2 text-xs text-text-muted">
-                    {talk.area?.nombre && <>{talk.area.nombre} · </>}
-                    {talk.tipo_participacion?.nombre ?? 'Sin tipo asignado'}
+
+                  <p className="mt-2 font-sans text-xl font-bold text-text-primary sm:text-2xl">
+                    {talk.titulo}
                   </p>
 
                   {talk.estado_talk === 'rechazada' && talk.observaciones && (
-                    <Alert variant="warning" className="mt-3">
+                    <Alert variant="warning" className="mt-4">
                       {talk.observaciones}
                     </Alert>
                   )}
+
+                  <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                        Área temática
+                      </p>
+                      <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-accent">
+                        <Tag className="size-4" />
+                        {talk.area?.nombre ?? '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                        Formato
+                      </p>
+                      <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-text-primary">
+                        <Layers className="size-4 text-text-muted" />
+                        {talk.tipo_participacion?.nombre ?? 'Sin especificar'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 border-t border-border pt-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Congreso</p>
+                    <p className="mt-1 font-sans text-lg font-bold text-text-primary">{congreso?.nombre}</p>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                    <span className="text-sm text-text-muted">Estado de la propuesta</span>
+                    <span className="text-sm font-medium text-text-primary">
+                      {ESTADO_TALK_DESCRIPCION[talk.estado_talk] ?? talk.estado_talk}
+                    </span>
+                  </div>
                 </Card>
               </Link>
             </li>

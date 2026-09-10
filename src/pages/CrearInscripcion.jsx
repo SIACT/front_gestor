@@ -98,7 +98,13 @@ export function CrearInscripcion() {
       await refrescarMisInscripcion();
       navigate(`/congresos/${id_congreso}/inscripciones/${inscripcion.id_inscripcion}`);
     } catch (err) {
-      setError(err.message);
+      // Caso raro (condición de carrera, ej. dos pestañas inscribiéndose a la vez): el guard
+      // de arriba (yaInscrito) ya redirige antes de llegar aquí en el caso normal.
+      if (err.code === 'YA_TIENE_INSCRIPCION_EN_ESTE_CONGRESO') {
+        setError('Ya tienes una inscripción en este congreso.');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setSubmitting(false);
     }

@@ -542,7 +542,7 @@ export function InscripcionAdminDetalle() {
     Boolean(nuevoTipoAsistente) && tipoAsistenteSeleccionado !== String(inscripcion.id_tipo_asistente);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       {!inscripcion.activo && (
         <Alert variant="warning">
           Esta inscripción está desactivada. Algunas acciones pueden no tener efecto esperado.
@@ -556,568 +556,597 @@ export function InscripcionAdminDetalle() {
         >
           ← Inscripciones
         </Link>
-        <h1 className="mt-2 font-sans text-2xl font-bold text-text-primary">
-          Inscripción #{inscripcion.id_inscripcion}
-        </h1>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className="font-sans text-2xl font-bold text-text-primary">
+            Inscripción #{inscripcion.id_inscripcion}
+          </h1>
+          <Badge variant={ESTADO_INSCRIPCION_VARIANT[inscripcion.estado_inscripcion] ?? 'default'}>
+            {inscripcion.estado_inscripcion}
+          </Badge>
+        </div>
       </div>
 
-      <Card>
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-            Datos generales
-          </h2>
-          <Badge variant={ESTADO_INSCRIPCION_VARIANT[inscripcion.estado_inscripcion] ?? 'default'}>
-            {inscripcion.estado_inscripcion}
-          </Badge>
-        </div>
-        <dl className="mt-4 flex flex-col gap-3 text-sm">
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-text-muted">Usuario</dt>
-            <dd className="text-right text-text-primary">
-              {capitalizar(inscripcion.usuario?.nombre)} {capitalizar(inscripcion.usuario?.apellido)}
-              <span className="block text-xs text-text-muted">{inscripcion.usuario?.correo}</span>
-            </dd>
-          </div>
-          <div className="flex items-center justify-between">
-            <dt className="text-text-muted">Categoría</dt>
-            <dd className="text-text-primary">{inscripcion.categoria?.nombre ?? '—'}</dd>
-          </div>
-          <div className="flex items-center justify-between">
-            <dt className="text-text-muted">Tipo de asistente</dt>
-            <dd className="text-text-primary">{inscripcion.tipo_asistente?.tipo ?? '—'}</dd>
-          </div>
-          <div className="flex items-center justify-between">
-            <dt className="text-text-muted">Rol de participación</dt>
-            <dd className="text-text-primary">
-              <Badge variant="default">
-                {inscripcion.id_rol_participacion === ROL_PARTICIPACION.EXPOSITOR ? 'Expositor' : 'Asistente'}
-              </Badge>
-            </dd>
-          </div>
-          <div className="flex items-center justify-between">
-            <dt className="text-text-muted">Fecha de inscripción</dt>
-            <dd className="text-text-primary">{formatFecha(inscripcion.fecha_inscripcion)}</dd>
-          </div>
-        </dl>
-
-        {!confirmarDegradarRol && rolError && (
-          <Alert variant="error" className="mt-4">
-            {rolError}
-          </Alert>
-        )}
-        {rolExito && (
-          <Alert variant="success" className="mt-4">
-            {rolExito}
-          </Alert>
-        )}
-
-        <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end">
-          <Select
-            label="Cambiar rol de participación"
-            value={rolSeleccionado}
-            onChange={(e) => setRolSeleccionado(e.target.value)}
-            className="flex-1"
-          >
-            <option value={ROL_PARTICIPACION.EXPOSITOR}>Expositor</option>
-            <option value={ROL_PARTICIPACION.ASISTENTE}>Asistente</option>
-          </Select>
-          <Button
-            type="button"
-            variant="primary"
-            loading={cambiandoRol}
-            disabled={Number(rolSeleccionado) === inscripcion.id_rol_participacion}
-            onClick={handleCambiarRolClick}
-          >
-            Actualizar rol
-          </Button>
-        </div>
-
-        <Modal
-          open={confirmarDegradarRol}
-          onClose={() => setConfirmarDegradarRol(false)}
-          title="Cambiar rol a Asistente"
-        >
-          <div className="flex flex-col gap-4">
-            {rolError && <Alert variant="error">{rolError}</Alert>}
-            <p className="text-sm text-text-primary">
-              Vas a cambiar el rol a Asistente. Si esta inscripción tiene ponencias propias, el
-              cambio será rechazado. ¿Continuar?
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setConfirmarDegradarRol(false)}>
-                Cancelar
-              </Button>
-              <Button type="button" variant="primary" loading={cambiandoRol} onClick={enviarCambioRol}>
-                Confirmar
-              </Button>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Columna izquierda */}
+        <div className="flex flex-col gap-6 lg:col-span-2">
+          <Card>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+              Datos generales
+            </h2>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs text-text-muted">Usuario</p>
+                <p className="text-sm text-text-primary">
+                  {capitalizar(inscripcion.usuario?.nombre)} {capitalizar(inscripcion.usuario?.apellido)}
+                </p>
+                <p className="text-xs text-text-muted">{inscripcion.usuario?.correo}</p>
+              </div>
+              <div>
+                <p className="text-xs text-text-muted">Categoría</p>
+                <p className="text-sm text-text-primary">{inscripcion.categoria?.nombre ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-text-muted">Tipo de asistente</p>
+                <p className="text-sm text-text-primary">{inscripcion.tipo_asistente?.tipo ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-text-muted">Rol de participación</p>
+                <Badge variant="default">
+                  {inscripcion.id_rol_participacion === ROL_PARTICIPACION.EXPOSITOR ? 'Expositor' : 'Asistente'}
+                </Badge>
+              </div>
+              <div className="sm:col-span-2">
+                <p className="text-xs text-text-muted">Fecha de inscripción</p>
+                <p className="text-sm text-text-primary">{formatFecha(inscripcion.fecha_inscripcion)}</p>
+              </div>
             </div>
-          </div>
-        </Modal>
-      </Card>
+          </Card>
 
-      <Card>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-          Resumen de costos
-        </h2>
-        <dl className="mt-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between text-sm">
-            <dt className="text-text-muted">Costo base</dt>
-            <dd className="text-text-primary">{formatCOP(costoBase)}</dd>
-          </div>
-          {descuentoAplicado > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <dt className="text-text-muted">Descuento aplicado</dt>
-              <dd className="text-success-text">-{formatCOP(descuentoAplicado)}</dd>
-            </div>
-          )}
-          <div className="flex items-center justify-between border-t border-border pt-3">
-            <dt className="text-sm font-medium text-text-muted">Costo final</dt>
-            <dd className="text-2xl font-bold text-accent">{formatCOP(costoFinal)}</dd>
-          </div>
-        </dl>
+          <Card>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+              Cambiar rol de participación
+            </h2>
 
-        {tipoExito && (
-          <Alert variant="success" className="mt-4">
-            {tipoExito}
-          </Alert>
-        )}
-        {!confirmarCambioTipo && tipoError && (
-          <Alert variant="error" className="mt-4">
-            {tipoError}
-          </Alert>
-        )}
-
-        <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
-          <p className="text-sm text-text-muted">
-            Tipo de asistente actual: {inscripcion.tipo_asistente?.tipo ?? '—'} (
-            {inscripcion.categoria?.nombre ?? '—'}) — {formatCOP(inscripcion.tipo_asistente?.costo_base)}
-          </p>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <Select
-              label="Cambiar tipo de asistente"
-              value={tipoAsistenteSeleccionado}
-              onChange={(e) => setTipoAsistenteSeleccionado(e.target.value)}
-              className="flex-1"
-            >
-              {tiposAsistente.map((t) => (
-                <option key={t.id_tipo_asistente} value={t.id_tipo_asistente}>
-                  {t.tipo} ({t.categoria.nombre}) — {formatCOP(t.costo_base)}
-                </option>
-              ))}
-            </Select>
-            <Button
-              type="button"
-              variant="primary"
-              loading={actualizandoTipo}
-              disabled={tipoAsistenteSeleccionado === String(inscripcion.id_tipo_asistente)}
-              onClick={handleCambiarTipoClick}
-            >
-              Actualizar tipo de asistente
-            </Button>
-          </div>
-
-          {hayCambioTipoAsistente && (
-            <PreviewCambioTipoAsistente
-              costoActual={costoBase}
-              categoriaActual={inscripcion.categoria}
-              nuevoTipo={nuevoTipoAsistente}
-              mostrarNotaDescuentos={descuentosAplicados.length > 0}
-            />
-          )}
-        </div>
-
-        <Modal
-          open={confirmarCambioTipo}
-          onClose={() => setConfirmarCambioTipo(false)}
-          title="Cambiar tipo de asistente"
-        >
-          <div className="flex flex-col gap-4">
-            {tipoError && <Alert variant="error">{tipoError}</Alert>}
-            {hayCambioTipoAsistente && (
-              <PreviewCambioTipoAsistente
-                costoActual={costoBase}
-                categoriaActual={inscripcion.categoria}
-                nuevoTipo={nuevoTipoAsistente}
-                mostrarNotaDescuentos={descuentosAplicados.length > 0}
-              />
+            {!confirmarDegradarRol && rolError && (
+              <Alert variant="error" className="mt-4">
+                {rolError}
+              </Alert>
             )}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setConfirmarCambioTipo(false)}>
-                Cancelar
-              </Button>
-              <Button type="button" variant="primary" loading={actualizandoTipo} onClick={enviarCambioTipo}>
-                Confirmar
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      </Card>
+            {rolExito && (
+              <Alert variant="success" className="mt-4">
+                {rolExito}
+              </Alert>
+            )}
 
-      <Card>
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-            Estado de la inscripción
-          </h2>
-          <Badge variant={ESTADO_INSCRIPCION_VARIANT[inscripcion.estado_inscripcion] ?? 'default'}>
-            {inscripcion.estado_inscripcion}
-          </Badge>
-        </div>
-
-        {estadoError && (
-          <Alert variant="error" className="mt-4">
-            {estadoError}
-          </Alert>
-        )}
-
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <Select
-            label="Nuevo estado"
-            value={estadoSeleccionado}
-            onChange={(e) => setEstadoSeleccionado(e.target.value)}
-            className="flex-1"
-          >
-            {ESTADOS_INSCRIPCION.map((valor) => (
-              <option key={valor} value={valor}>
-                {valor}
-              </option>
-            ))}
-          </Select>
-          <Button
-            type="button"
-            variant="primary"
-            loading={actualizandoEstado}
-            disabled={estadoSeleccionado === inscripcion.estado_inscripcion && notas === notasOriginal}
-            onClick={handleActualizarEstado}
-          >
-            Actualizar estado
-          </Button>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-1.5">
-          <SugerenciasMensaje idCongreso={congreso?.id_congreso} contexto="inscripcion" onSelect={setNotas} />
-          <Textarea
-            label="Notas internas"
-            value={notas}
-            onChange={(e) => setNotas(e.target.value)}
-            placeholder="Notas visibles solo para el equipo administrativo..."
-            rows={3}
-          />
-        </div>
-
-        <p className="mt-2 text-xs text-text-muted">
-          El estado de la inscripción es independiente del estado del comprobante de pago — debes
-          actualizarlo manualmente.
-        </p>
-      </Card>
-
-      <Card>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-          Descuentos aplicados
-        </h2>
-
-        {descuentosAplicados.length === 0 ? (
-          <p className="mt-4 text-sm text-text-muted">Esta inscripción no tiene descuentos aplicados.</p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-3">
-            {descuentosAplicados.map((d) => (
-              <li key={d.id_descuento} className="flex items-center justify-between gap-4 text-sm">
-                <div>
-                  <span className="text-text-primary">{d.descuento.nombre}</span>{' '}
-                  <Badge variant="default">{d.descuento.porcentaje_descuento}%</Badge>
-                </div>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  disabled={quitandoId !== null}
-                  onClick={() => handleAbrirQuitar(d)}
-                >
-                  Quitar
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <form
-          className="mt-6 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end"
-          onSubmit={handleAgregarDescuento}
-        >
-          {agregarError && (
-            <Alert variant="error" className="sm:w-full">
-              {agregarError}
-            </Alert>
-          )}
-          <Select
-            label="Agregar descuento"
-            value={descuentoSeleccionado}
-            onChange={(e) => setDescuentoSeleccionado(e.target.value)}
-            disabled={opcionesDisponibles.length === 0}
-            className="flex-1"
-          >
-            <option value="">Selecciona un descuento</option>
-            {opcionesDisponibles.map((d) => (
-              <option key={d.id_descuento} value={d.id_descuento}>
-                {d.nombre} ({d.porcentaje_descuento}%)
-              </option>
-            ))}
-          </Select>
-          <Button type="submit" variant="primary" loading={agregando} disabled={!descuentoSeleccionado}>
-            Agregar descuento
-          </Button>
-        </form>
-        {opcionesDisponibles.length === 0 && (
-          <p className="mt-2 text-xs text-text-muted">
-            No hay más descuentos disponibles para agregar.
-          </p>
-        )}
-
-        <Modal
-          open={Boolean(confirmandoQuitar)}
-          onClose={() => setConfirmandoQuitar(null)}
-          title="Quitar descuento"
-        >
-          <div className="flex flex-col gap-4">
-            {quitarError && <Alert variant="error">{quitarError}</Alert>}
-            <p className="text-sm text-text-primary">
-              ¿Quitar el descuento "{confirmandoQuitar?.descuento?.nombre}" de esta inscripción?
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setConfirmandoQuitar(null)}>
-                Cancelar
-              </Button>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <Select
+                label="Nuevo rol"
+                value={rolSeleccionado}
+                onChange={(e) => setRolSeleccionado(e.target.value)}
+                className="flex-1"
+              >
+                <option value={ROL_PARTICIPACION.EXPOSITOR}>Expositor</option>
+                <option value={ROL_PARTICIPACION.ASISTENTE}>Asistente</option>
+              </Select>
               <Button
                 type="button"
-                variant="destructive"
-                loading={quitandoId === confirmandoQuitar?.id_descuento}
-                onClick={handleConfirmarQuitar}
+                variant="primary"
+                loading={cambiandoRol}
+                disabled={Number(rolSeleccionado) === inscripcion.id_rol_participacion}
+                onClick={handleCambiarRolClick}
               >
-                Quitar
+                Actualizar rol
               </Button>
             </div>
-          </div>
-        </Modal>
-      </Card>
 
-      <Card>
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-            Comprobante de pago
-          </h2>
-          {comprobante && (
-            <Badge variant={comprobante.estado_comprobante}>{comprobante.estado_comprobante}</Badge>
-          )}
-        </div>
-
-        {!comprobante ? (
-          <p className="mt-4 text-sm text-text-muted">
-            El usuario aún no ha subido comprobante de pago.
-          </p>
-        ) : (
-          <div className="mt-4 flex flex-col gap-4">
-            <dl className="flex flex-col gap-2 text-sm">
-              <div className="flex items-center justify-between">
-                <dt className="text-text-muted">Archivo</dt>
-                <dd className="text-text-primary">{comprobante.archivo_nombre}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-text-muted">Monto pagado</dt>
-                <dd className="text-text-primary">{formatCOP(comprobante.monto_pagado)}</dd>
-              </div>
-            </dl>
-
-            {comprobante.link_externo && (
-              <p className="text-sm">
-                {comprobante.link_externo.startsWith('http://') ||
-                comprobante.link_externo.startsWith('https://') ? (
-                  <a
-                    href={comprobante.link_externo}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-accent hover:underline"
-                  >
-                    Ver link externo del comprobante
-                  </a>
-                ) : (
-                  <span className="text-text-muted">Nota del usuario: {comprobante.link_externo}</span>
-                )}
-              </p>
-            )}
-
-            {comprobante.estado_comprobante === 'rechazado' && comprobante.comentarios_revision && (
-              <Alert variant="warning">{comprobante.comentarios_revision}</Alert>
-            )}
-
-            {verComprobanteError && <Alert variant="error">{verComprobanteError}</Alert>}
-            <Button
-              type="button"
-              variant="secondary"
-              loading={verComprobanteLoading}
-              onClick={handleVerComprobante}
-              className="self-start"
+            <Modal
+              open={confirmarDegradarRol}
+              onClose={() => setConfirmarDegradarRol(false)}
+              title="Cambiar rol a Asistente"
             >
-              <Eye className="size-4" />
-              Ver comprobante
-            </Button>
+              <div className="flex flex-col gap-4">
+                {rolError && <Alert variant="error">{rolError}</Alert>}
+                <p className="text-sm text-text-primary">
+                  Vas a cambiar el rol a Asistente. Si esta inscripción tiene ponencias propias, el
+                  cambio será rechazado. ¿Continuar?
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="secondary" onClick={() => setConfirmarDegradarRol(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" variant="primary" loading={cambiandoRol} onClick={enviarCambioRol}>
+                    Confirmar
+                  </Button>
+                </div>
+              </div>
+            </Modal>
+          </Card>
+
+          <Card>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+              Resumen de costos
+            </h2>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-border bg-background p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Costo base</p>
+                <p className="mt-1 text-xl font-semibold text-text-primary">{formatCOP(costoBase)}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-background p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Costo final</p>
+                <p className="mt-1 text-xl font-semibold text-accent">{formatCOP(costoFinal)}</p>
+                {descuentoAplicado > 0 && (
+                  <p className="mt-1 text-xs text-success-text">-{formatCOP(descuentoAplicado)} descuento</p>
+                )}
+              </div>
+            </div>
+
+            {tipoExito && (
+              <Alert variant="success" className="mt-4">
+                {tipoExito}
+              </Alert>
+            )}
+            {!confirmarCambioTipo && tipoError && (
+              <Alert variant="error" className="mt-4">
+                {tipoError}
+              </Alert>
+            )}
+
+            <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
+              <p className="text-sm text-text-muted">
+                Tipo de asistente actual: {inscripcion.tipo_asistente?.tipo ?? '—'} (
+                {inscripcion.categoria?.nombre ?? '—'}) — {formatCOP(inscripcion.tipo_asistente?.costo_base)}
+              </p>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <Select
+                  label="Cambiar tipo de asistente"
+                  value={tipoAsistenteSeleccionado}
+                  onChange={(e) => setTipoAsistenteSeleccionado(e.target.value)}
+                  className="flex-1"
+                >
+                  {tiposAsistente.map((t) => (
+                    <option key={t.id_tipo_asistente} value={t.id_tipo_asistente}>
+                      {t.tipo} ({t.categoria.nombre}) — {formatCOP(t.costo_base)}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  type="button"
+                  variant="primary"
+                  loading={actualizandoTipo}
+                  disabled={tipoAsistenteSeleccionado === String(inscripcion.id_tipo_asistente)}
+                  onClick={handleCambiarTipoClick}
+                >
+                  Actualizar tipo de asistente
+                </Button>
+              </div>
+
+              {hayCambioTipoAsistente && (
+                <PreviewCambioTipoAsistente
+                  costoActual={costoBase}
+                  categoriaActual={inscripcion.categoria}
+                  nuevoTipo={nuevoTipoAsistente}
+                  mostrarNotaDescuentos={descuentosAplicados.length > 0}
+                />
+              )}
+            </div>
+
+            <Modal
+              open={confirmarCambioTipo}
+              onClose={() => setConfirmarCambioTipo(false)}
+              title="Cambiar tipo de asistente"
+            >
+              <div className="flex flex-col gap-4">
+                {tipoError && <Alert variant="error">{tipoError}</Alert>}
+                {hayCambioTipoAsistente && (
+                  <PreviewCambioTipoAsistente
+                    costoActual={costoBase}
+                    categoriaActual={inscripcion.categoria}
+                    nuevoTipo={nuevoTipoAsistente}
+                    mostrarNotaDescuentos={descuentosAplicados.length > 0}
+                  />
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="secondary" onClick={() => setConfirmarCambioTipo(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" variant="primary" loading={actualizandoTipo} onClick={enviarCambioTipo}>
+                    Confirmar
+                  </Button>
+                </div>
+              </div>
+            </Modal>
+          </Card>
+
+          <Card>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+              Descuentos aplicados
+            </h2>
+
+            {descuentosAplicados.length === 0 ? (
+              <p className="mt-4 text-sm text-text-muted">Esta inscripción no tiene descuentos aplicados.</p>
+            ) : (
+              <ul className="mt-4 flex flex-col gap-3">
+                {descuentosAplicados.map((d) => (
+                  <li key={d.id_descuento} className="flex items-center justify-between gap-4 text-sm">
+                    <div>
+                      <span className="text-text-primary">{d.descuento.nombre}</span>{' '}
+                      <Badge variant="default">{d.descuento.porcentaje_descuento}%</Badge>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      disabled={quitandoId !== null}
+                      onClick={() => handleAbrirQuitar(d)}
+                    >
+                      Quitar
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             <form
-              className="flex flex-col gap-3 border-t border-border pt-4"
-              onSubmit={handleRevisionSubmit}
+              className="mt-6 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end"
+              onSubmit={handleAgregarDescuento}
             >
-              {!confirmarRechazoComprobante && revisionError && (
-                <Alert variant="error">{revisionError}</Alert>
+              {agregarError && (
+                <Alert variant="error" className="sm:w-full">
+                  {agregarError}
+                </Alert>
               )}
               <Select
-                label="Estado del comprobante"
-                value={revisionForm.estado_comprobante}
-                onChange={(e) =>
-                  setRevisionForm((prev) => ({ ...prev, estado_comprobante: e.target.value }))
-                }
+                label="Agregar descuento"
+                value={descuentoSeleccionado}
+                onChange={(e) => setDescuentoSeleccionado(e.target.value)}
+                disabled={opcionesDisponibles.length === 0}
+                className="flex-1"
               >
-                {ESTADOS.map((e) => (
-                  <option key={e.value} value={e.value}>
-                    {e.label}
+                <option value="">Selecciona un descuento</option>
+                {opcionesDisponibles.map((d) => (
+                  <option key={d.id_descuento} value={d.id_descuento}>
+                    {d.nombre} ({d.porcentaje_descuento}%)
                   </option>
                 ))}
               </Select>
-              <SugerenciasMensaje
-                idCongreso={congreso?.id_congreso}
-                contexto="comprobante"
-                onSelect={(texto) =>
-                  setRevisionForm((prev) => ({ ...prev, comentarios_revision: texto }))
-                }
-              />
-              <Textarea
-                label="Comentarios de revisión (opcional)"
-                rows={3}
-                value={revisionForm.comentarios_revision}
-                onChange={(e) =>
-                  setRevisionForm((prev) => ({ ...prev, comentarios_revision: e.target.value }))
-                }
-              />
-              <Input
-                type="number"
-                min="0"
-                label="Monto pagado (opcional)"
-                value={revisionForm.monto_pagado}
-                onChange={(e) => setRevisionForm((prev) => ({ ...prev, monto_pagado: e.target.value }))}
-              />
-              <Button type="submit" variant="primary" loading={revisionSubmitting} className="self-start">
-                Guardar revisión
+              <Button type="submit" variant="primary" loading={agregando} disabled={!descuentoSeleccionado}>
+                Agregar descuento
               </Button>
             </form>
-          </div>
-        )}
+            {opcionesDisponibles.length === 0 && (
+              <p className="mt-2 text-xs text-text-muted">
+                No hay más descuentos disponibles para agregar.
+              </p>
+            )}
 
-        <Modal
-          open={confirmarRechazoComprobante}
-          onClose={() => setConfirmarRechazoComprobante(false)}
-          title="Rechazar comprobante"
-        >
-          <div className="flex flex-col gap-4">
-            {revisionError && <Alert variant="error">{revisionError}</Alert>}
-            <p className="text-sm text-text-primary">
-              ¿Confirmas que quieres marcar este comprobante como rechazado? El usuario será notificado.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setConfirmarRechazoComprobante(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                loading={revisionSubmitting}
-                onClick={enviarRevisionComprobante}
-              >
-                Rechazar
-              </Button>
+            <Modal
+              open={Boolean(confirmandoQuitar)}
+              onClose={() => setConfirmandoQuitar(null)}
+              title="Quitar descuento"
+            >
+              <div className="flex flex-col gap-4">
+                {quitarError && <Alert variant="error">{quitarError}</Alert>}
+                <p className="text-sm text-text-primary">
+                  ¿Quitar el descuento "{confirmandoQuitar?.descuento?.nombre}" de esta inscripción?
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="secondary" onClick={() => setConfirmandoQuitar(null)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    loading={quitandoId === confirmandoQuitar?.id_descuento}
+                    onClick={handleConfirmarQuitar}
+                  >
+                    Quitar
+                  </Button>
+                </div>
+              </div>
+            </Modal>
+          </Card>
+
+          <Card>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+                Comprobante de pago
+              </h2>
+              {comprobante && (
+                <Badge variant={comprobante.estado_comprobante}>{comprobante.estado_comprobante}</Badge>
+              )}
             </div>
-          </div>
-        </Modal>
-      </Card>
 
-      <Card>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-          Archivos adicionales
-        </h2>
-        {archivosLoading ? (
-          <div className="mt-4 flex justify-center">
-            <Spinner className="size-6 text-accent" />
-          </div>
-        ) : archivosError ? (
-          <Alert variant="error" className="mt-4">
-            {archivosError}
-          </Alert>
-        ) : archivos.length === 0 ? (
-          <p className="mt-4 text-sm text-text-muted">Sin archivos adicionales subidos.</p>
-        ) : (
-          <div className="mt-4 flex flex-col gap-4">
-            {archivos.map((a) => (
-              <ArchivoItem key={a.id_archivo} archivo={a} onRefrescar={cargarArchivos} />
-            ))}
-          </div>
-        )}
-      </Card>
+            {!comprobante ? (
+              <p className="mt-4 text-sm text-text-muted">
+                El usuario aún no ha subido comprobante de pago.
+              </p>
+            ) : (
+              <div className="mt-4 flex flex-col gap-4">
+                <dl className="flex flex-col gap-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-text-muted">Archivo</dt>
+                    <dd className="text-text-primary">{comprobante.archivo_nombre}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-text-muted">Monto pagado</dt>
+                    <dd className="text-text-primary">{formatCOP(comprobante.monto_pagado)}</dd>
+                  </div>
+                </dl>
 
-      <Card>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
-          Gestión de la inscripción
-        </h2>
+                {comprobante.link_externo && (
+                  <p className="text-sm">
+                    {comprobante.link_externo.startsWith('http://') ||
+                    comprobante.link_externo.startsWith('https://') ? (
+                      <a
+                        href={comprobante.link_externo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-accent hover:underline"
+                      >
+                        Ver link externo del comprobante
+                      </a>
+                    ) : (
+                      <span className="text-text-muted">Nota del usuario: {comprobante.link_externo}</span>
+                    )}
+                  </p>
+                )}
 
-        {inscripcion.activo ? (
-          <div className="mt-4">
-            {!confirmarEliminar && eliminarError && (
-              <Alert variant="error" className="mb-3">
-                {eliminarError}
+                {comprobante.estado_comprobante === 'rechazado' && comprobante.comentarios_revision && (
+                  <Alert variant="warning">{comprobante.comentarios_revision}</Alert>
+                )}
+
+                {verComprobanteError && <Alert variant="error">{verComprobanteError}</Alert>}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  loading={verComprobanteLoading}
+                  onClick={handleVerComprobante}
+                  className="self-start"
+                >
+                  <Eye className="size-4" />
+                  Ver comprobante
+                </Button>
+
+                <form
+                  className="flex flex-col gap-3 border-t border-border pt-4"
+                  onSubmit={handleRevisionSubmit}
+                >
+                  {!confirmarRechazoComprobante && revisionError && (
+                    <Alert variant="error">{revisionError}</Alert>
+                  )}
+                  <Select
+                    label="Estado del comprobante"
+                    value={revisionForm.estado_comprobante}
+                    onChange={(e) =>
+                      setRevisionForm((prev) => ({ ...prev, estado_comprobante: e.target.value }))
+                    }
+                  >
+                    {ESTADOS.map((e) => (
+                      <option key={e.value} value={e.value}>
+                        {e.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <SugerenciasMensaje
+                    idCongreso={congreso?.id_congreso}
+                    contexto="comprobante"
+                    onSelect={(texto) =>
+                      setRevisionForm((prev) => ({ ...prev, comentarios_revision: texto }))
+                    }
+                  />
+                  <Textarea
+                    label="Comentarios de revisión (opcional)"
+                    rows={3}
+                    value={revisionForm.comentarios_revision}
+                    onChange={(e) =>
+                      setRevisionForm((prev) => ({ ...prev, comentarios_revision: e.target.value }))
+                    }
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    label="Monto pagado (opcional)"
+                    value={revisionForm.monto_pagado}
+                    onChange={(e) => setRevisionForm((prev) => ({ ...prev, monto_pagado: e.target.value }))}
+                  />
+                  <Button type="submit" variant="primary" loading={revisionSubmitting} className="self-start">
+                    Guardar revisión
+                  </Button>
+                </form>
+              </div>
+            )}
+
+            <Modal
+              open={confirmarRechazoComprobante}
+              onClose={() => setConfirmarRechazoComprobante(false)}
+              title="Rechazar comprobante"
+            >
+              <div className="flex flex-col gap-4">
+                {revisionError && <Alert variant="error">{revisionError}</Alert>}
+                <p className="text-sm text-text-primary">
+                  ¿Confirmas que quieres marcar este comprobante como rechazado? El usuario será notificado.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setConfirmarRechazoComprobante(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    loading={revisionSubmitting}
+                    onClick={enviarRevisionComprobante}
+                  >
+                    Rechazar
+                  </Button>
+                </div>
+              </div>
+            </Modal>
+          </Card>
+
+          <Card>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+              Archivos adicionales
+            </h2>
+            {archivosLoading ? (
+              <div className="mt-4 flex justify-center">
+                <Spinner className="size-6 text-accent" />
+              </div>
+            ) : archivosError ? (
+              <Alert variant="error" className="mt-4">
+                {archivosError}
+              </Alert>
+            ) : archivos.length === 0 ? (
+              <p className="mt-4 text-sm text-text-muted">Sin archivos adicionales subidos.</p>
+            ) : (
+              <div className="mt-4 flex flex-col gap-4">
+                {archivos.map((a) => (
+                  <ArchivoItem key={a.id_archivo} archivo={a} onRefrescar={cargarArchivos} />
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Columna derecha */}
+        <div className="flex flex-col gap-6 lg:col-span-1">
+          <Card>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+              Estado de la inscripción
+            </h2>
+
+            <div className="mt-4">
+              <p className="text-xs text-text-muted">Estado actual</p>
+              <Badge
+                variant={ESTADO_INSCRIPCION_VARIANT[inscripcion.estado_inscripcion] ?? 'default'}
+                className="mt-1"
+              >
+                {inscripcion.estado_inscripcion}
+              </Badge>
+            </div>
+
+            {estadoError && (
+              <Alert variant="error" className="mt-4">
+                {estadoError}
               </Alert>
             )}
-            <Button type="button" variant="destructive" onClick={handleAbrirEliminar}>
-              Eliminar inscripción
-            </Button>
-          </div>
-        ) : (
-          <div className="mt-4 flex flex-col gap-3">
-            <Alert variant="warning">Esta inscripción está desactivada.</Alert>
-            {reactivarError && <Alert variant="error">{reactivarError}</Alert>}
-            <Button
-              type="button"
-              variant="primary"
-              loading={reactivando}
-              onClick={handleReactivar}
-              className="self-start"
-            >
-              Reactivar inscripción
-            </Button>
-          </div>
-        )}
 
-        <Modal
-          open={confirmarEliminar}
-          onClose={() => setConfirmarEliminar(false)}
-          title="Eliminar inscripción"
-        >
-          <div className="flex flex-col gap-4">
-            {eliminarError && <Alert variant="error">{eliminarError}</Alert>}
-            <p className="text-sm text-text-primary">
-              Esto desactivará la inscripción. No se borra permanentemente y puede reactivarse
-              después. ¿Continuar?
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setConfirmarEliminar(false)}>
-                Cancelar
-              </Button>
-              <Button type="button" variant="destructive" loading={eliminando} onClick={handleEliminar}>
-                Eliminar
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <Select
+                label="Nuevo estado"
+                value={estadoSeleccionado}
+                onChange={(e) => setEstadoSeleccionado(e.target.value)}
+                className="flex-1"
+              >
+                {ESTADOS_INSCRIPCION.map((valor) => (
+                  <option key={valor} value={valor}>
+                    {valor}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                type="button"
+                variant="primary"
+                loading={actualizandoEstado}
+                disabled={estadoSeleccionado === inscripcion.estado_inscripcion && notas === notasOriginal}
+                onClick={handleActualizarEstado}
+              >
+                Actualizar estado
               </Button>
             </div>
-          </div>
-        </Modal>
-      </Card>
+
+            <p className="mt-4 text-xs text-text-muted">
+              El estado de la inscripción es independiente del estado del comprobante de pago — debes
+              actualizarlo manualmente.
+            </p>
+          </Card>
+
+          <Card>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">Sugerencias</h2>
+            <div className="mt-4">
+              <SugerenciasMensaje
+                idCongreso={congreso?.id_congreso}
+                contexto="inscripcion"
+                onSelect={setNotas}
+                siempreVisible
+              />
+            </div>
+          </Card>
+
+          <Card>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+              Notas internas
+            </h2>
+            <Textarea
+              className="mt-4"
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              placeholder="Notas visibles solo para el equipo administrativo..."
+              rows={4}
+            />
+          </Card>
+
+          <Card>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">
+              Gestión de la inscripción
+            </h2>
+
+            {inscripcion.activo ? (
+              <div className="mt-4">
+                {!confirmarEliminar && eliminarError && (
+                  <Alert variant="error" className="mb-3">
+                    {eliminarError}
+                  </Alert>
+                )}
+                <Button type="button" variant="destructive" onClick={handleAbrirEliminar}>
+                  Eliminar inscripción
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-col gap-3">
+                <Alert variant="warning">Esta inscripción está desactivada.</Alert>
+                {reactivarError && <Alert variant="error">{reactivarError}</Alert>}
+                <Button
+                  type="button"
+                  variant="primary"
+                  loading={reactivando}
+                  onClick={handleReactivar}
+                  className="self-start"
+                >
+                  Reactivar inscripción
+                </Button>
+              </div>
+            )}
+
+            <Modal
+              open={confirmarEliminar}
+              onClose={() => setConfirmarEliminar(false)}
+              title="Eliminar inscripción"
+            >
+              <div className="flex flex-col gap-4">
+                {eliminarError && <Alert variant="error">{eliminarError}</Alert>}
+                <p className="text-sm text-text-primary">
+                  Esto desactivará la inscripción. No se borra permanentemente y puede reactivarse
+                  después. ¿Continuar?
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="secondary" onClick={() => setConfirmarEliminar(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" variant="destructive" loading={eliminando} onClick={handleEliminar}>
+                    Eliminar
+                  </Button>
+                </div>
+              </div>
+            </Modal>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

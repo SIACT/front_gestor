@@ -2,6 +2,7 @@ import {
   BarChart3,
   BookOpen,
   CalendarClock,
+  CalendarDays,
   ClipboardList,
   DoorOpen,
   FolderTree,
@@ -24,6 +25,13 @@ export function navItems(idCongreso) {
       to: `/congresos/${idCongreso}`,
       label: 'Congreso',
       icon: LayoutDashboard,
+    },
+    {
+      // Sin `roles`: visible para cualquier usuario autenticado del congreso, Admin incluido
+      // (a diferencia de "Mis inscripciones"/"Nueva inscripción", que solo son para Participante).
+      to: `/congresos/${idCongreso}/agenda`,
+      label: 'Agenda',
+      icon: CalendarDays,
     },
     {
       to: `/congresos/${idCongreso}/inscripciones`,
@@ -83,6 +91,7 @@ export function adminGroups(idCongreso) {
         { label: 'Inscripciones', path: `/congresos/${idCongreso}/admin/inscripciones`, icon: Receipt },
         { label: 'Ponencias', path: `/congresos/${idCongreso}/admin/ponencias`, icon: Mic },
         { label: 'Horarios', path: `/congresos/${idCongreso}/admin/horarios`, icon: CalendarClock },
+        { label: 'Calendario', path: `/congresos/${idCongreso}/admin/calendario`, icon: CalendarDays },
       ],
     },
   ];

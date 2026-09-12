@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Search } from 'lucide-react';
+import clsx from 'clsx';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
 import { capitalizar } from '../../utils/formato';
@@ -11,7 +14,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 
-const FORM_INICIAL = { id_salon: '', id_talk: '', fecha: '', hora_inicio: '', hora_fin: '' };
+const FORM_INICIAL = { id_salon: '', fecha: '', hora_inicio: '', hora_fin: '' };
 
 // hora_inicio/hora_fin viajan como Date @db.Time serializado a ISO sobre una fecha de
 // referencia fija (ej. "1970-01-01T09:00:00.000Z"); se fuerza 'Z' en el backend, así que
@@ -36,7 +39,13 @@ export function Horarios() {
   const { congreso } = useCongreso();
   const idCongreso = congreso?.id_congreso;
 
-  const [fecha, setFecha] = useState(null);
+  // Preselección al llegar desde CalendarioAdmin (?slot=<id_schedule>&fecha=<YYYY-MM-DD>):
+  // la fecha se lee una sola vez, al crear el state, para no disparar un fetch extra sin
+  // filtro seguido de otro ya filtrado.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const slotParamHandled = useRef(false);
+
+  const [fecha, setFecha] = useState(() => searchParams.get('fecha') || null);
   const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,6 +56,8 @@ export function Horarios() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState(FORM_INICIAL);
+  const [talkSeleccionado, setTalkSeleccionado] = useState(null);
+  const [busquedaPonencia, setBusquedaPonencia] = useState('');
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -68,6 +79,30 @@ export function Horarios() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idCongreso, fecha]);
 
+  // Una vez cargado el schedule del día preseleccionado, intenta abrir el Modal de edición
+  // del slot pedido por CalendarioAdmin. Corre una sola vez (slotParamHandled) — si no lo
+  // hiciera, cada recarga posterior de `schedule` (tras guardar/eliminar otro slot) volvería
+  // a intentar reabrir el mismo Modal.
+  useEffect(() => {
+    if (slotParamHandled.current || loading) return;
+
+    const slotParam = searchParams.get('slot');
+    if (!slotParam) {
+      slotParamHandled.current = true;
+      return;
+    }
+
+    slotParamHandled.current = true;
+    const encontrado = schedule.find((s) => s.id_schedule === Number(slotParam));
+    if (encontrado) handleAbrirEditar(encontrado);
+
+    const nuevosParams = new URLSearchParams(searchParams);
+    nuevosParams.delete('slot');
+    nuevosParams.delete('fecha');
+    setSearchParams(nuevosParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, schedule]);
+
   useEffect(() => {
     apiFetch(`/congresos/${idCongreso}/salones?activo=true`)
       .then((data) => setSalonesActivos(data ?? []))
@@ -86,9 +121,19 @@ export function Horarios() {
     return Array.from(mapa.values()).sort((a, b) => a.salon.nombre.localeCompare(b.salon.nombre));
   }, [schedule]);
 
+  // Sin mínimo de caracteres a propósito: a diferencia de otros buscadores del proyecto, aquí
+  // la caja debe poder mostrar TODAS las ponencias (recorribles con scroll) sin escribir nada.
+  const ponenciasFiltradas = useMemo(() => {
+    const texto = busquedaPonencia.trim().toLowerCase();
+    if (!texto) return talksAceptadas;
+    return talksAceptadas.filter((t) => t.titulo.toLowerCase().includes(texto));
+  }, [talksAceptadas, busquedaPonencia]);
+
   function handleAbrirCrear() {
     setEditando(null);
     setForm({ ...FORM_INICIAL, fecha: fecha ?? '' });
+    setTalkSeleccionado(null);
+    setBusquedaPonencia('');
     setFormError('');
     setModalOpen(true);
   }
@@ -97,11 +142,18 @@ export function Horarios() {
     setEditando(slot);
     setForm({
       id_salon: String(slot.id_salon),
-      id_talk: slot.id_talk ? String(slot.id_talk) : '',
       fecha: slot.fecha.slice(0, 10),
       hora_inicio: formatHora(slot.hora_inicio),
       hora_fin: formatHora(slot.hora_fin),
     });
+    // talksAceptadas puede no incluir todavía `schedules` actualizado o, en un caso límite,
+    // no haber cargado aún — se usa slot.talk (siempre presente cuando slot.id_talk existe)
+    // como respaldo para no perder el título/id ya asignados a este slot.
+    const talkAsignado = slot.talk
+      ? (talksAceptadas.find((t) => t.id_talk === slot.talk.id_talk) ?? { ...slot.talk, schedules: [] })
+      : null;
+    setTalkSeleccionado(talkAsignado);
+    setBusquedaPonencia('');
     setFormError('');
     setModalOpen(true);
   }
@@ -116,7 +168,7 @@ export function Horarios() {
     setFormError('');
     setSubmitting(true);
     try {
-      const idTalkSeleccionado = form.id_talk ? Number(form.id_talk) : null;
+      const idTalkSeleccionado = talkSeleccionado?.id_talk ?? null;
 
       if (editando) {
         const cambios = {};
@@ -301,14 +353,49 @@ export function Horarios() {
             />
           </div>
 
-          <Select name="id_talk" label="Ponencia (opcional)" value={form.id_talk} onChange={handleChange}>
-            <option value="">Sin asignar</option>
-            {talksAceptadas.map((t) => (
-              <option key={t.id_talk} value={t.id_talk}>
-                {t.titulo}
-              </option>
-            ))}
-          </Select>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium uppercase tracking-wide text-text-muted">
+              Ponencia (opcional)
+            </label>
+            <Input
+              icon={<Search className="size-4" />}
+              placeholder="Buscar por título..."
+              value={busquedaPonencia}
+              onChange={(e) => setBusquedaPonencia(e.target.value)}
+            />
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-surface">
+              <button
+                type="button"
+                onClick={() => setTalkSeleccionado(null)}
+                className={clsx(
+                  'flex w-full items-center px-3 py-2 text-left text-sm transition-colors hover:bg-background',
+                  talkSeleccionado === null ? 'bg-accent/10 text-accent' : 'text-text-muted',
+                )}
+              >
+                Sin asignar
+              </button>
+              {ponenciasFiltradas.map((talk) => (
+                <button
+                  key={talk.id_talk}
+                  type="button"
+                  onClick={() => setTalkSeleccionado(talk)}
+                  className={clsx(
+                    'flex w-full flex-col items-start gap-0.5 border-t border-border px-3 py-2 text-left text-sm transition-colors hover:bg-background',
+                    talkSeleccionado?.id_talk === talk.id_talk && 'bg-accent/10',
+                    talk.schedules.length > 0 ? 'text-success-text' : 'text-text-primary',
+                  )}
+                >
+                  <span className="font-medium">{talk.titulo}</span>
+                  {talk.schedules.length > 0 && (
+                    <span className="text-xs text-success-text/80">Ya tiene horario asignado</span>
+                  )}
+                </button>
+              ))}
+              {ponenciasFiltradas.length === 0 && (
+                <p className="px-3 py-4 text-center text-sm text-text-muted">Sin resultados</p>
+              )}
+            </div>
+          </div>
 
           <Button type="submit" variant="primary" loading={submitting} className="mt-2 w-full">
             {editando ? 'Guardar cambios' : 'Crear horario'}

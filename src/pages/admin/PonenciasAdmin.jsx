@@ -390,6 +390,7 @@ export function PonenciasAdmin() {
                   <Table.HeadCell>Área</Table.HeadCell>
                   <Table.HeadCell>Tipo</Table.HeadCell>
                   <Table.HeadCell>Estado</Table.HeadCell>
+                  <Table.HeadCell>Horario</Table.HeadCell>
                   <Table.HeadCell>Fecha</Table.HeadCell>
                 </tr>
               </Table.Head>
@@ -411,6 +412,11 @@ export function PonenciasAdmin() {
                     <Table.Cell>
                       <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>
                         {talk.estado_talk}
+                      </Badge>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Badge variant={talk.schedules?.length > 0 ? 'revisado' : 'default'}>
+                        {talk.schedules?.length > 0 ? 'Programada' : 'Sin programar'}
                       </Badge>
                     </Table.Cell>
                     <Table.Cell className="text-text-muted">{formatFecha(talk.fecha_creacion)}</Table.Cell>

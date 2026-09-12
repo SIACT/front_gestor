@@ -33,6 +33,8 @@ import { Instituciones } from './pages/admin/Instituciones';
 import { TiposParticipacion } from './pages/admin/TiposParticipacion';
 import { MensajesPredeterminados } from './pages/admin/MensajesPredeterminados';
 import { EstadisticasCongreso } from './pages/admin/EstadisticasCongreso';
+import { Salones } from './pages/admin/Salones';
+import { Horarios } from './pages/admin/Horarios';
 
 function App() {
   return (
@@ -77,10 +79,12 @@ function App() {
                   <Route path="admin/areas-estudio" element={<AreasEstudio />} />
                   <Route path="admin/tipos-participacion" element={<TiposParticipacion />} />
                   <Route path="admin/mensajes-predeterminados" element={<MensajesPredeterminados />} />
+                  <Route path="admin/salones" element={<Salones />} />
                   <Route path="admin/inscripciones" element={<InscripcionesAdmin />} />
                   <Route path="admin/inscripciones/:id" element={<InscripcionAdminDetalle />} />
                   <Route path="admin/ponencias" element={<PonenciasAdmin />} />
                   <Route path="admin/ponencias/:id" element={<PonenciaAdminDetalle />} />
+                  <Route path="admin/horarios" element={<Horarios />} />
                   <Route path="admin/estadisticas" element={<EstadisticasCongreso />} />
                 </Route>
               </Route>

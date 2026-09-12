@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { FileText, Layers, Tag } from 'lucide-react';
+import { Calendar, FileText, Layers, Tag } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../utils/roles';
 import { useCongreso } from '../context/CongresoContext';
+import { formatFechaSolo, formatHora } from '../utils/formato';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -227,6 +228,15 @@ export function MisPonencias() {
                   <p className="mt-2 font-sans text-xl font-bold text-text-primary sm:text-2xl">
                     {talk.titulo}
                   </p>
+
+                  {talk.schedules?.length > 0 && (
+                    <div className="mt-1 flex items-center gap-1.5 text-xs text-text-muted">
+                      <Calendar className="size-3.5" />
+                      {talk.schedules.length === 1
+                        ? `${formatFechaSolo(talk.schedules[0].fecha)}, ${formatHora(talk.schedules[0].hora_inicio)} - ${talk.schedules[0].salon.nombre}`
+                        : `${talk.schedules.length} sesiones programadas`}
+                    </div>
+                  )}
 
                   {talk.estado_talk === 'rechazada' && talk.observaciones && (
                     <Alert variant="warning" className="mt-4">

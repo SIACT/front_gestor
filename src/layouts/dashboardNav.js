@@ -1,7 +1,9 @@
 import {
   BarChart3,
   BookOpen,
+  CalendarClock,
   ClipboardList,
+  DoorOpen,
   FolderTree,
   LayoutDashboard,
   LayoutGrid,
@@ -71,6 +73,7 @@ export function adminGroups(idCongreso) {
           path: `/congresos/${idCongreso}/admin/mensajes-predeterminados`,
           icon: MessageSquare,
         },
+        { label: 'Salones', path: `/congresos/${idCongreso}/admin/salones`, icon: DoorOpen },
       ],
     },
     {
@@ -79,6 +82,7 @@ export function adminGroups(idCongreso) {
       items: [
         { label: 'Inscripciones', path: `/congresos/${idCongreso}/admin/inscripciones`, icon: Receipt },
         { label: 'Ponencias', path: `/congresos/${idCongreso}/admin/ponencias`, icon: Mic },
+        { label: 'Horarios', path: `/congresos/${idCongreso}/admin/horarios`, icon: CalendarClock },
       ],
     },
   ];

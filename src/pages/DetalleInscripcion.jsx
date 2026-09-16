@@ -23,6 +23,7 @@ const ESTADO_INSCRIPCION_BORDER = {
   confirmada: 'border-success-text',
   rechazada: 'border-error-text',
   cancelada: 'border-border',
+  carta_compromiso: 'border-warning-text',
 };
 
 function formatCOP(value) {

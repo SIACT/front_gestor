@@ -68,7 +68,16 @@ export function formatHora(value) {
 
 export const ESTADO_INSCRIPCION_VARIANT = {
   pendiente: 'pendiente',
+  carta_compromiso: 'alerta',
   confirmada: 'revisado',
   rechazada: 'rechazado',
   cancelada: 'default',
+};
+
+export const ESTADO_INSCRIPCION_LABEL = {
+  pendiente: 'Pendiente',
+  carta_compromiso: 'Carta de compromiso',
+  confirmada: 'Confirmada',
+  rechazada: 'Rechazada',
+  cancelada: 'Cancelada',
 };

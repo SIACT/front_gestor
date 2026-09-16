@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, Globe, Search, UserPlus } from 'lucide-react';
+import { AlertTriangle, Building2, Globe, Search, UserPlus } from 'lucide-react';
 import { apiFetch } from '../../api/client';
-import { ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP } from '../../utils/formato';
+import { ESTADO_INSCRIPCION_LABEL, ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP } from '../../utils/formato';
 import { ROL_PARTICIPACION } from '../../utils/roles';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
@@ -17,7 +17,7 @@ import { EstadisticasPanel } from '../../components/EstadisticasPanel';
 
 const INSCRIBIR_FORM_INICIAL = { correo: '', id_rol_participacion: '', id_tipo_asistente: '' };
 
-const ESTADOS_INSCRIPCION = ['pendiente', 'confirmada', 'rechazada', 'cancelada'];
+const ESTADOS_INSCRIPCION = ['pendiente', 'carta_compromiso', 'confirmada', 'rechazada', 'cancelada'];
 
 function SeccionEstadisticas({ idCongreso }) {
   const [stats, setStats] = useState(null);
@@ -326,7 +326,7 @@ export function InscripcionesAdmin() {
           <option value="">Todos</option>
           {ESTADOS_INSCRIPCION.map((estado) => (
             <option key={estado} value={estado}>
-              {capitalizar(estado)}
+              {ESTADO_INSCRIPCION_LABEL[estado] ?? capitalizar(estado)}
             </option>
           ))}
         </Select>
@@ -350,6 +350,15 @@ export function InscripcionesAdmin() {
             </option>
           ))}
         </Select>
+
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setEstadoFiltro('carta_compromiso')}
+        >
+          <AlertTriangle className="size-4" />
+          Ver pagos pendientes de carta de compromiso
+        </Button>
 
         {hayFiltrosActivos && (
           <Button type="button" variant="ghost" onClick={handleLimpiarFiltros}>
@@ -409,7 +418,7 @@ export function InscripcionesAdmin() {
                 <Table.Cell>{formatCOP(i.costo_final)}</Table.Cell>
                 <Table.Cell>
                   <Badge variant={ESTADO_INSCRIPCION_VARIANT[i.estado_inscripcion] ?? 'default'}>
-                    {i.estado_inscripcion}
+                    {ESTADO_INSCRIPCION_LABEL[i.estado_inscripcion] ?? i.estado_inscripcion}
                   </Badge>
                   {i.activo === false && (
                     <Badge variant="default" className="ml-2">

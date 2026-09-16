@@ -6,7 +6,7 @@ import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { ROL_PARTICIPACION } from '../utils/roles';
 import { useCongreso } from '../context/CongresoContext';
-import { ESTADO_INSCRIPCION_VARIANT, capitalizar, formatFecha } from '../utils/formato';
+import { ESTADO_INSCRIPCION_LABEL, ESTADO_INSCRIPCION_VARIANT, capitalizar, formatFecha } from '../utils/formato';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -15,6 +15,7 @@ import { BurbujasRecordatorio } from '../components/BurbujasRecordatorio';
 // Mismo criterio que ya usamos en el bloque de estado de DetalleInscripcion.jsx.
 const ESTADO_INSCRIPCION_BORDER = {
   pendiente: 'border-warning-text',
+  carta_compromiso: 'border-alerta-text',
   confirmada: 'border-success-text',
   rechazada: 'border-error-text',
   cancelada: 'border-border',
@@ -98,7 +99,7 @@ export function MisInscripciones() {
                         Inscripción al congreso
                       </div>
                       <Badge variant={ESTADO_INSCRIPCION_VARIANT[inscripcion.estado_inscripcion]}>
-                        {inscripcion.estado_inscripcion}
+                        {ESTADO_INSCRIPCION_LABEL[inscripcion.estado_inscripcion] ?? inscripcion.estado_inscripcion}
                       </Badge>
                     </div>
 

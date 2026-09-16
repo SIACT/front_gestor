@@ -4,7 +4,7 @@ import { Search } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
-import { capitalizar } from '../../utils/formato';
+import { ESTADO_INSCRIPCION_LABEL, capitalizar } from '../../utils/formato';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -107,7 +107,7 @@ export function Horarios() {
     apiFetch(`/congresos/${idCongreso}/salones?activo=true`)
       .then((data) => setSalonesActivos(data ?? []))
       .catch(() => setSalonesActivos([]));
-    apiFetch(`/talks?id_congreso=${idCongreso}&estado_talk=aceptada`)
+    apiFetch(`/talks?id_congreso=${idCongreso}&estado_talk=aceptada&solo_programables=true`)
       .then((data) => setTalksAceptadas(data ?? []))
       .catch(() => setTalksAceptadas([]));
   }, [idCongreso]);
@@ -201,6 +201,12 @@ export function Horarios() {
     } catch (err) {
       if (err.code === 'TALK_CONGRESO_MISMATCH' || err.code === 'SALON_CONGRESO_MISMATCH') {
         setFormError('El salón o la ponencia seleccionados no pertenecen a este congreso.');
+      } else if (err.code === 'INSCRIPCION_NO_HABILITADA_PARA_PROGRAMAR') {
+        const estadoInscripcion = talkSeleccionado?.inscripcion?.estado_inscripcion;
+        const estadoInscripcionLegible = ESTADO_INSCRIPCION_LABEL[estadoInscripcion] ?? estadoInscripcion;
+        setFormError(
+          `No se puede programar esta ponencia: su inscripción está en estado "${estadoInscripcionLegible}". Debe estar confirmada o con carta de compromiso.`,
+        );
       } else {
         setFormError(err.message);
       }
@@ -357,6 +363,9 @@ export function Horarios() {
             <label className="text-xs font-medium uppercase tracking-wide text-text-muted">
               Ponencia (opcional)
             </label>
+            <p className="text-xs text-text-muted">
+              Solo se muestran ponencias aceptadas con inscripción confirmada o en carta de compromiso.
+            </p>
             <Input
               icon={<Search className="size-4" />}
               placeholder="Buscar por título..."

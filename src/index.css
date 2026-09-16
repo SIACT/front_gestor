@@ -16,6 +16,8 @@
   --color-success-text: var(--c-success-text);
   --color-warning-bg: var(--c-warning-bg);
   --color-warning-text: var(--c-warning-text);
+  --color-alerta-bg: var(--c-alerta-bg);
+  --color-alerta-text: var(--c-alerta-text);
   --color-purple-bg: var(--c-purple-bg);
   --color-purple-text: var(--c-purple-text);
   --color-blue-bg: var(--c-blue-bg);
@@ -42,6 +44,8 @@
   --c-success-text: #8FD8A3;
   --c-warning-bg: #3A2F1A;
   --c-warning-text: #E0B563;
+  --c-alerta-bg: #4A2E0A;
+  --c-alerta-text: #F5A623;
   --c-purple-bg: #2A1F3A;
   --c-purple-text: #C9A8F5;
   --c-blue-bg: #1A2A3A;
@@ -65,6 +69,8 @@
   --c-success-text: #1E7B34;
   --c-warning-bg: #FFF4E0;
   --c-warning-text: #8A5D12;
+  --c-alerta-bg: #FDE3B8;
+  --c-alerta-text: #92400E;
   --c-purple-bg: #F0E9FA;
   --c-purple-text: #6B3FA0;
   --c-blue-bg: #E8F1FC;

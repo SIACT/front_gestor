@@ -10,6 +10,14 @@ const VARIANT_CLASSES = {
   admin: 'bg-purple-bg text-purple-text border border-purple-text/30',
   ponente: 'bg-blue-bg text-blue-text border border-blue-text/30',
   estudiante: 'bg-success-bg text-success-text border border-success-text/30',
+  // Paleta categórica para etiquetas de área temática (ver getAreaBadgeVariant en
+  // utils/areaColor.js) — deliberadamente separada de los tonos semánticos de arriba.
+  'area-blue': 'bg-blue-bg text-blue-text border border-blue-text/30',
+  'area-purple': 'bg-purple-bg text-purple-text border border-purple-text/30',
+  'area-teal': 'bg-area-teal-bg text-area-teal-text border border-area-teal-text/30',
+  'area-pink': 'bg-area-pink-bg text-area-pink-text border border-area-pink-text/30',
+  'area-cyan': 'bg-area-cyan-bg text-area-cyan-text border border-area-cyan-text/30',
+  'area-indigo': 'bg-area-indigo-bg text-area-indigo-text border border-area-indigo-text/30',
 };
 
 export function Badge({ variant = 'default', className, children, ...props }) {

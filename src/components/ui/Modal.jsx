@@ -1,9 +1,15 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
+import clsx from 'clsx';
 import { Card } from './Card';
 
-export function Modal({ open, onClose, title, children }) {
+const SIZE_CLASSES = {
+  md: 'max-w-md',
+  lg: 'max-w-3xl',
+};
+
+export function Modal({ open, onClose, title, children, size = 'md' }) {
   useEffect(() => {
     if (!open) return;
 
@@ -32,7 +38,7 @@ export function Modal({ open, onClose, title, children }) {
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.15 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md"
+            className={clsx('w-full', SIZE_CLASSES[size] ?? SIZE_CLASSES.md)}
           >
             <Card className="max-h-[90vh] overflow-y-auto">
               <div className="mb-4 flex items-center justify-between gap-4">

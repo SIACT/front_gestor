@@ -52,12 +52,19 @@ export function Horarios() {
 
   const [salonesActivos, setSalonesActivos] = useState([]);
   const [talksAceptadas, setTalksAceptadas] = useState([]);
+  const [areasEstudio, setAreasEstudio] = useState([]);
+  const [tiposParticipacion, setTiposParticipacion] = useState([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState(FORM_INICIAL);
   const [talkSeleccionado, setTalkSeleccionado] = useState(null);
   const [busquedaPonencia, setBusquedaPonencia] = useState('');
+  // 'false' (Sin programar) por defecto: al abrir el Modal, se prioriza mostrar lo que
+  // falta programar en vez de lo que ya está resuelto.
+  const [areaFiltro, setAreaFiltro] = useState('');
+  const [tipoParticipacionFiltro, setTipoParticipacionFiltro] = useState('');
+  const [programadoFiltro, setProgramadoFiltro] = useState('false');
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -107,10 +114,29 @@ export function Horarios() {
     apiFetch(`/congresos/${idCongreso}/salones?activo=true`)
       .then((data) => setSalonesActivos(data ?? []))
       .catch(() => setSalonesActivos([]));
-    apiFetch(`/talks?id_congreso=${idCongreso}&estado_talk=aceptada&solo_programables=true`)
-      .then((data) => setTalksAceptadas(data ?? []))
-      .catch(() => setTalksAceptadas([]));
+    apiFetch(`/congresos/${idCongreso}/areas-estudio?activo=true`)
+      .then((data) => setAreasEstudio(data ?? []))
+      .catch(() => setAreasEstudio([]));
+    apiFetch(`/congresos/${idCongreso}/tipos-participacion?activo=true`)
+      .then((data) => setTiposParticipacion(data ?? []))
+      .catch(() => setTiposParticipacion([]));
   }, [idCongreso]);
+
+  function cargarTalks() {
+    const params = new URLSearchParams();
+    params.set('id_congreso', idCongreso);
+    params.set('estado_talk', 'aceptada');
+    params.set('solo_programables', 'true');
+    if (areaFiltro) params.set('id_area', areaFiltro);
+    if (tipoParticipacionFiltro) params.set('id_tipo_participacion', tipoParticipacionFiltro);
+    if (programadoFiltro) params.set('programado', programadoFiltro);
+    return apiFetch(`/talks?${params.toString()}`).then((data) => setTalksAceptadas(data ?? []));
+  }
+
+  useEffect(() => {
+    cargarTalks().catch(() => setTalksAceptadas([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idCongreso, areaFiltro, tipoParticipacionFiltro, programadoFiltro]);
 
   const gruposPorSalon = useMemo(() => {
     const mapa = new Map();
@@ -134,6 +160,9 @@ export function Horarios() {
     setForm({ ...FORM_INICIAL, fecha: fecha ?? '' });
     setTalkSeleccionado(null);
     setBusquedaPonencia('');
+    setAreaFiltro('');
+    setTipoParticipacionFiltro('');
+    setProgramadoFiltro('false');
     setFormError('');
     setModalOpen(true);
   }
@@ -154,6 +183,9 @@ export function Horarios() {
       : null;
     setTalkSeleccionado(talkAsignado);
     setBusquedaPonencia('');
+    setAreaFiltro('');
+    setTipoParticipacionFiltro('');
+    setProgramadoFiltro('false');
     setFormError('');
     setModalOpen(true);
   }
@@ -315,94 +347,141 @@ export function Horarios() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editando ? 'Editar horario' : 'Nuevo horario'}
+        size="lg"
       >
-        <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           {formError && <Alert variant="error">{formError}</Alert>}
 
-          <Select
-            name="id_salon"
-            label="Salón"
-            value={form.id_salon}
-            onChange={handleChange}
-            required
-          >
-            <option value="">Selecciona un salón</option>
-            {salonesActivos.map((s) => (
-              <option key={s.id_salon} value={s.id_salon}>
-                {s.nombre} (cap. {s.capacidad})
-              </option>
-            ))}
-          </Select>
-
-          <DatePicker
-            label="Fecha"
-            value={form.fecha}
-            onChange={(nuevaFecha) => setForm((prev) => ({ ...prev, fecha: nuevaFecha }))}
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              type="time"
-              name="hora_inicio"
-              label="Hora inicio"
-              value={form.hora_inicio}
-              onChange={handleChange}
-              required
-            />
-            <Input
-              type="time"
-              name="hora_fin"
-              label="Hora fin"
-              value={form.hora_fin}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium uppercase tracking-wide text-text-muted">
-              Ponencia (opcional)
-            </label>
-            <p className="text-xs text-text-muted">
-              Solo se muestran ponencias aceptadas con inscripción confirmada o en carta de compromiso.
-            </p>
-            <Input
-              icon={<Search className="size-4" />}
-              placeholder="Buscar por título..."
-              value={busquedaPonencia}
-              onChange={(e) => setBusquedaPonencia(e.target.value)}
-            />
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-surface">
-              <button
-                type="button"
-                onClick={() => setTalkSeleccionado(null)}
-                className={clsx(
-                  'flex w-full items-center px-3 py-2 text-left text-sm transition-colors hover:bg-background',
-                  talkSeleccionado === null ? 'bg-accent/10 text-accent' : 'text-text-muted',
-                )}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="flex flex-col gap-4">
+              <Select
+                name="id_salon"
+                label="Salón"
+                value={form.id_salon}
+                onChange={handleChange}
+                required
               >
-                Sin asignar
-              </button>
-              {ponenciasFiltradas.map((talk) => (
+                <option value="">Selecciona un salón</option>
+                {salonesActivos.map((s) => (
+                  <option key={s.id_salon} value={s.id_salon}>
+                    {s.nombre} (cap. {s.capacidad})
+                  </option>
+                ))}
+              </Select>
+
+              <DatePicker
+                label="Fecha"
+                value={form.fecha}
+                onChange={(nuevaFecha) => setForm((prev) => ({ ...prev, fecha: nuevaFecha }))}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  type="time"
+                  name="hora_inicio"
+                  label="Hora inicio"
+                  value={form.hora_inicio}
+                  onChange={handleChange}
+                  required
+                />
+                <Input
+                  type="time"
+                  name="hora_fin"
+                  label="Hora fin"
+                  value={form.hora_fin}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 border-t border-border pt-4">
+                <label className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                  Trabajos
+                </label>
+                <p className="text-xs text-text-muted">
+                  Solo se muestran ponencias aceptadas con inscripción confirmada o en carta de compromiso.
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  <Select
+                    label="Área"
+                    value={areaFiltro}
+                    onChange={(e) => setAreaFiltro(e.target.value)}
+                    className="min-w-[110px] flex-1"
+                  >
+                    <option value="">Todas</option>
+                    {areasEstudio.map((a) => (
+                      <option key={a.id_area} value={a.id_area}>
+                        {a.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                  <Select
+                    label="Tipo de trabajo"
+                    value={tipoParticipacionFiltro}
+                    onChange={(e) => setTipoParticipacionFiltro(e.target.value)}
+                    className="min-w-[110px] flex-1"
+                  >
+                    <option value="">Todos</option>
+                    {tiposParticipacion.map((t) => (
+                      <option key={t.id_tipo_participacion} value={t.id_tipo_participacion}>
+                        {t.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                  <Select
+                    label="Estado"
+                    value={programadoFiltro}
+                    onChange={(e) => setProgramadoFiltro(e.target.value)}
+                    className="min-w-[110px] flex-1"
+                  >
+                    <option value="">Todas</option>
+                    <option value="false">Sin programar</option>
+                    <option value="true">Ya programadas</option>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 lg:pt-6">
+              <Input
+                icon={<Search className="size-4" />}
+                placeholder="Buscar por título..."
+                value={busquedaPonencia}
+                onChange={(e) => setBusquedaPonencia(e.target.value)}
+              />
+              <div className="max-h-80 overflow-y-auto rounded-lg border border-border bg-surface">
                 <button
-                  key={talk.id_talk}
                   type="button"
-                  onClick={() => setTalkSeleccionado(talk)}
+                  onClick={() => setTalkSeleccionado(null)}
                   className={clsx(
-                    'flex w-full flex-col items-start gap-0.5 border-t border-border px-3 py-2 text-left text-sm transition-colors hover:bg-background',
-                    talkSeleccionado?.id_talk === talk.id_talk && 'bg-accent/10',
-                    talk.schedules.length > 0 ? 'text-success-text' : 'text-text-primary',
+                    'flex w-full items-center px-3 py-2 text-left text-sm transition-colors hover:bg-background',
+                    talkSeleccionado === null ? 'bg-accent/10 text-accent' : 'text-text-muted',
                   )}
                 >
-                  <span className="font-medium">{talk.titulo}</span>
-                  {talk.schedules.length > 0 && (
-                    <span className="text-xs text-success-text/80">Ya tiene horario asignado</span>
-                  )}
+                  Sin asignar
                 </button>
-              ))}
-              {ponenciasFiltradas.length === 0 && (
-                <p className="px-3 py-4 text-center text-sm text-text-muted">Sin resultados</p>
-              )}
+                {ponenciasFiltradas.map((talk) => (
+                  <button
+                    key={talk.id_talk}
+                    type="button"
+                    onClick={() => setTalkSeleccionado(talk)}
+                    className={clsx(
+                      'flex w-full flex-col items-start gap-0.5 border-t border-border px-3 py-2 text-left text-sm transition-colors hover:bg-background',
+                      talkSeleccionado?.id_talk === talk.id_talk && 'bg-accent/10',
+                      talk.schedules.length > 0 ? 'text-success-text' : 'text-text-primary',
+                    )}
+                  >
+                    <span className="font-medium">{talk.titulo}</span>
+                    {talk.schedules.length > 0 && (
+                      <span className="text-xs text-success-text/80">Ya tiene horario asignado</span>
+                    )}
+                  </button>
+                ))}
+                {ponenciasFiltradas.length === 0 && (
+                  <p className="px-3 py-4 text-center text-sm text-text-muted">Sin resultados</p>
+                )}
+              </div>
             </div>
           </div>
 

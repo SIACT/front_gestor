@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
 import { capitalizar, formatHora } from '../../utils/formato';
+import { getAreaBadgeVariant } from '../../utils/areaColor';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -103,9 +104,19 @@ export function CalendarioAdmin() {
                               <p className="text-xs font-medium text-text-muted">
                                 {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
                               </p>
-                              <Badge variant="default" className="mt-1">
-                                {slot.talk.tipo_participacion?.nombre ?? 'Sin tipo'}
-                              </Badge>
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                <Badge variant="default">
+                                  {slot.talk.tipo_participacion?.nombre ?? 'Sin tipo'}
+                                </Badge>
+                                {slot.talk.area && (
+                                  <Badge
+                                    variant={getAreaBadgeVariant(slot.talk.area.nombre)}
+                                    className="opacity-80"
+                                  >
+                                    {slot.talk.area.nombre}
+                                  </Badge>
+                                )}
+                              </div>
                               <p className="mt-2 line-clamp-2 text-sm font-medium text-text-primary">
                                 {slot.talk.titulo}
                               </p>

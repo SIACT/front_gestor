@@ -19,6 +19,7 @@ import { CrearInscripcion } from './pages/CrearInscripcion';
 import { DetalleInscripcion } from './pages/DetalleInscripcion';
 import { Perfil } from './pages/Perfil';
 import { MisPonencias } from './pages/MisPonencias';
+import { Agenda } from './pages/Agenda';
 import { DetallePonencia } from './pages/DetallePonencia';
 import { Usuarios } from './pages/admin/Usuarios';
 import { TiposAsistente } from './pages/admin/TiposAsistente';
@@ -33,6 +34,9 @@ import { Instituciones } from './pages/admin/Instituciones';
 import { TiposParticipacion } from './pages/admin/TiposParticipacion';
 import { MensajesPredeterminados } from './pages/admin/MensajesPredeterminados';
 import { EstadisticasCongreso } from './pages/admin/EstadisticasCongreso';
+import { Salones } from './pages/admin/Salones';
+import { Horarios } from './pages/admin/Horarios';
+import { CalendarioAdmin } from './pages/admin/CalendarioAdmin';
 
 function App() {
   return (
@@ -63,6 +67,7 @@ function App() {
               <Route element={<DashboardLayout />}>
                 {/* Landing del congreso: visible a todos los roles, incluidos ambos tipos de Admin */}
                 <Route index element={<CongresoOverview />} />
+                <Route path="agenda" element={<Agenda />} />
                 <Route element={<NotAdminRoute />}>
                   <Route path="inscripciones" element={<MisInscripciones />} />
                   <Route path="inscripciones/nueva" element={<CrearInscripcion />} />
@@ -77,10 +82,13 @@ function App() {
                   <Route path="admin/areas-estudio" element={<AreasEstudio />} />
                   <Route path="admin/tipos-participacion" element={<TiposParticipacion />} />
                   <Route path="admin/mensajes-predeterminados" element={<MensajesPredeterminados />} />
+                  <Route path="admin/salones" element={<Salones />} />
                   <Route path="admin/inscripciones" element={<InscripcionesAdmin />} />
                   <Route path="admin/inscripciones/:id" element={<InscripcionAdminDetalle />} />
                   <Route path="admin/ponencias" element={<PonenciasAdmin />} />
                   <Route path="admin/ponencias/:id" element={<PonenciaAdminDetalle />} />
+                  <Route path="admin/horarios" element={<Horarios />} />
+                  <Route path="admin/calendario" element={<CalendarioAdmin />} />
                   <Route path="admin/estadisticas" element={<EstadisticasCongreso />} />
                 </Route>
               </Route>

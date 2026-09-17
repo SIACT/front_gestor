@@ -16,10 +16,24 @@
   --color-success-text: var(--c-success-text);
   --color-warning-bg: var(--c-warning-bg);
   --color-warning-text: var(--c-warning-text);
+  --color-alerta-bg: var(--c-alerta-bg);
+  --color-alerta-text: var(--c-alerta-text);
   --color-purple-bg: var(--c-purple-bg);
   --color-purple-text: var(--c-purple-text);
   --color-blue-bg: var(--c-blue-bg);
   --color-blue-text: var(--c-blue-text);
+
+  /* Paleta categórica dedicada a etiquetas de área temática — hues separados de los
+     semánticos de arriba (error/success/warning/alerta) para que un área nunca se
+     confunda visualmente con un estado. */
+  --color-area-teal-bg: var(--c-area-teal-bg);
+  --color-area-teal-text: var(--c-area-teal-text);
+  --color-area-pink-bg: var(--c-area-pink-bg);
+  --color-area-pink-text: var(--c-area-pink-text);
+  --color-area-cyan-bg: var(--c-area-cyan-bg);
+  --color-area-cyan-text: var(--c-area-cyan-text);
+  --color-area-indigo-bg: var(--c-area-indigo-bg);
+  --color-area-indigo-text: var(--c-area-indigo-text);
 
   --font-display: "Archivo Black", sans-serif;
   --font-sans: "Inter", sans-serif;
@@ -42,10 +56,21 @@
   --c-success-text: #8FD8A3;
   --c-warning-bg: #3A2F1A;
   --c-warning-text: #E0B563;
+  --c-alerta-bg: #4A2E0A;
+  --c-alerta-text: #F5A623;
   --c-purple-bg: #2A1F3A;
   --c-purple-text: #C9A8F5;
   --c-blue-bg: #1A2A3A;
   --c-blue-text: #8FC4F5;
+
+  --c-area-teal-bg: #0F3A34;
+  --c-area-teal-text: #5EEAD4;
+  --c-area-pink-bg: #3A1A2E;
+  --c-area-pink-text: #F0A8D0;
+  --c-area-cyan-bg: #0E3A45;
+  --c-area-cyan-text: #67E8F9;
+  --c-area-indigo-bg: #211A45;
+  --c-area-indigo-text: #A5B4FC;
 }
 
 /* Tema claro */
@@ -65,10 +90,21 @@
   --c-success-text: #1E7B34;
   --c-warning-bg: #FFF4E0;
   --c-warning-text: #8A5D12;
+  --c-alerta-bg: #FDE3B8;
+  --c-alerta-text: #92400E;
   --c-purple-bg: #F0E9FA;
   --c-purple-text: #6B3FA0;
   --c-blue-bg: #E8F1FC;
   --c-blue-text: #1D5FA8;
+
+  --c-area-teal-bg: #D9F5EE;
+  --c-area-teal-text: #0F766E;
+  --c-area-pink-bg: #FCE7F3;
+  --c-area-pink-text: #BE185D;
+  --c-area-cyan-bg: #CFFAFE;
+  --c-area-cyan-text: #0E7490;
+  --c-area-indigo-bg: #E0E7FF;
+  --c-area-indigo-text: #4338CA;
 }
 
 html {

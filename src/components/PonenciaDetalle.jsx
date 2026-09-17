@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapPin } from 'lucide-react';
+import { Calendar, MapPin } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
-import { capitalizar, formatFecha } from '../utils/formato';
+import { capitalizar, formatFecha, formatFechaSolo, formatHora } from '../utils/formato';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -390,29 +390,35 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
         </div>
       </div>
 
-      {/* TODO: el backend no expone datos de lugar/sala todavía.
-          Esta sección usa datos de ejemplo hasta que exista el endpoint/campo real.
-          Cuando exista, reemplazar por los datos reales de la respuesta de GET /talks/:id. */}
       <div className="rounded-xl border border-border bg-surface p-6">
         <h2 className="flex items-center gap-2 font-sans text-lg font-semibold text-text-primary">
-          <MapPin className="size-5 text-accent" />
-          Lugar
+          <Calendar className="size-5 text-accent" />
+          Horario
         </h2>
 
-        <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Sala / Auditorio</dt>
-            <dd className="mt-1 text-sm text-text-primary">Por definir</dd>
+        {(talk.schedules?.length ?? 0) === 0 ? (
+          <p className="mt-4 text-sm text-text-muted">Aún sin horario asignado.</p>
+        ) : (
+          <div className="mt-4 flex flex-col gap-3">
+            {talk.schedules.map((schedule, index) => (
+              <div
+                key={schedule.id_schedule}
+                className="flex flex-col gap-2 rounded-lg border border-border p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-center gap-2 text-text-primary">
+                  <Calendar className="size-4 text-text-muted" />
+                  {talk.schedules.length > 1 && <span className="font-medium">Sesión {index + 1}:</span>}
+                  {formatFechaSolo(schedule.fecha)}, {formatHora(schedule.hora_inicio)} -{' '}
+                  {formatHora(schedule.hora_fin)}
+                </div>
+                <div className="flex items-center gap-2 text-text-muted">
+                  <MapPin className="size-4" />
+                  {schedule.salon.nombre}
+                </div>
+              </div>
+            ))}
           </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Fecha y hora</dt>
-            <dd className="mt-1 text-sm text-text-primary">Por definir</dd>
-          </div>
-        </dl>
-
-        <p className="mt-4 text-xs text-text-muted">
-          Esta información es preliminar y puede cambiar antes del evento.
-        </p>
+        )}
       </div>
 
       {isAdmin && adminReviewSlot}

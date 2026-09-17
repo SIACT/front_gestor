@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { FileText } from 'lucide-react';
+import { AlertTriangle, FileText } from 'lucide-react';
 import { apiFetch, API_URL } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useCongreso } from '../context/CongresoContext';
 import { ROLES } from '../utils/roles';
-import { ESTADO_INSCRIPCION_VARIANT } from '../utils/formato';
+import { ESTADO_INSCRIPCION_LABEL, ESTADO_INSCRIPCION_VARIANT } from '../utils/formato';
 import { evaluarRecordatorioArchivo, evaluarRecordatorioComprobante } from '../utils/recordatorios';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -23,6 +23,7 @@ const ESTADO_INSCRIPCION_BORDER = {
   confirmada: 'border-success-text',
   rechazada: 'border-error-text',
   cancelada: 'border-border',
+  carta_compromiso: 'border-alerta-text',
 };
 
 function formatCOP(value) {
@@ -34,7 +35,7 @@ function formatCOP(value) {
 }
 
 function PanelRecordatorios({ comprobante, archivos, estadoInscripcion }) {
-  if (estadoInscripcion === 'confirmada') return null;
+  if (estadoInscripcion !== 'pendiente') return null;
 
   const recordatorios = [
     evaluarRecordatorioComprobante(comprobante),
@@ -84,6 +85,8 @@ export function DetalleInscripcion() {
   const [eliminandoArchivoId, setEliminandoArchivoId] = useState(null);
   const [eliminarArchivoError, setEliminarArchivoError] = useState('');
 
+  const [talks, setTalks] = useState([]);
+
   function cargarInscripcion() {
     return apiFetch(`/inscripciones/${id}`).then(setInscripcion);
   }
@@ -103,6 +106,12 @@ export function DetalleInscripcion() {
     cargarArchivos()
       .catch((err) => setArchivosError(err.message))
       .finally(() => setArchivosLoading(false));
+
+    // Solo para saber si mostrar la línea de "tu(s) ponencia(s) sí puede(n) programarse" en
+    // el banner de carta_compromiso — un fallo aquí no debe romper el resto de la página.
+    apiFetch(`/inscripciones/${id}/talks`)
+      .then((data) => setTalks(data ?? []))
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -202,6 +211,9 @@ export function DetalleInscripcion() {
   // individual del comprobante (aunque esté 'pendiente' o 'rechazado').
   const mostrarFormularioSubida =
     estadoInscripcion !== 'confirmada' && (!comprobante || comprobante.estado_comprobante !== 'revisado');
+  // Deshabilitado temporalmente para todos los estados (incluido 'pendiente') — por ahora no
+  // se muestra la subida de comprobante ni de soporte de categoría.
+  const mostrarComprobanteYArchivos = false;
 
   const linkCartaAceptacion = (
     <a
@@ -231,13 +243,37 @@ export function DetalleInscripcion() {
       >
         <span className="text-sm text-text-muted">Estado de tu inscripción:</span>
         <Badge variant={ESTADO_INSCRIPCION_VARIANT[estadoInscripcion]} className="px-3 py-1 text-sm">
-          {estadoInscripcion}
+          {ESTADO_INSCRIPCION_LABEL[estadoInscripcion] ?? estadoInscripcion}
         </Badge>
       </div>
 
       {estadoInscripcion === 'confirmada' && (
         <Alert variant="success">
           ¡Todo listo! Tu inscripción a {congreso?.nombre} ha sido confirmada. Te esperamos en el congreso.
+        </Alert>
+      )}
+
+      {estadoInscripcion === 'rechazada' && (
+        <Alert variant="error">
+          Tu inscripción fue rechazada. Por favor comunícate con nosotros a través de los canales de
+          atención oficiales del congreso para obtener más información.
+        </Alert>
+      )}
+
+      {inscripcion.requiere_confirmacion_pago && (
+        <Alert variant="alerta" className="flex items-start gap-3 p-4 text-sm">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+          <div>
+            <p className="font-medium">
+              Tu inscripción fue aceptada por carta de compromiso. Para poder recibir tu certificado,
+              debes hacer efectivo tu pago antes de que finalice el congreso.
+            </p>
+            {talks.length > 0 && (
+              <p className="mt-1">
+                Te invitamos a llevar a cabo el pago lo antes posible para confirmar tu participación.
+              </p>
+            )}
+          </div>
         </Alert>
       )}
 
@@ -336,6 +372,8 @@ export function DetalleInscripcion() {
         </div>
       )}
 
+      {mostrarComprobanteYArchivos && (
+      <>
       <Card>
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-text-muted">
@@ -515,6 +553,8 @@ export function DetalleInscripcion() {
           </div>
         </Modal>
       </Card>
+      </>
+      )}
 
       </div>
 

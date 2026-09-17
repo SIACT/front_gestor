@@ -1,7 +1,10 @@
 import {
   BarChart3,
   BookOpen,
+  CalendarClock,
+  CalendarDays,
   ClipboardList,
+  DoorOpen,
   FolderTree,
   LayoutDashboard,
   LayoutGrid,
@@ -24,6 +27,13 @@ export function navItems(idCongreso) {
       icon: LayoutDashboard,
     },
     {
+      // Sin `roles`: visible para cualquier usuario autenticado del congreso, Admin incluido
+      // (a diferencia de "Mis inscripciones"/"Nueva inscripción", que solo son para Participante).
+      to: `/congresos/${idCongreso}/agenda`,
+      label: 'Agenda',
+      icon: CalendarDays,
+    },
+    {
       to: `/congresos/${idCongreso}/inscripciones`,
       label: 'Mis inscripciones',
       icon: ClipboardList,
@@ -40,7 +50,7 @@ export function navItems(idCongreso) {
       // cuenta — se filtra en DashboardLayout por esExpositorEnEsteCongreso (rol de
       // participación de la inscripción en ESTE congreso, no de la cuenta).
       to: `/congresos/${idCongreso}/ponencias`,
-      label: 'Mis ponencias',
+      label: 'Mis trabajos',
       icon: Mic,
     },
   ];
@@ -71,6 +81,7 @@ export function adminGroups(idCongreso) {
           path: `/congresos/${idCongreso}/admin/mensajes-predeterminados`,
           icon: MessageSquare,
         },
+        { label: 'Salones', path: `/congresos/${idCongreso}/admin/salones`, icon: DoorOpen },
       ],
     },
     {
@@ -78,7 +89,9 @@ export function adminGroups(idCongreso) {
       icon: LayoutGrid,
       items: [
         { label: 'Inscripciones', path: `/congresos/${idCongreso}/admin/inscripciones`, icon: Receipt },
-        { label: 'Ponencias', path: `/congresos/${idCongreso}/admin/ponencias`, icon: Mic },
+        { label: 'Trabajos', path: `/congresos/${idCongreso}/admin/ponencias`, icon: Mic },
+        { label: 'Horarios', path: `/congresos/${idCongreso}/admin/horarios`, icon: CalendarClock },
+        { label: 'Calendario', path: `/congresos/${idCongreso}/admin/calendario`, icon: CalendarDays },
       ],
     },
   ];

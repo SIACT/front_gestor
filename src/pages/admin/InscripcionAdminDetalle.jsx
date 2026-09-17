@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Eye } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
-import { ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP, formatFecha } from '../../utils/formato';
+import { ESTADO_INSCRIPCION_LABEL, ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP, formatFecha } from '../../utils/formato';
 import { ROL_PARTICIPACION } from '../../utils/roles';
 import { SugerenciasMensaje } from '../../components/SugerenciasMensaje';
 import { Card } from '../../components/ui/Card';
@@ -23,7 +23,7 @@ const ESTADOS = [
   { value: 'rechazado', label: 'Rechazado' },
 ];
 
-const ESTADOS_INSCRIPCION = ['pendiente', 'confirmada', 'rechazada', 'cancelada'];
+const ESTADOS_INSCRIPCION = ['pendiente', 'carta_compromiso', 'confirmada', 'rechazada', 'cancelada'];
 
 function ArchivoItem({ archivo, onRefrescar }) {
   const { congreso } = useCongreso();
@@ -561,7 +561,7 @@ export function InscripcionAdminDetalle() {
             Inscripción #{inscripcion.id_inscripcion}
           </h1>
           <Badge variant={ESTADO_INSCRIPCION_VARIANT[inscripcion.estado_inscripcion] ?? 'default'}>
-            {inscripcion.estado_inscripcion}
+            {ESTADO_INSCRIPCION_LABEL[inscripcion.estado_inscripcion] ?? inscripcion.estado_inscripcion}
           </Badge>
         </div>
       </div>
@@ -1026,7 +1026,7 @@ export function InscripcionAdminDetalle() {
                 variant={ESTADO_INSCRIPCION_VARIANT[inscripcion.estado_inscripcion] ?? 'default'}
                 className="mt-1"
               >
-                {inscripcion.estado_inscripcion}
+                {ESTADO_INSCRIPCION_LABEL[inscripcion.estado_inscripcion] ?? inscripcion.estado_inscripcion}
               </Badge>
             </div>
 
@@ -1045,7 +1045,7 @@ export function InscripcionAdminDetalle() {
               >
                 {ESTADOS_INSCRIPCION.map((valor) => (
                   <option key={valor} value={valor}>
-                    {valor}
+                    {ESTADO_INSCRIPCION_LABEL[valor] ?? valor}
                   </option>
                 ))}
               </Select>
@@ -1059,6 +1059,13 @@ export function InscripcionAdminDetalle() {
                 Actualizar estado
               </Button>
             </div>
+
+            {(estadoSeleccionado === 'carta_compromiso' || inscripcion.requiere_confirmacion_pago) && (
+              <Alert variant="warning" className="mt-4">
+                Este estado habilita la programación de la ponencia, pero NO cuenta para la emisión de
+                certificados hasta que el pago sea confirmado.
+              </Alert>
+            )}
 
             <p className="mt-4 text-xs text-text-muted">
               El estado de la inscripción es independiente del estado del comprobante de pago — debes

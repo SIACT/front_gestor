@@ -46,9 +46,38 @@ export function formatFecha(value) {
   });
 }
 
+// Para campos de fecha PURA (sin hora), como Schedule.fecha: 'YYYY-MM-DDT00:00:00.000Z' se
+// interpreta como medianoche UTC, y en husos horarios negativos toLocaleDateString la muestra
+// un día atrás. Se arma el Date con año/mes/día explícitos (mismo criterio que
+// DatePicker.parseLocalDate) para evitar esa conversión.
+export function formatFechaSolo(fechaISO) {
+  const [year, month, day] = fechaISO.slice(0, 10).split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('es-CO', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+// Schedule.hora_inicio/hora_fin viajan como Date @db.Time serializado a ISO sobre una fecha
+// de referencia fija (ej. "1970-01-01T09:00:00.000Z"); el backend fuerza 'Z', así que extraer
+// los caracteres 11-16 da la hora real sin ninguna conversión de huso horario.
+export function formatHora(value) {
+  return typeof value === 'string' ? value.slice(11, 16) : '';
+}
+
 export const ESTADO_INSCRIPCION_VARIANT = {
   pendiente: 'pendiente',
+  carta_compromiso: 'alerta',
   confirmada: 'revisado',
   rechazada: 'rechazado',
   cancelada: 'default',
+};
+
+export const ESTADO_INSCRIPCION_LABEL = {
+  pendiente: 'Pendiente',
+  carta_compromiso: 'Carta de compromiso',
+  confirmada: 'Confirmada',
+  rechazada: 'Rechazada',
+  cancelada: 'Cancelada',
 };

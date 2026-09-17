@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Clock, FileText, MapPin } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Clock, FileText, MapPin } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
@@ -10,6 +10,7 @@ import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
 import { Spinner } from '../components/ui/Spinner';
 import { TextoConFormulas } from '../components/ui/TextoConFormulas';
+import { div } from 'framer-motion/client';
 
 const DIA_SEMANA_CORTO = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 
@@ -128,6 +129,52 @@ function indiceBloqueParaFecha(diasOrdenados, fechaObjetivo) {
   return Math.floor(indice / TAMANO_BLOQUE);
 }
 
+// Card compacta de un evento para la vista mobile (lista vertical por día) — mismo estilo visual
+// (borde de color por tipo, hora, título, salón/área) que la card del grid semanal, pero sin el
+// posicionamiento absoluto por celda de grid que usa esa vista.
+function EventoCardMobile({ slot, tipoColorMap, onClick }) {
+  const color = tipoColorMap[slot.talk.tipo_participacion?.nombre ?? 'Sin tipo'];
+  return (
+    <div
+      onClick={() => onClick(slot.talk.id_talk)}
+      className={clsx(
+        'cursor-pointer overflow-hidden rounded-lg border-l-4 p-3 shadow-sm transition-opacity hover:opacity-80',
+        color.border,
+        color.bg,
+      )}
+    >
+      <div className="flex items-center gap-1 text-xs text-text-muted">
+        <Clock className="size-3 shrink-0" />
+        <span>
+          {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
+        </span>
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-1 text-xs font-medium">
+        <span className={clsx('flex items-center gap-1', color.text)}>
+          <span className={clsx('size-1.5 shrink-0 rounded-full', color.dot)} />
+          {slot.talk.tipo_participacion?.nombre ?? 'Sin tipo'}
+        </span>
+        {slot.talk.area && (
+          <>
+            <span className="text-text-muted">·</span>
+            <span className="text-text-muted">{slot.talk.area.nombre}</span>
+          </>
+        )}
+      </div>
+      <p className="mt-1 text-sm font-medium text-text-primary">{slot.talk.titulo}</p>
+      <div className="mt-1 flex items-center gap-1 text-text-muted">
+        <MapPin className="size-3 shrink-0" />
+        <div className="flex flex-col">
+          <span className="text-xs">{slot.salon.nombre}</span>
+          <span className="text-[10px]">
+            {capitalizar(slot.talk.inscripcion.usuario.nombre)} {capitalizar(slot.talk.inscripcion.usuario.apellido)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Agenda() {
   const { congreso } = useCongreso();
   const idCongreso = congreso?.id_congreso;
@@ -138,6 +185,12 @@ export function Agenda() {
 
   const [bloqueActualIndex, setBloqueActualIndex] = useState(0);
   const indiceInicializado = useRef(false);
+
+  // Vista mobile: día seleccionado (índice dentro del bloque de 6 días actual) y set de horas
+  // expandidas ("HH:MM" con prefijo de fecha, para no compartir estado de expansión entre días
+  // distintos que casualmente tengan la misma hora).
+  const [diaMobileActivo, setDiaMobileActivo] = useState(0);
+  const [horasExpandidas, setHorasExpandidas] = useState(() => new Set());
 
   // id_talk de la ponencia cuyo detalle está abierto (null = Modal cerrado). Separado de
   // `detalle` para poder mostrar el spinner de carga inmediatamente al hacer clic, sin
@@ -225,6 +278,28 @@ export function Agenda() {
     return mapa;
   }, [dias]);
 
+  // Al cambiar de bloque (incluida la carga inicial), reposiciona el tab mobile en el día de HOY
+  // si está dentro del nuevo bloque, o en el primero disponible en caso contrario.
+  useEffect(() => {
+    const diasDelBloqueActual = bloques[bloqueActualIndex] ?? [];
+    if (diasDelBloqueActual.length === 0) return;
+    const hoyKey = toDateKey(new Date());
+    const indice = diasDelBloqueActual.findIndex((d) => d.fecha === hoyKey);
+    setDiaMobileActivo(indice !== -1 ? indice : 0);
+  }, [bloqueActualIndex, bloques]);
+
+  function toggleHoraExpandida(clave) {
+    setHorasExpandidas((prev) => {
+      const next = new Set(prev);
+      if (next.has(clave)) {
+        next.delete(clave);
+      } else {
+        next.add(clave);
+      }
+      return next;
+    });
+  }
+
   function handleBloqueAnterior() {
     setBloqueActualIndex((i) => Math.max(0, i - 1));
   }
@@ -296,6 +371,28 @@ export function Agenda() {
     });
   });
 
+  // Vista mobile: slots con talk del día activo, agrupados por hora_inicio y ordenados
+  // cronológicamente. Reutiliza el mismo `diasBloque` (y por tanto los mismos días ya cargados
+  // y paginados) que el grid de desktop.
+  const diaMobileSeleccionado = diasBloque[diaMobileActivo] ?? diasBloque[0] ?? null;
+  const gruposPorHora = diaMobileSeleccionado
+    ? (() => {
+        const porHora = new Map();
+        for (const slot of diaMobileSeleccionado.slots) {
+          if (!slot.talk) continue;
+          const hora = formatHora(slot.hora_inicio);
+          if (!porHora.has(hora)) porHora.set(hora, []);
+          porHora.get(hora).push(slot);
+        }
+        return [...porHora.entries()]
+          .map(([hora, eventos]) => ({ hora, eventos }))
+          .sort(
+            (a, b) =>
+              minutosDesdeMedianoche(a.eventos[0].hora_inicio) - minutosDesdeMedianoche(b.eventos[0].hora_inicio),
+          );
+      })()
+    : [];
+
   const tiposDelCongreso = Object.keys(tipoColorMap);
 
   // Mismo `tipoColorMap` que colorea las mini-cards del grid semanal — se reutiliza tal cual
@@ -353,7 +450,8 @@ export function Agenda() {
               No hay actividades programadas en estas fechas.
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="hidden lg:block overflow-x-auto">
               <div
                 className="grid"
                 style={{
@@ -378,7 +476,7 @@ export function Agenda() {
                   <div
                     key={minutos}
                     style={{ gridColumn: 1, gridRow: filaIndex + 2 }}
-                    className="border-t border-border pr-2 text-right text-xs text-text-muted"
+                    className="border-t border-border pr-2 text-right text-xs text-text-muted flex items-center justify-end"
                   >
                     {minutos % 60 === 0 ? formatMinutosComoHora(minutos) : ''}
                   </div>
@@ -390,7 +488,7 @@ export function Agenda() {
                     <div
                       key={`${dia.fecha}-${minutos}`}
                       style={{ gridColumn: diaIndex + 2, gridRow: filaIndex + 2 }}
-                      className="border-t border-l border-border"
+                      className="border-t border-l border-border bg-surface  "
                     />
                   )),
                 )}
@@ -461,6 +559,82 @@ export function Agenda() {
                 ))}
               </div>
             </div>
+
+            <div className="lg:hidden">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {diasBloque.map((dia, index) => {
+                  const activo = index === diaMobileActivo;
+                  const fecha = parseFechaYMD(dia.fecha);
+                  return (
+                    <button
+                      key={dia.fecha}
+                      type="button"
+                      onClick={() => setDiaMobileActivo(index)}
+                      className={clsx(
+                        'flex shrink-0 flex-col items-center rounded-xl border px-4 py-2',
+                        activo ? 'border-accent bg-accent/10' : 'border-border bg-surface',
+                      )}
+                    >
+                      <span className="text-xs uppercase text-text-muted">
+                        {DIA_SEMANA_CORTO[fecha.getDay()]}
+                      </span>
+                      <span className={clsx('text-lg font-bold', activo ? 'text-accent' : 'text-text-primary')}>
+                        {fecha.getDate()}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 flex flex-col gap-2">
+                {gruposPorHora.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-text-muted">
+                    No hay actividades programadas este día.
+                  </p>
+                ) : (
+                  gruposPorHora.map(({ hora, eventos }) => {
+                    if (eventos.length === 1) {
+                      return (
+                        <EventoCardMobile
+                          key={eventos[0].id_schedule}
+                          slot={eventos[0]}
+                          tipoColorMap={tipoColorMap}
+                          onClick={handleAbrirDetalle}
+                        />
+                      );
+                    }
+                    const claveHora = `${diaMobileSeleccionado.fecha}-${hora}`;
+                    const expandido = horasExpandidas.has(claveHora);
+                    return (
+                      <div key={hora} className="flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleHoraExpandida(claveHora)}
+                          className="flex w-full items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-left"
+                        >
+                          <span className="font-medium text-text-primary">{hora}</span>
+                          <span className="text-sm text-text-muted">{eventos.length} actividades a esta hora</span>
+                          <ChevronDown className={clsx('size-4 transition-transform', expandido && 'rotate-180')} />
+                        </button>
+                        {expandido && (
+                          <div className="flex flex-col gap-2 pl-2">
+                            {eventos.map((slot) => (
+                              <EventoCardMobile
+                                key={slot.id_schedule}
+                                slot={slot}
+                                tipoColorMap={tipoColorMap}
+                                onClick={handleAbrirDetalle}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+            </>
           )}
 
           {tiposDelCongreso.length > 0 && (

@@ -270,7 +270,7 @@ export function DetalleInscripcion() {
             </p>
             {talks.length > 0 && (
               <p className="mt-1">
-                Mientras tanto, tu(s) ponencia(s) SÍ puede(n) ser programada(s) normalmente.
+                Te invitamos a llevar a cabo el pago lo antes posible para confirmar tu participación.
               </p>
             )}
           </div>

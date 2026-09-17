@@ -488,7 +488,7 @@ export function Agenda() {
                     <div
                       key={`${dia.fecha}-${minutos}`}
                       style={{ gridColumn: diaIndex + 2, gridRow: filaIndex + 2 }}
-                      className="border-t border-l border-border bg-surface  "
+                      className={clsx('border-l border-border bg-surface', minutos % 60 === 0 && 'border-t')}
                     />
                   )),
                 )}

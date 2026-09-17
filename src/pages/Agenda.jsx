@@ -423,21 +423,36 @@ export function Agenda() {
                               {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
                             </span>
                           </div>
-                          <div className={clsx('mt-0.5 flex items-center gap-1 text-[10px] font-medium', color.text)}>
-                            <span className={clsx('size-1.5 shrink-0 rounded-full', color.dot)} />
-                            <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-                              {slot.talk.tipo_participacion?.nombre ?? 'Sin tipo'}
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] font-medium">
+                            <span className={clsx('flex items-center gap-1', color.text)}>
+                              <span className={clsx('size-1.5 shrink-0 rounded-full', color.dot)} />
+                              <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+                                {slot.talk.tipo_participacion?.nombre ?? 'Sin tipo'}
+                              </span>
                             </span>
+                            {slot.talk.area && (
+                              <>
+                                <span className="text-text-muted">·</span>
+                                <span className="truncate text-text-muted">{slot.talk.area.nombre}</span>
+                              </>
+                            )}
                           </div>
-                          <p className="mt-0.5 line-clamp-2 text-xs font-medium text-text-primary">
+                          <p className="mt-0.5 line-clamp-4 text-xs font-medium text-text-primary">
                             {slot.talk.titulo}
                           </p>
-                          <div className="mt-0.5 flex items-center gap-1 text-[10px] text-text-muted">
-                            <MapPin className="size-2.5 shrink-0" />
-                            <span className="overflow-hidden text-ellipsis whitespace-nowrap  ">
-                              {slot.salon.nombre} · {capitalizar(slot.talk.inscripcion.usuario.nombre)}{' '}
-                              {capitalizar(slot.talk.inscripcion.usuario.apellido)}
+                          <div className="mt-0.5 flex  items-center gap-1 text-text-muted ">
+                             <MapPin className="size-2.5 shrink-0" />
+                            <div className="flex flex-col">
+                            <span className="overflow-hidden text-[11px] text-ellipsis whitespace-nowrap ">
+                             
+                              {slot.salon.nombre} 
                             </span>
+                            <span className="overflow-hidden text-[8px] text-ellipsis whitespace-nowrap  ">
+                              {capitalizar(slot.talk.inscripcion.usuario.nombre)}{' '}
+                              {capitalizar(slot.talk.inscripcion.usuario.apellido)}
+                             
+                            </span>
+                            </div>
                           </div>
                         </div>
                       );
@@ -476,10 +491,10 @@ export function Agenda() {
         ) : detalle ? (
           <div className="flex flex-col">
             {/* Eyebrow: tipo de participación (coloreado según tipoColorMap) + separador + pill de área */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3">
               <span
                 className={clsx(
-                  'flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide',
+                  'flex items-center gap-1 text-xs font-medium uppercase tracking-wide',
                   tipoColorDetalle.text,
                 )}
               >
@@ -493,7 +508,7 @@ export function Agenda() {
             </div>
 
             {/* Título grande */}
-            <h3 className="mt-2 text-xl font-bold text-text-primary sm:text-2xl">{detalle.titulo}</h3>
+            <h3 className="mt-2 text-xl font-bold text-text-primary sm:text-xl">{detalle.titulo}</h3>
 
             {/* Fecha/hora + salón — una fila si es sesión única, una fila por sesión si es cursillo */}
             <div className="mt-4 border-t border-border pt-4">

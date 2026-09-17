@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Layers, Search } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
@@ -15,6 +15,24 @@ import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 
 const FORM_INICIAL = { id_salon: '', fecha: '', hora_inicio: '', hora_fin: '' };
+
+const GENERADOR_FORM_INICIAL = {
+  id_salon: '',
+  fecha: '',
+  hora_inicio: '',
+  duracion_minutos: '',
+  cantidad_slots: '',
+};
+
+// Mismo criterio de manejo de horas que el resto del proyecto (Date nativo sobre una fecha de
+// referencia fija, sin librería externa) — se usa solo para la vista previa calculada en el
+// frontend; el backend recalcula los mismos rangos de forma independiente al generar el lote.
+function sumarMinutosAHora(horaHHMM, minutosASumar) {
+  const [horas, minutos] = horaHHMM.split(':').map(Number);
+  const base = new Date(1970, 0, 1, horas, minutos);
+  base.setMinutes(base.getMinutes() + minutosASumar);
+  return `${String(base.getHours()).padStart(2, '0')}:${String(base.getMinutes()).padStart(2, '0')}`;
+}
 
 // hora_inicio/hora_fin viajan como Date @db.Time serializado a ISO sobre una fecha de
 // referencia fija (ej. "1970-01-01T09:00:00.000Z"); se fuerza 'Z' en el backend, así que
@@ -71,6 +89,12 @@ export function Horarios() {
   const [confirmarEliminar, setConfirmarEliminar] = useState(null);
   const [eliminarError, setEliminarError] = useState('');
   const [eliminando, setEliminando] = useState(false);
+
+  const [generadorOpen, setGeneradorOpen] = useState(false);
+  const [generadorForm, setGeneradorForm] = useState(GENERADOR_FORM_INICIAL);
+  const [generadorError, setGeneradorError] = useState('');
+  const [generadorSubmitting, setGeneradorSubmitting] = useState(false);
+  const [generadorExito, setGeneradorExito] = useState('');
 
   function cargarSchedule() {
     const query = fecha ? `?fecha=${fecha}` : '';
@@ -268,6 +292,77 @@ export function Horarios() {
     }
   }
 
+  function handleAbrirGenerador() {
+    setGeneradorForm({ ...GENERADOR_FORM_INICIAL, fecha: fecha ?? '' });
+    setGeneradorError('');
+    setGeneradorExito('');
+    setGeneradorOpen(true);
+  }
+
+  function handleChangeGenerador(e) {
+    const { name, value } = e.target;
+    setGeneradorForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handleSubmitGenerador(e) {
+    e.preventDefault();
+    if (!generadorFormValido) return;
+    setGeneradorError('');
+    setGeneradorSubmitting(true);
+    try {
+      const data = await apiFetch(`/congresos/${idCongreso}/schedule/generar-lote`, {
+        method: 'POST',
+        body: JSON.stringify({
+          id_salon: Number(generadorForm.id_salon),
+          fecha: generadorForm.fecha,
+          hora_inicio: generadorForm.hora_inicio,
+          duracion_minutos: Number(generadorForm.duracion_minutos),
+          cantidad_slots: Number(generadorForm.cantidad_slots),
+        }),
+      });
+      setGeneradorOpen(false);
+      setGeneradorExito(`${data.creados} slots creados correctamente`);
+      await cargarSchedule();
+    } catch (err) {
+      // 409 LOTE_SOLAPADO ya identifica el slot en conflicto en el mensaje; 400
+      // CANTIDAD_INVALIDA/DURACION_INVALIDA son defensa en profundidad, ya prevenidos por la
+      // validación de `generadorFormValido` antes de llegar aquí. En ambos casos el Modal se
+      // queda abierto con los valores ya ingresados, para que el usuario pueda ajustarlos.
+      setGeneradorError(err.message);
+    } finally {
+      setGeneradorSubmitting(false);
+    }
+  }
+
+  // Validación en frontend, antes de permitir el submit — cantidad_slots entre 1 y 50 y
+  // duracion_minutos > 0, mismos límites que valida el backend (ver generarSlotsVacios), para
+  // no necesitar ida y vuelta al servidor en el caso común de un typo.
+  const cantidadSlotsNum = Number(generadorForm.cantidad_slots);
+  const cantidadSlotsInvalida =
+    generadorForm.cantidad_slots !== '' &&
+    (!Number.isInteger(cantidadSlotsNum) || cantidadSlotsNum < 1 || cantidadSlotsNum > 50);
+
+  const duracionMinutosNum = Number(generadorForm.duracion_minutos);
+  const duracionMinutosInvalida =
+    generadorForm.duracion_minutos !== '' && (!Number.isInteger(duracionMinutosNum) || duracionMinutosNum <= 0);
+
+  const generadorFormCompleto =
+    generadorForm.id_salon !== '' &&
+    generadorForm.fecha !== '' &&
+    generadorForm.hora_inicio !== '' &&
+    generadorForm.duracion_minutos !== '' &&
+    generadorForm.cantidad_slots !== '';
+
+  const generadorFormValido = generadorFormCompleto && !cantidadSlotsInvalida && !duracionMinutosInvalida;
+
+  const salonGeneradorSeleccionado = salonesActivos.find(
+    (s) => s.id_salon === Number(generadorForm.id_salon),
+  );
+
+  const horaFinCalculada = generadorFormValido
+    ? sumarMinutosAHora(generadorForm.hora_inicio, duracionMinutosNum * cantidadSlotsNum)
+    : null;
+
   return (
     <div className="flex flex-col gap-6 pt-6">
       <div className="flex items-center justify-between gap-4">
@@ -277,14 +372,21 @@ export function Horarios() {
             Grilla de horarios del congreso, agrupada por salón.
           </p>
         </div>
-        <Button type="button" variant="primary" onClick={handleAbrirCrear}>
-          Nuevo horario
-        </Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" onClick={handleAbrirGenerador}>
+            <Layers className="size-4" />
+            Generador
+          </Button>
+          <Button type="button" variant="primary" onClick={handleAbrirCrear}>
+            Nuevo horario
+          </Button>
+        </div>
       </div>
 
       <DatePicker label="Filtrar por fecha" value={fecha} onChange={setFecha} />
 
       {error && <Alert variant="error">{error}</Alert>}
+      {generadorExito && <Alert variant="success">{generadorExito}</Alert>}
 
       {loading ? (
         <PageLoader />
@@ -487,6 +589,88 @@ export function Horarios() {
 
           <Button type="submit" variant="primary" loading={submitting} className="mt-2 w-full">
             {editando ? 'Guardar cambios' : 'Crear horario'}
+          </Button>
+        </form>
+      </Modal>
+
+      <Modal
+        open={generadorOpen}
+        onClose={() => setGeneradorOpen(false)}
+        title="Generador de lote de horarios"
+      >
+        <form className="flex flex-col gap-4" onSubmit={handleSubmitGenerador}>
+          {generadorError && <Alert variant="error">{generadorError}</Alert>}
+
+          <Select
+            name="id_salon"
+            label="Salón"
+            value={generadorForm.id_salon}
+            onChange={handleChangeGenerador}
+            required
+          >
+            <option value="">Selecciona un salón</option>
+            {salonesActivos.map((s) => (
+              <option key={s.id_salon} value={s.id_salon}>
+                {s.nombre} (cap. {s.capacidad})
+              </option>
+            ))}
+          </Select>
+
+          <DatePicker
+            label="Fecha"
+            value={generadorForm.fecha}
+            onChange={(nuevaFecha) => setGeneradorForm((prev) => ({ ...prev, fecha: nuevaFecha ?? '' }))}
+          />
+
+          <Input
+            type="time"
+            name="hora_inicio"
+            label="Hora de inicio"
+            value={generadorForm.hora_inicio}
+            onChange={handleChangeGenerador}
+            required
+          />
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              type="number"
+              name="duracion_minutos"
+              label="Duración por slot (minutos)"
+              placeholder="60"
+              value={generadorForm.duracion_minutos}
+              onChange={handleChangeGenerador}
+              error={duracionMinutosInvalida ? 'Debe ser mayor a 0' : undefined}
+              required
+            />
+            <Input
+              type="number"
+              name="cantidad_slots"
+              label="Cantidad de slots"
+              placeholder="Máximo 50"
+              max={50}
+              value={generadorForm.cantidad_slots}
+              onChange={handleChangeGenerador}
+              error={cantidadSlotsInvalida ? 'Debe estar entre 1 y 50' : undefined}
+              required
+            />
+          </div>
+
+          {generadorFormValido && (
+            <div className="rounded-lg border border-border bg-surface p-3 text-sm text-text-muted">
+              Se crearán {cantidadSlotsNum} slots de {duracionMinutosNum} minutos, de{' '}
+              {generadorForm.hora_inicio} a {horaFinCalculada} en {salonGeneradorSeleccionado?.nombre}, el{' '}
+              {formatFechaSlot(generadorForm.fecha)}.
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            variant="primary"
+            loading={generadorSubmitting}
+            disabled={!generadorFormValido}
+            className="mt-2 w-full"
+          >
+            Generar lote
           </Button>
         </form>
       </Modal>

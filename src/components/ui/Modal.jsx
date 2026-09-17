@@ -9,7 +9,7 @@ const SIZE_CLASSES = {
   lg: 'max-w-3xl',
 };
 
-export function Modal({ open, onClose, title, children, size = 'md' }) {
+export function Modal({ open, onClose, title, children, size = 'md', accentClassName }) {
   useEffect(() => {
     if (!open) return;
 
@@ -41,6 +41,12 @@ export function Modal({ open, onClose, title, children, size = 'md' }) {
             className={clsx('w-full', SIZE_CLASSES[size] ?? SIZE_CLASSES.md)}
           >
             <Card className="max-h-[90vh] overflow-y-auto">
+              {accentClassName && (
+                // Debe ser el primer elemento dentro de Card, antes del header (título/X) —
+                // el -mx-6 -mt-6 solo cancela el p-6 de Card (ver Card.jsx) si no hay nada
+                // por delante en el flujo; puesto después del header no llegaría al borde real.
+                <div className={clsx('-mx-6 -mt-6 mb-4 h-1.5 rounded-t-xl', accentClassName)} />
+              )}
               <div className="mb-4 flex items-center justify-between gap-4">
                 <h2 className="font-sans text-lg font-semibold text-text-primary">{title}</h2>
                 <button

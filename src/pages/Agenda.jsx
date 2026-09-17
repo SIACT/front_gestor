@@ -1,24 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Clock, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, FileText, MapPin } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
-import { capitalizar, formatHora } from '../utils/formato';
+import { capitalizar, formatFechaSolo, formatHora } from '../utils/formato';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
+import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
+import { Spinner } from '../components/ui/Spinner';
+import { TextoConFormulas } from '../components/ui/TextoConFormulas';
 
 const DIA_SEMANA_CORTO = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 
 // Ciclo fijo de clases Tailwind literales (necesario para que el compilador las detecte —
 // una clase armada por interpolación en runtime, ej. `border-${token}`, no se generaría).
-// Mismos tokens de color ya usados en el resto del dashboard (Badge, alerts, etc), con un
-// tinte de fondo suave (/10) para que cada tarjeta de evento se lea como su propia mini-card.
+// Mismos tokens de color ya usados en el resto del dashboard (Badge, alerts, etc). `bg` es un
+// tinte suave (/10) para que cada tarjeta de evento se lea como su propia mini-card; `solid` es
+// el mismo token en versión sólida, para la franja superior del Modal de detalle.
 const COLOR_CICLO = [
-  { dot: '--c-accent', border: 'border-accent', text: 'text-accent', bg: 'bg-accent/10' },
-  { dot: '--c-error-text', border: 'border-blue-text', text: 'text-blue-text', bg: '--c-error-text/10' },
-  { dot: '--c-purple-text', border: 'border-purple-text', text: 'text-purple-text', bg: 'bg-purple-text/10' },
-  { dot: '--c-warning-text', border: 'border-warning-text', text: 'text-warning-text', bg: 'bg-warning-text/10' },
+  { dot: '--c-accent', border: 'border-accent', text: 'text-accent', bg: 'bg-accent/10', solid: 'bg-accent' },
+  { dot: '--c-error-text', border: 'border-blue-text', text: 'text-blue-text', bg: '--c-error-text/10', solid: 'bg-blue-text' },
+  { dot: '--c-purple-text', border: 'border-purple-text', text: 'text-purple-text', bg: 'bg-purple-text/10', solid: 'bg-purple-text' },
+  { dot: '--c-warning-text', border: 'border-warning-text', text: 'text-warning-text', bg: 'bg-warning-text/10', solid: 'bg-warning-text' },
 ];
 
 const INTERVALO_MINUTOS = 30;
@@ -134,6 +138,38 @@ export function Agenda() {
 
   const [bloqueActualIndex, setBloqueActualIndex] = useState(0);
   const indiceInicializado = useRef(false);
+
+  // id_talk de la ponencia cuyo detalle está abierto (null = Modal cerrado). Separado de
+  // `detalle` para poder mostrar el spinner de carga inmediatamente al hacer clic, sin
+  // esperar a la respuesta.
+  const [detalleTalkId, setDetalleTalkId] = useState(null);
+  const [detalle, setDetalle] = useState(null);
+  const [detalleLoading, setDetalleLoading] = useState(false);
+  const [detalleError, setDetalleError] = useState('');
+
+  useEffect(() => {
+    if (detalleTalkId === null) return;
+    setDetalle(null);
+    setDetalleError('');
+    setDetalleLoading(true);
+    apiFetch(`/talks/${detalleTalkId}/detalle-publico`)
+      .then(setDetalle)
+      .catch((err) => {
+        // Mismo 404 (TALK_NOT_FOUND) tanto si la ponencia no existe como si dejó de estar
+        // programada justo entre el clic y la respuesta — se muestra un mensaje genérico,
+        // sin distinguir el caso, como hace el propio backend.
+        setDetalleError(err.code === 'TALK_NOT_FOUND' ? 'Esta ponencia ya no está disponible.' : err.message);
+      })
+      .finally(() => setDetalleLoading(false));
+  }, [detalleTalkId]);
+
+  function handleAbrirDetalle(idTalk) {
+    setDetalleTalkId(idTalk);
+  }
+
+  function handleCerrarDetalle() {
+    setDetalleTalkId(null);
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -262,6 +298,12 @@ export function Agenda() {
 
   const tiposDelCongreso = Object.keys(tipoColorMap);
 
+  // Mismo `tipoColorMap` que colorea las mini-cards del grid semanal — se reutiliza tal cual
+  // para que el Modal de detalle nunca muestre un tono distinto al que el usuario ya vio ahí.
+  const tipoColorDetalle = detalle
+    ? (tipoColorMap[detalle.tipo_participacion?.nombre ?? 'Sin tipo'] ?? COLOR_CICLO[0])
+    : null;
+
   return (
     <div className="flex flex-col gap-6 pt-6">
       <div>
@@ -368,12 +410,13 @@ export function Agenda() {
                       return (
                         <div
                           key={slot.id_schedule}
+                          onClick={() => handleAbrirDetalle(slot.talk.id_talk)}
                           className={clsx(
-                            'm-1 min-h-0 flex-1 overflow-hidden rounded-lg border-l-4 p-2 shadow-sm pb-4',
+                            'm-1 min-h-0 flex-1 cursor-pointer overflow-hidden rounded-lg border-l-4 p-2 shadow-sm pb-4 transition-opacity hover:opacity-80',
                             color.border,
                             color.bg,
                           )}
-                        > 
+                        >
                           <div className="flex items-center gap-1 text-[10px] text-text-muted ">
                             <Clock className="size-2.5 shrink-0" />
                             <span className="overflow-hidden text-ellipsis whitespace-nowrap ">
@@ -417,6 +460,128 @@ export function Agenda() {
           )}
         </>
       )}
+
+      <Modal
+        open={detalleTalkId !== null}
+        onClose={handleCerrarDetalle}
+        size="lg"
+        accentClassName={tipoColorDetalle?.solid}
+      >
+        {detalleLoading ? (
+          <div className="flex justify-center py-8 ">
+            <Spinner className="size-6 text-accent" />
+          </div>
+        ) : detalleError ? (
+          <Alert variant="error">{detalleError}</Alert>
+        ) : detalle ? (
+          <div className="flex flex-col">
+            {/* Eyebrow: tipo de participación (coloreado según tipoColorMap) + separador + pill de área */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={clsx(
+                  'flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide',
+                  tipoColorDetalle.text,
+                )}
+              >
+                <FileText className="size-3.5" />
+                {detalle.tipo_participacion?.nombre?.toUpperCase() ?? 'PONENCIA'}
+              </span>
+              <span className="text-text-muted">·</span>
+              <span className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
+                {detalle.area.nombre}
+              </span>
+            </div>
+
+            {/* Título grande */}
+            <h3 className="mt-2 text-xl font-bold text-text-primary sm:text-2xl">{detalle.titulo}</h3>
+
+            {/* Fecha/hora + salón — una fila si es sesión única, una fila por sesión si es cursillo */}
+            <div className="mt-4 border-t border-border pt-4">
+              {detalle.schedules.length === 1 ? (
+                <div className="flex flex-wrap items-center gap-4 text-sm text-text-primary">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="size-4 shrink-0 text-text-muted" />
+                    {formatFechaSolo(detalle.schedules[0].fecha)}, {formatHora(detalle.schedules[0].hora_inicio)}–
+                    {formatHora(detalle.schedules[0].hora_fin)}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="size-4 shrink-0 text-text-muted" />
+                    {detalle.schedules[0].salon.nombre}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {detalle.schedules.map((s, i) => (
+                    <div key={i} className="flex flex-wrap items-center gap-4 text-sm text-text-primary">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-accent">
+                        Sesión {i + 1}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="size-4 shrink-0 text-text-muted" />
+                        {formatFechaSolo(s.fecha)}, {formatHora(s.hora_inicio)}–{formatHora(s.hora_fin)}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="size-4 shrink-0 text-text-muted" />
+                        {s.salon.nombre}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Descripción — mismo tratamiento (justificado + LaTeX) que PonenciaDetalle.jsx */}
+            {detalle.descripcion && (
+              <div className="mt-4 border-t border-border pt-4">
+                <div className="text-justify text-xs leading-relaxed text-text-primary [text-wrap:pretty]">
+                  <TextoConFormulas texto={detalle.descripcion} />
+                </div>
+              </div>
+            )}
+
+            {/* Palabras clave */}
+            {detalle.palabras_clave && (
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Palabras clave</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {detalle.palabras_clave
+                    .split(',')
+                    .map((p) => p.trim())
+                    .filter(Boolean)
+                    .map((palabra, i) => (
+                      <span
+                        key={i}
+                        className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-text-primary"
+                      >
+                        {palabra}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Autor principal | Coautores */}
+            <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+              <div className={detalle.coautores.length === 0 ? 'sm:col-span-2' : undefined}>
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Autor principal</p>
+                <p className="mt-1 text-sm font-bold text-text-primary">
+                  {capitalizar(detalle.autor_principal.nombre)} {capitalizar(detalle.autor_principal.apellido)}
+                </p>
+              </div>
+              {detalle.coautores.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Coautores</p>
+                  <p className="mt-1 text-sm text-text-primary">
+                    {detalle.coautores
+                      .map((c) => `${capitalizar(c.nombre)} ${capitalizar(c.apellido)}`)
+                      .join(', ')}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }

@@ -19,7 +19,7 @@ function formatFechaCorta(fechaYMD) {
 }
 
 export function CalendarioAdmin() {
-  const { congreso } = useCongreso();
+  const { congreso, refrescarCongreso } = useCongreso();
   const idCongreso = congreso?.id_congreso;
   const navigate = useNavigate();
 
@@ -27,6 +27,9 @@ export function CalendarioAdmin() {
   const [diaActivoIndex, setDiaActivoIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [actualizandoAgendaVisible, setActualizandoAgendaVisible] = useState(false);
+  const [agendaVisibleError, setAgendaVisibleError] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -44,6 +47,22 @@ export function CalendarioAdmin() {
     navigate(`/congresos/${idCongreso}/admin/horarios?slot=${slot.id_schedule}&fecha=${fecha}`);
   }
 
+  async function handleToggleAgendaVisible() {
+    setAgendaVisibleError('');
+    setActualizandoAgendaVisible(true);
+    try {
+      await apiFetch(`/congresos/${idCongreso}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ agenda_visible: !congreso.agenda_visible }),
+      });
+      await refrescarCongreso();
+    } catch (err) {
+      setAgendaVisibleError(err.message);
+    } finally {
+      setActualizandoAgendaVisible(false);
+    }
+  }
+
   if (loading) return <PageLoader />;
 
   const diaActivo = dias[diaActivoIndex] ?? null;
@@ -56,6 +75,27 @@ export function CalendarioAdmin() {
           Vista de calendario del congreso, agrupada por salón.
         </p>
       </div>
+
+      <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-4">
+        <div>
+          <p className="font-medium text-text-primary">Agenda pública</p>
+          <p className="text-sm text-text-muted">
+            {congreso.agenda_visible
+              ? 'Los participantes pueden ver la agenda.'
+              : 'Mientras esté oculta, solo tú puedes ver la agenda desde este calendario de administración. Los participantes verán un aviso de que aún no está disponible.'}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant={congreso.agenda_visible ? 'primary' : 'secondary'}
+          loading={actualizandoAgendaVisible}
+          onClick={handleToggleAgendaVisible}
+        >
+          {congreso.agenda_visible ? 'Publicada' : 'No publicada'}
+        </Button>
+      </div>
+
+      {agendaVisibleError && <Alert variant="error">{agendaVisibleError}</Alert>}
 
       {error && <Alert variant="error">{error}</Alert>}
 

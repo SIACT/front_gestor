@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, Clock, FileText, MapPin } from 'lucide-react';
+import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Clock, FileText, MapPin } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
@@ -182,6 +182,9 @@ export function Agenda() {
   const [dias, setDias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // 403 AGENDA_NO_PUBLICADA es un estado esperado (el comité aún no publicó la agenda), no una
+  // falla — se muestra un aviso amigable en vez del Alert de error genérico.
+  const [agendaNoPublicada, setAgendaNoPublicada] = useState(false);
 
   const [bloqueActualIndex, setBloqueActualIndex] = useState(0);
   const indiceInicializado = useRef(false);
@@ -227,9 +230,16 @@ export function Agenda() {
   useEffect(() => {
     setLoading(true);
     setError('');
+    setAgendaNoPublicada(false);
     apiFetch(`/congresos/${idCongreso}/schedule/agenda`)
       .then((data) => setDias(data?.dias ?? []))
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        if (err.code === 'AGENDA_NO_PUBLICADA') {
+          setAgendaNoPublicada(true);
+        } else {
+          setError(err.message);
+        }
+      })
       .finally(() => setLoading(false));
   }, [idCongreso]);
 
@@ -313,6 +323,18 @@ export function Agenda() {
   }
 
   if (loading) return <PageLoader />;
+
+  if (agendaNoPublicada) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+        <CalendarClock className="size-12 text-text-muted" />
+        <p className="text-lg font-medium text-text-primary">La agenda aún no está disponible</p>
+        <p className="text-sm text-text-muted">
+          El comité organizador todavía no ha publicado la agenda de este congreso. Vuelve pronto.
+        </p>
+      </div>
+    );
+  }
 
   if (error) {
     return (

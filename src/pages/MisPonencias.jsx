@@ -166,7 +166,7 @@ export function MisPonencias() {
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-20">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="font-sans text-2xl font-bold text-text-primary">Mis ponencias</h1>
+        <h1 className="font-sans text-2xl font-bold text-text-primary">Mis Trabajos</h1>
         {puedeProponer && idInscripcion && (
           aceptaPonencias ? (
             <Button type="button" variant="primary" onClick={handleAbrirCrear}>
@@ -216,7 +216,7 @@ export function MisPonencias() {
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-text-muted">
                         <FileText className="size-3.5" />
-                        Ponencia
+                        Trabajo
                       </div>
                       {talk.es_principal === false && <Badge variant="default">Coautoría</Badge>}
                     </div>

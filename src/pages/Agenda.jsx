@@ -776,7 +776,7 @@ export function Agenda() {
               <div className={detalle.coautores.length === 0 ? 'sm:col-span-2' : undefined}>
                 <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Autor principal</p>
                 <p className="mt-1 text-sm font-bold text-text-primary">
-                  {capitalizar(detalle.autor_principal.nombre)} {capitalizar(detalle.autor_principal.apellido)}
+                  {capitalizar(detalle.autor_principal.nombre)} {capitalizar(detalle.autor_principal.apellido)}  
                 </p>
               </div>
               {detalle.coautores.length > 0 && (

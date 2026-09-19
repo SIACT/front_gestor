@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Coffee, Layers, Search } from 'lucide-react';
+import { Star, Layers, Search } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
@@ -454,7 +454,7 @@ export function Horarios() {
                         </p>
                       ) : slot.titulo_actividad ? (
                         <p className="flex items-center gap-1.5 text-sm text-warning-text">
-                          <Coffee className="size-3.5 shrink-0" />
+                          <Star className="size-3.5 shrink-0" />
                           <span>
                             {slot.titulo_actividad}
                             {slot.descripcion_actividad && (

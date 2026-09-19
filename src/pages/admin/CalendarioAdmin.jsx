@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Coffee } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
 import { capitalizar, formatHora } from '../../utils/formato';
@@ -126,7 +126,7 @@ export function CalendarioAdmin() {
                 <span className="size-3 rounded border border-border bg-surface" /> Ponencia
               </span>
               <span className="flex items-center gap-1.5">
-                <Coffee className="size-3 text-warning-text" /> Actividad libre
+                <Star className="size-3 text-warning-text" /> Actividad libre
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="size-3 rounded border border-dashed border-border" /> Vacío
@@ -191,7 +191,7 @@ export function CalendarioAdmin() {
                                 {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
                               </p>
                               <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-warning-text">
-                                <Coffee className="size-3.5" />
+                                <Star className="size-3.5" />
                                 Actividad
                               </span>
                               <p className="line-clamp-2 text-sm font-medium text-text-primary">

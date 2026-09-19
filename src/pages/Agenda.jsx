@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Clock, Coffee, FileText, MapPin } from 'lucide-react';
+import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Clock, Star, FileText, MapPin } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
@@ -97,19 +97,27 @@ function seSuperponen(a, b) {
   return a.inicio < b.fin && b.inicio < a.fin;
 }
 
-// Agrupa, día por día, los slots con talk que se solapan TRANSITIVAMENTE en el tiempo — no
-// solo los que comparten exactamente la misma hora de inicio. Dos eventos consecutivos (ej.
-// 08:00-09:00 y 09:00-10:00) no se solapan y deben quedar en celdas de grid separadas, cada
-// una con su propio rango de filas; dos que sí se cruzan (aunque empiecen en horas distintas)
-// deben apilarse dentro de la misma celda para no terminar dibujándose una sobre la otra con
-// posiciones de grid independientes que se pisan.
+// Agrupa, día por día, los slots visibles (ponencias y actividades) que se solapan
+// TRANSITIVAMENTE en el tiempo — no solo los que comparten exactamente la misma hora de inicio.
+// Dos eventos consecutivos (ej. 08:00-09:00 y 09:00-10:00) no se solapan y deben quedar en celdas
+// de grid separadas, cada una con su propio rango de filas; dos que sí se cruzan (aunque empiecen
+// en horas distintas) deben apilarse dentro de la misma celda para no terminar dibujándose una
+// sobre la otra con posiciones de grid independientes que se pisan.
+//
+// El solapamiento se evalúa sobre los minutos AJUSTADOS a la grilla de INTERVALO_MINUTOS (inicio
+// hacia abajo, fin hacia arriba, mínimo una fila), no sobre los minutos reales: el grid solo
+// puede posicionar en filas enteras, así que dos eventos que no se cruzan en el tiempo pero sí
+// caen en la misma fila (ej. una actividad 09:00-09:10 y una ponencia 09:10-10:00) terminarían
+// como grupos separados en la misma celda, dibujados uno encima del otro.
 function agruparPorSolapamiento(slots) {
   const items = slots
-    .map((slot) => ({
-      slot,
-      inicio: minutosDesdeMedianoche(slot.hora_inicio),
-      fin: minutosDesdeMedianoche(slot.hora_fin),
-    }))
+    .map((slot) => {
+      const inicioReal = minutosDesdeMedianoche(slot.hora_inicio);
+      const finReal = minutosDesdeMedianoche(slot.hora_fin);
+      const inicio = Math.floor(inicioReal / INTERVALO_MINUTOS) * INTERVALO_MINUTOS;
+      const fin = Math.max(Math.ceil(finReal / INTERVALO_MINUTOS) * INTERVALO_MINUTOS, inicio + INTERVALO_MINUTOS);
+      return { slot, inicio, fin };
+    })
     .sort((a, b) => a.inicio - b.inicio);
 
   const clusters = [];
@@ -165,7 +173,7 @@ function EventoCardMobile({ slot, tipoColorMap, onClick }) {
           </span>
           <span>·</span>
           <span className="flex items-center gap-1 font-medium">
-            <Coffee className="size-3 shrink-0" />
+            <Star className="size-3 shrink-0" />
             Actividad
           </span>
         </div>
@@ -593,7 +601,7 @@ export function Agenda() {
                               </span>
                             </div>
                             <div className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-text-muted">
-                              <Coffee className="size-2.5 shrink-0" />
+                              <Star className="size-2.5 shrink-0" />
                               Actividad
                             </div>
                             <p className="mt-0.5 line-clamp-2 text-xs font-medium text-text-primary">

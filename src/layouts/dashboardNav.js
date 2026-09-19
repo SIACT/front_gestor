@@ -1,4 +1,5 @@
 import {
+  Award,
   BarChart3,
   BookOpen,
   CalendarClock,
@@ -52,6 +53,13 @@ export function navItems(idCongreso) {
       to: `/congresos/${idCongreso}/ponencias`,
       label: 'Mis trabajos',
       icon: Mic,
+    },
+    {
+      // Sin `roles`: visible para cualquier usuario del congreso, Admin incluido (placeholder
+      // "próximamente" hasta que exista la generación de certificados).
+      to: `/congresos/${idCongreso}/certificacion`,
+      label: 'Certificación',
+      icon: Award,
     },
   ];
 }

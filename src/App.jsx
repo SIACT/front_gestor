@@ -20,6 +20,7 @@ import { DetalleInscripcion } from './pages/DetalleInscripcion';
 import { Perfil } from './pages/Perfil';
 import { MisPonencias } from './pages/MisPonencias';
 import { Agenda } from './pages/Agenda';
+import { Certificacion } from './pages/Certificacion';
 import { DetallePonencia } from './pages/DetallePonencia';
 import { Usuarios } from './pages/admin/Usuarios';
 import { TiposAsistente } from './pages/admin/TiposAsistente';
@@ -68,6 +69,7 @@ function App() {
                 {/* Landing del congreso: visible a todos los roles, incluidos ambos tipos de Admin */}
                 <Route index element={<CongresoOverview />} />
                 <Route path="agenda" element={<Agenda />} />
+                <Route path="certificacion" element={<Certificacion />} />
                 <Route element={<NotAdminRoute />}>
                   <Route path="inscripciones" element={<MisInscripciones />} />
                   <Route path="inscripciones/nueva" element={<CrearInscripcion />} />

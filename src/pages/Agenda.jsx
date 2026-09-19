@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Clock, FileText, MapPin } from 'lucide-react';
+import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Clock, Coffee, FileText, MapPin } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
@@ -25,6 +25,16 @@ const COLOR_CICLO = [
   { dot: '--c-purple-text', border: 'border-purple-text', text: 'text-purple-text', bg: 'bg-purple-text/10', solid: 'bg-purple-text' },
   { dot: '--c-warning-text', border: 'border-warning-text', text: 'text-warning-text', bg: 'bg-warning-text/10', solid: 'bg-warning-text' },
 ];
+
+// Las actividades libres (café, networking, almuerzo…) no tienen tipo de participación, así que
+// no entran en tipoColorMap — usan un tono neutro propio, distinto de cualquier tipo de ponencia.
+const COLOR_ACTIVIDAD = {
+  dot: '--c-text-muted',
+  border: 'border-text-muted',
+  text: 'text-text-muted',
+  bg: 'bg-surface',
+  solid: 'bg-text-muted',
+};
 
 const INTERVALO_MINUTOS = 30;
 // Bloques fijos de días consecutivos tomados tal cual del array `dias` — no se agrupan por
@@ -129,10 +139,50 @@ function indiceBloqueParaFecha(diasOrdenados, fechaObjetivo) {
   return Math.floor(indice / TAMANO_BLOQUE);
 }
 
+// Un slot se muestra en la agenda pública si es una ponencia (talk) o una actividad libre
+// (titulo_actividad). Solo se ocultan los espacios vacíos, donde ambos vienen null.
+function esSlotVisible(slot) {
+  return Boolean(slot.talk || slot.titulo_actividad);
+}
+
 // Card compacta de un evento para la vista mobile (lista vertical por día) — mismo estilo visual
 // (borde de color por tipo, hora, título, salón/área) que la card del grid semanal, pero sin el
 // posicionamiento absoluto por celda de grid que usa esa vista.
 function EventoCardMobile({ slot, tipoColorMap, onClick }) {
+  if (!slot.talk) {
+    return (
+      <div
+        className={clsx(
+          'overflow-hidden rounded-lg border-l-4 p-3 shadow-sm',
+          COLOR_ACTIVIDAD.border,
+          COLOR_ACTIVIDAD.bg,
+        )}
+      >
+        <div className="flex items-center gap-1 text-xs text-text-muted">
+          <Clock className="size-3 shrink-0" />
+          <span>
+            {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
+          </span>
+          <span>·</span>
+          <span className="flex items-center gap-1 font-medium">
+            <Coffee className="size-3 shrink-0" />
+            Actividad
+          </span>
+        </div>
+        <p className="mt-1 text-sm font-medium text-text-primary">{slot.titulo_actividad}</p>
+        {slot.descripcion_actividad && (
+          <p className="mt-0.5 text-xs text-text-muted">{slot.descripcion_actividad}</p>
+        )}
+        {slot.salon?.nombre && (
+          <div className="mt-1 flex items-center gap-1 text-text-muted">
+            <MapPin className="size-3 shrink-0" />
+            <span className="text-xs">{slot.salon.nombre}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const color = tipoColorMap[slot.talk.tipo_participacion?.nombre ?? 'Sin tipo'];
   return (
     <div
@@ -346,13 +396,13 @@ export function Agenda() {
 
   const diasBloque = bloques[bloqueActualIndex] ?? [];
 
-  // Rango de horas acotado a la actividad real del bloque visible (slots sin talk no cuentan,
-  // ya que esta vista pública no los muestra).
+  // Rango de horas acotado a la actividad real del bloque visible (los espacios vacíos no
+  // cuentan, ya que esta vista pública no los muestra).
   let minMinutos = null;
   let maxMinutos = null;
   for (const dia of diasBloque) {
     for (const slot of dia.slots) {
-      if (!slot.talk) continue;
+      if (!esSlotVisible(slot)) continue;
       const inicio = minutosDesdeMedianoche(slot.hora_inicio);
       const fin = minutosDesdeMedianoche(slot.hora_fin);
       if (minMinutos === null || inicio < minMinutos) minMinutos = inicio;
@@ -379,8 +429,8 @@ export function Agenda() {
   // ocupa la unión de sus rangos y los apila verticalmente dentro de esa misma celda.
   const gruposDeEventos = [];
   diasBloque.forEach((dia, diaIndex) => {
-    const slotsConTalk = dia.slots.filter((slot) => slot.talk);
-    agruparPorSolapamiento(slotsConTalk).forEach((cluster, clusterIndex) => {
+    const slotsVisibles = dia.slots.filter(esSlotVisible);
+    agruparPorSolapamiento(slotsVisibles).forEach((cluster, clusterIndex) => {
       const inicioMin = Math.min(...cluster.items.map((i) => i.inicio));
       const finMax = Math.max(...cluster.items.map((i) => i.fin));
       gruposDeEventos.push({
@@ -393,7 +443,7 @@ export function Agenda() {
     });
   });
 
-  // Vista mobile: slots con talk del día activo, agrupados por hora_inicio y ordenados
+  // Vista mobile: slots visibles (ponencias y actividades) del día activo, agrupados por hora_inicio y ordenados
   // cronológicamente. Reutiliza el mismo `diasBloque` (y por tanto los mismos días ya cargados
   // y paginados) que el grid de desktop.
   const diaMobileSeleccionado = diasBloque[diaMobileActivo] ?? diasBloque[0] ?? null;
@@ -401,7 +451,7 @@ export function Agenda() {
     ? (() => {
         const porHora = new Map();
         for (const slot of diaMobileSeleccionado.slots) {
-          if (!slot.talk) continue;
+          if (!esSlotVisible(slot)) continue;
           const hora = formatHora(slot.hora_inicio);
           if (!porHora.has(hora)) porHora.set(hora, []);
           porHora.get(hora).push(slot);
@@ -526,6 +576,45 @@ export function Agenda() {
                     className="flex flex-col overflow-hidden p-3 mt-1 gap-3"
                   > 
                     {grupo.eventos.map((slot) => {
+                      if (!slot.talk) {
+                        return (
+                          <div
+                            key={slot.id_schedule}
+                            className={clsx(
+                              'm-1 min-h-0 flex-1 overflow-hidden rounded-lg border-l-4 p-2 pb-4 shadow-sm',
+                              COLOR_ACTIVIDAD.border,
+                              COLOR_ACTIVIDAD.bg,
+                            )}
+                          >
+                            <div className="flex items-center gap-1 text-[10px] text-text-muted">
+                              <Clock className="size-2.5 shrink-0" />
+                              <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+                                {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-text-muted">
+                              <Coffee className="size-2.5 shrink-0" />
+                              Actividad
+                            </div>
+                            <p className="mt-0.5 line-clamp-2 text-xs font-medium text-text-primary">
+                              {slot.titulo_actividad}
+                            </p>
+                            {slot.descripcion_actividad && (
+                              <p className="mt-0.5 line-clamp-2 text-[10px] text-text-muted">
+                                {slot.descripcion_actividad}
+                              </p>
+                            )}
+                            {slot.salon?.nombre && (
+                              <div className="mt-0.5 flex items-center gap-1 text-text-muted">
+                                <MapPin className="size-2.5 shrink-0" />
+                                <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px]">
+                                  {slot.salon.nombre}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
                       const color = tipoColorMap[slot.talk.tipo_participacion?.nombre ?? 'Sin tipo'];
                       return (
                         <div

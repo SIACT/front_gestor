@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Layers, Search } from 'lucide-react';
+import { Coffee, Layers, Search } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
@@ -15,6 +15,11 @@ import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 
 const FORM_INICIAL = { id_salon: '', fecha: '', hora_inicio: '', hora_fin: '' };
+const ACTIVIDAD_INICIAL = { titulo: '', descripcion: '' };
+
+// Un slot es UNA de estas 3 cosas — nunca ponencia y actividad a la vez (el backend responde
+// 400 SLOT_TIPO_AMBIGUO si llegan ambas). El selector de tipo del Modal lo garantiza en origen.
+const TIPO_SLOT = { PONENCIA: 'ponencia', ACTIVIDAD: 'actividad', VACIO: 'vacio' };
 
 const GENERADOR_FORM_INICIAL = {
   id_salon: '',
@@ -77,6 +82,8 @@ export function Horarios() {
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState(FORM_INICIAL);
   const [talkSeleccionado, setTalkSeleccionado] = useState(null);
+  const [tipoSlot, setTipoSlot] = useState(TIPO_SLOT.PONENCIA);
+  const [actividad, setActividad] = useState(ACTIVIDAD_INICIAL);
   const [busquedaPonencia, setBusquedaPonencia] = useState('');
   // 'false' (Sin programar) por defecto: al abrir el Modal, se prioriza mostrar lo que
   // falta programar en vez de lo que ya está resuelto.
@@ -183,6 +190,8 @@ export function Horarios() {
     setEditando(null);
     setForm({ ...FORM_INICIAL, fecha: fecha ?? '' });
     setTalkSeleccionado(null);
+    setTipoSlot(TIPO_SLOT.PONENCIA);
+    setActividad(ACTIVIDAD_INICIAL);
     setBusquedaPonencia('');
     setAreaFiltro('');
     setTipoParticipacionFiltro('');
@@ -206,6 +215,8 @@ export function Horarios() {
       ? (talksAceptadas.find((t) => t.id_talk === slot.talk.id_talk) ?? { ...slot.talk, schedules: [] })
       : null;
     setTalkSeleccionado(talkAsignado);
+    setTipoSlot(slot.titulo_actividad ? TIPO_SLOT.ACTIVIDAD : TIPO_SLOT.PONENCIA);
+    setActividad({ titulo: slot.titulo_actividad ?? '', descripcion: slot.descripcion_actividad ?? '' });
     setBusquedaPonencia('');
     setAreaFiltro('');
     setTipoParticipacionFiltro('');
@@ -224,12 +235,22 @@ export function Horarios() {
     setFormError('');
     setSubmitting(true);
     try {
-      const idTalkSeleccionado = talkSeleccionado?.id_talk ?? null;
+      // Valores finales de los 3 campos que definen el tipo de slot. El que no corresponde al
+      // tipo elegido va explícitamente en null (no omitido): el backend lo exige para permitir
+      // convertir un slot existente de ponencia a actividad, o al revés.
+      const idTalkSeleccionado = tipoSlot === TIPO_SLOT.PONENCIA ? (talkSeleccionado?.id_talk ?? null) : null;
+      const tituloActividad = tipoSlot === TIPO_SLOT.ACTIVIDAD ? actividad.titulo.trim() : null;
+      const descripcionActividad =
+        tipoSlot === TIPO_SLOT.ACTIVIDAD ? actividad.descripcion.trim() || null : null;
 
       if (editando) {
         const cambios = {};
         if (Number(form.id_salon) !== editando.id_salon) cambios.id_salon = Number(form.id_salon);
         if (idTalkSeleccionado !== (editando.id_talk ?? null)) cambios.id_talk = idTalkSeleccionado;
+        if (tituloActividad !== (editando.titulo_actividad ?? null)) cambios.titulo_actividad = tituloActividad;
+        if (descripcionActividad !== (editando.descripcion_actividad ?? null)) {
+          cambios.descripcion_actividad = descripcionActividad;
+        }
         if (form.fecha !== editando.fecha.slice(0, 10)) cambios.fecha = form.fecha;
         if (form.hora_inicio !== formatHora(editando.hora_inicio)) cambios.hora_inicio = form.hora_inicio;
         if (form.hora_fin !== formatHora(editando.hora_fin)) cambios.hora_fin = form.hora_fin;
@@ -246,6 +267,8 @@ export function Horarios() {
           hora_fin: form.hora_fin,
         };
         if (idTalkSeleccionado !== null) body.id_talk = idTalkSeleccionado;
+        if (tituloActividad !== null) body.titulo_actividad = tituloActividad;
+        if (descripcionActividad !== null) body.descripcion_actividad = descripcionActividad;
 
         await apiFetch(`/congresos/${idCongreso}/schedule`, {
           method: 'POST',
@@ -257,6 +280,10 @@ export function Horarios() {
     } catch (err) {
       if (err.code === 'TALK_CONGRESO_MISMATCH' || err.code === 'SALON_CONGRESO_MISMATCH') {
         setFormError('El salón o la ponencia seleccionados no pertenecen a este congreso.');
+      } else if (err.code === 'SLOT_TIPO_AMBIGUO') {
+        setFormError(
+          'Un horario no puede tener una ponencia y una actividad a la vez. Elige solo uno de los dos tipos.',
+        );
       } else if (err.code === 'INSCRIPCION_NO_HABILITADA_PARA_PROGRAMAR') {
         const estadoInscripcion = talkSeleccionado?.inscripcion?.estado_inscripcion;
         const estadoInscripcionLegible = ESTADO_INSCRIPCION_LABEL[estadoInscripcion] ?? estadoInscripcion;
@@ -333,6 +360,11 @@ export function Horarios() {
       setGeneradorSubmitting(false);
     }
   }
+
+  // Ponencia exige elegir una; actividad exige título. "Vacío" siempre es válido.
+  const slotFormValido =
+    (tipoSlot !== TIPO_SLOT.PONENCIA || talkSeleccionado !== null) &&
+    (tipoSlot !== TIPO_SLOT.ACTIVIDAD || actividad.titulo.trim() !== '');
 
   // Validación en frontend, antes de permitir el submit — cantidad_slots entre 1 y 50 y
   // duracion_minutos > 0, mismos límites que valida el backend (ver generarSlotsVacios), para
@@ -420,6 +452,16 @@ export function Horarios() {
                           {capitalizar(slot.talk.inscripcion?.usuario?.nombre)}{' '}
                           {capitalizar(slot.talk.inscripcion?.usuario?.apellido)}
                         </p>
+                      ) : slot.titulo_actividad ? (
+                        <p className="flex items-center gap-1.5 text-sm text-warning-text">
+                          <Coffee className="size-3.5 shrink-0" />
+                          <span>
+                            {slot.titulo_actividad}
+                            {slot.descripcion_actividad && (
+                              <span className="text-text-muted"> — {slot.descripcion_actividad}</span>
+                            )}
+                          </span>
+                        </p>
                       ) : (
                         <p className="text-sm text-text-muted">Slot vacío</p>
                       )}
@@ -454,7 +496,12 @@ export function Horarios() {
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           {formError && <Alert variant="error">{formError}</Alert>}
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div
+            className={clsx(
+              'grid grid-cols-1 gap-6',
+              tipoSlot === TIPO_SLOT.PONENCIA && 'lg:grid-cols-2',
+            )}
+          >
             <div className="flex flex-col gap-4">
               <Select
                 name="id_salon"
@@ -496,6 +543,41 @@ export function Horarios() {
                 />
               </div>
 
+              <Select
+                label="Tipo de slot"
+                value={tipoSlot}
+                onChange={(e) => setTipoSlot(e.target.value)}
+              >
+                <option value={TIPO_SLOT.PONENCIA}>Ponencia</option>
+                <option value={TIPO_SLOT.ACTIVIDAD}>Actividad libre</option>
+                <option value={TIPO_SLOT.VACIO}>Vacío</option>
+              </Select>
+
+              {tipoSlot === TIPO_SLOT.ACTIVIDAD && (
+                <div className="flex flex-col gap-3 border-t border-border pt-4">
+                  <Input
+                    label="Título de la actividad"
+                    placeholder="Ej. Almuerzo, Café de bienvenida"
+                    value={actividad.titulo}
+                    onChange={(e) => setActividad((prev) => ({ ...prev, titulo: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Descripción (opcional)"
+                    placeholder="Ej. Espacio de networking informal"
+                    value={actividad.descripcion}
+                    onChange={(e) => setActividad((prev) => ({ ...prev, descripcion: e.target.value }))}
+                  />
+                </div>
+              )}
+
+              {tipoSlot === TIPO_SLOT.VACIO && editando && (talkSeleccionado || editando.titulo_actividad) && (
+                <Alert variant="warning">
+                  Al guardar, este slot quedará vacío: se quitará la ponencia o actividad que tiene ahora.
+                </Alert>
+              )}
+
+              {tipoSlot === TIPO_SLOT.PONENCIA && (
               <div className="flex flex-col gap-2 border-t border-border pt-4">
                 <label className="text-xs font-medium uppercase tracking-wide text-text-muted">
                   Trabajos
@@ -543,8 +625,10 @@ export function Horarios() {
                   </Select>
                 </div>
               </div>
+              )}
             </div>
 
+            {tipoSlot === TIPO_SLOT.PONENCIA && (
             <div className="flex flex-col gap-3 lg:pt-6">
               <Input
                 icon={<Search className="size-4" />}
@@ -553,16 +637,6 @@ export function Horarios() {
                 onChange={(e) => setBusquedaPonencia(e.target.value)}
               />
               <div className="max-h-80 overflow-y-auto rounded-lg border border-border bg-surface">
-                <button
-                  type="button"
-                  onClick={() => setTalkSeleccionado(null)}
-                  className={clsx(
-                    'flex w-full items-center px-3 py-2 text-left text-sm transition-colors hover:bg-background',
-                    talkSeleccionado === null ? 'bg-accent/10 text-accent' : 'text-text-muted',
-                  )}
-                >
-                  Sin asignar
-                </button>
                 {ponenciasFiltradas.map((talk) => (
                   <button
                     key={talk.id_talk}
@@ -585,9 +659,16 @@ export function Horarios() {
                 )}
               </div>
             </div>
+            )}
           </div>
 
-          <Button type="submit" variant="primary" loading={submitting} className="mt-2 w-full">
+          <Button
+            type="submit"
+            variant="primary"
+            loading={submitting}
+            disabled={!slotFormValido}
+            className="mt-2 w-full"
+          >
             {editando ? 'Guardar cambios' : 'Crear horario'}
           </Button>
         </form>

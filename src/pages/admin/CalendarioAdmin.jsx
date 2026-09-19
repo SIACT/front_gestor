@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Coffee } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
 import { capitalizar, formatHora } from '../../utils/formato';
@@ -120,6 +121,18 @@ export function CalendarioAdmin() {
               ))}
             </div>
 
+            <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted">
+              <span className="flex items-center gap-1.5">
+                <span className="size-3 rounded border border-border bg-surface" /> Ponencia
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Coffee className="size-3 text-warning-text" /> Actividad libre
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="size-3 rounded border border-dashed border-border" /> Vacío
+              </span>
+            </div>
+
             {diaActivo && (
               <div className="overflow-x-auto">
                 <div
@@ -165,6 +178,31 @@ export function CalendarioAdmin() {
                                 {capitalizar(slot.talk.inscripcion.usuario.apellido)}
                               </p>
                             </Card>
+                          ) : slot.titulo_actividad ? (
+                            // Actividad libre: tono cálido (warning) con ícono de café, distinto
+                            // tanto de la Card neutra de una ponencia como del slot vacío punteado.
+                            <button
+                              key={slot.id_schedule}
+                              type="button"
+                              onClick={() => handleClickSlot(slot, diaActivo.fecha)}
+                              className="flex flex-col items-start gap-1 rounded-xl border border-warning-text/30 bg-warning-bg p-3 text-left transition-colors hover:border-warning-text"
+                            >
+                              <p className="text-xs font-medium text-warning-text/80">
+                                {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
+                              </p>
+                              <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-warning-text">
+                                <Coffee className="size-3.5" />
+                                Actividad
+                              </span>
+                              <p className="line-clamp-2 text-sm font-medium text-text-primary">
+                                {slot.titulo_actividad}
+                              </p>
+                              {slot.descripcion_actividad && (
+                                <p className="line-clamp-2 text-xs text-text-muted">
+                                  {slot.descripcion_actividad}
+                                </p>
+                              )}
+                            </button>
                           ) : (
                             <button
                               key={slot.id_schedule}

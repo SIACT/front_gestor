@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { BarChart3, MapPin, Mic, Pencil, UserCog } from 'lucide-react';
+import { BarChart3, CalendarDays, MapPin, Mic, Pencil, UserCog } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
 import { capitalizar, formatFecha } from '../utils/formato';
@@ -453,10 +453,22 @@ export function CongresoOverview() {
             onClick={() => navigate(`/congresos/${id_congreso}/ponencias`)}
           >
             <Mic className="size-6 text-accent" />
-            <p className="mt-3 font-medium text-text-primary">Mis ponencias</p>
+            <p className="mt-3 font-medium text-text-primary">Mis trabajos</p>
             <p className="mt-1 text-sm text-text-muted">Consulta o propón ponencias para este congreso.</p>
           </Card>
         )}
+        {/* Sin condición de rol: visible para cualquier usuario del congreso, como el link de
+            Agenda en el sidebar. */}
+        <Card
+          className="cursor-pointer transition-colors hover:border-accent"
+          onClick={() => navigate(`/congresos/${id_congreso}/agenda`)}
+        >
+          <CalendarDays className="size-6 text-accent" />
+          <p className="mt-3 font-medium text-text-primary">Agenda</p>
+          <p className="mt-1 text-sm text-text-muted">
+            Consulta el cronograma de ponencias y actividades del congreso.
+          </p>
+        </Card>
       </div>
 
       {esAdminGlobal && <SeccionAdministradores />}

@@ -776,17 +776,27 @@ export function Agenda() {
               <div className={detalle.coautores.length === 0 ? 'sm:col-span-2' : undefined}>
                 <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Autor principal</p>
                 <p className="mt-1 text-sm font-bold text-text-primary">
-                  {capitalizar(detalle.autor_principal.nombre)} {capitalizar(detalle.autor_principal.apellido)}  
+                  {capitalizar(detalle.autor_principal.nombre)} {capitalizar(detalle.autor_principal.apellido)}
                 </p>
+                {detalle.autor_principal.institucion && (
+                  <p className="text-xs text-text-muted mt-0.5">{detalle.autor_principal.institucion}</p>
+                )}
               </div>
               {detalle.coautores.length > 0 && (
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Coautores</p>
-                  <p className="mt-1 text-sm text-text-primary">
-                    {detalle.coautores
-                      .map((c) => `${capitalizar(c.nombre)} ${capitalizar(c.apellido)}`)
-                      .join(', ')}
-                  </p>
+                  <ul className="mt-1 space-y-1.5">
+                    {detalle.coautores.map((c, i) => (
+                      <li key={c.id_user ?? c.id ?? i}>
+                        <p className="text-sm text-text-primary">
+                          {capitalizar(c.nombre)} {capitalizar(c.apellido)}
+                        </p>
+                        {c.institucion && (
+                          <p className="text-xs text-text-muted mt-0.5">{c.institucion}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>

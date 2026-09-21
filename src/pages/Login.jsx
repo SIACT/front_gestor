@@ -64,7 +64,7 @@ export function Login() {
   }
 
   return (
-    <div className="flex w-full flex-col gap-8 pr-12 pl-12">
+    <div className="flex w-full flex-col gap-8 sm:pr-12 sm:pl-12">
       <div className="flex flex-col gap-4">
         <Link
           to="/"
@@ -109,7 +109,7 @@ export function Login() {
           required
         />
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label className="flex items-center gap-2 text-sm text-text-muted">
             <input
               type="checkbox"

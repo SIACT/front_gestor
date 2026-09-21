@@ -35,7 +35,7 @@ export function AuthLayout() {
         {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
       </button>
 
-      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col-reverse gap-10 px-5 py-8 lg:flex-row lg:items-center lg:gap-16 lg:py-10">
+      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col-reverse gap-10 px-4 py-8 sm:px-5 lg:flex-row lg:items-center lg:gap-16 lg:py-10">
         <div className="flex max-w-md flex-col gap-4 text-center lg:flex-1 lg:text-left">
           <span className="font-sans text-4xl uppercase tracking-wide text-accent">
             ALTENCOA11-2026
@@ -60,7 +60,7 @@ export function AuthLayout() {
         </div>
 
         <div className="flex w-full justify-center lg:flex-1 lg:justify-end">
-          <div className="w-full rounded-2xl border border-border bg-surface p-6 shadow-lg shadow-black/40 sm:p-8">
+          <div className="w-full rounded-2xl border border-border bg-surface p-4 shadow-lg shadow-black/40 sm:p-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}

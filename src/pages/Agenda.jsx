@@ -21,7 +21,7 @@ const DIA_SEMANA_CORTO = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 // el mismo token en versión sólida, para la franja superior del Modal de detalle.
 const COLOR_CICLO = [
   { dot: '--c-accent', border: 'border-accent', text: 'text-accent', bg: 'bg-accent/10', solid: 'bg-accent' },
-  { dot: '--c-error-text', border: 'border-blue-text', text: 'text-blue-text', bg: '--c-error-text/10', solid: 'bg-blue-text' },
+  { dot: '--c-error-text', border: 'border-blue-text', text: 'text-blue-text', bg: 'bg-blue-text/10', solid: 'bg-blue-text' },
   { dot: '--c-purple-text', border: 'border-purple-text', text: 'text-purple-text', bg: 'bg-purple-text/10', solid: 'bg-purple-text' },
   { dot: '--c-warning-text', border: 'border-warning-text', text: 'text-warning-text', bg: 'bg-warning-text/10', solid: 'bg-warning-text' },
 ];
@@ -376,10 +376,6 @@ export function Agenda() {
     setBloqueActualIndex((i) => Math.min(bloques.length - 1, i + 1));
   }
 
-  function handleMasFechas() {
-    setBloqueActualIndex(indiceBloqueParaFecha(diasOrdenados, new Date()));
-  }
-
   if (loading) return <PageLoader />;
 
   if (agendaNoPublicada) {
@@ -508,9 +504,6 @@ export function Agenda() {
                 onClick={handleBloqueAnterior}
               >
                 <ChevronLeft className="size-4" />
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={handleMasFechas}>
-                Más fechas
               </Button>
               <Button
                 type="button"

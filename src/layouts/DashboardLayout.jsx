@@ -376,12 +376,15 @@ export function DashboardLayout() {
 
       <div className="flex flex-1 flex-col overflow-hidden bg-surface">
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-4 lg:hidden">
-          <Logo variant="altenua" className="h-7 w-auto" />
+          <Logo variant="altenua" className="h-7 w-auto shrink-0" />
+          <span className="min-w-0 flex-1 truncate px-3 text-center text-sm font-medium text-text-primary">
+            {congreso?.nombre}
+          </span>
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
             aria-label="Abrir menú"
-            className="flex size-8 items-center justify-center rounded-md text-text-primary transition-colors hover:bg-background"
+            className="flex size-8 shrink-0 items-center justify-center rounded-md text-text-primary transition-colors hover:bg-background"
           >
             <Menu className="size-5" />
           </button>

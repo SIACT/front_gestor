@@ -23,13 +23,6 @@ const ESTADO_TALK_VARIANT = {
   rechazada: 'rechazado',
 };
 
-// Frase del footer de cada Card — deliberadamente distinta al texto del Badge de arriba.
-const ESTADO_TALK_DESCRIPCION = {
-  pendiente: 'En revisión',
-  aceptada: 'Aceptada',
-  rechazada: 'Rechazada',
-};
-
 // Mismo criterio que ESTADO_INSCRIPCION_BORDER en MisInscripciones.jsx/DetalleInscripcion.jsx.
 const ESTADO_TALK_BORDER = {
   pendiente: 'border-warning-text',
@@ -220,9 +213,6 @@ export function MisPonencias() {
                       </div>
                       {talk.es_principal === false && <Badge variant="default">Coautoría</Badge>}
                     </div>
-                    <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>
-                      {talk.estado_talk}
-                    </Badge>
                   </div>
 
                   <p className="mt-2 font-sans text-xl font-bold text-text-primary sm:text-2xl">
@@ -272,9 +262,9 @@ export function MisPonencias() {
 
                   <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
                     <span className="text-sm text-text-muted">Estado de la propuesta</span>
-                    <span className="text-sm font-medium text-text-primary">
-                      {ESTADO_TALK_DESCRIPCION[talk.estado_talk] ?? talk.estado_talk}
-                    </span>
+                    <Badge variant={ESTADO_TALK_VARIANT[talk.estado_talk] ?? 'default'}>
+                      {talk.estado_talk}
+                    </Badge>
                   </div>
                 </Card>
               </Link>

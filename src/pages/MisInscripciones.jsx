@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { BookOpen, Building2, Calendar, GraduationCap, Info, Link2 } from 'lucide-react';
+import { BookOpen, Building2, Calendar, CheckCircle, FileText, GraduationCap, Info, Link2 } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { ROL_PARTICIPACION } from '../utils/roles';
@@ -19,6 +19,14 @@ const ESTADO_INSCRIPCION_BORDER = {
   confirmada: 'border-success-text',
   rechazada: 'border-error-text',
   cancelada: 'border-border',
+};
+
+const ESTADO_INSCRIPCION_TEXT = {
+  pendiente: 'text-warning-text',
+  carta_compromiso: 'text-alerta-text',
+  confirmada: 'text-success-text',
+  rechazada: 'text-error-text',
+  cancelada: 'text-text-muted',
 };
 
 export function MisInscripciones() {
@@ -49,25 +57,23 @@ export function MisInscripciones() {
   }, [inscripcionPendiente]);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-20">
-      <div className="flex items-start justify-between gap-4">
+    <div className="mx-auto w-full max-w-2xl px-0 py-20 sm:px-6">
+      <div className="flex items-center justify-between gap-4">
         <h1 className="font-sans text-2xl font-bold text-text-primary">Mis inscripciones</h1>
-        <div className="flex flex-col items-end gap-1">
-          <Button
-            variant="primary"
-            disabled={inscripciones.length > 0}
-            onClick={() => navigate(`/congresos/${id_congreso}/inscripciones/nueva`)}
-          >
-            Nueva inscripción
-          </Button>
-          {inscripciones.length > 0 && (
-            <p className="flex items-center gap-1 text-xs text-text-muted">
-              <Info className="size-3.5" />
-              Ya tienes una inscripción activa en este congreso. Solo se permite una por congreso.
-            </p>
-          )}
-        </div>
+        <Button
+          variant="primary"
+          disabled={inscripciones.length > 0}
+          onClick={() => navigate(`/congresos/${id_congreso}/inscripciones/nueva`)}
+        >
+          Nueva inscripción
+        </Button>
       </div>
+      {inscripciones.length > 0 && (
+        <p className="mt-2 flex items-center gap-1 text-xs text-text-muted">
+          <Info className="size-3.5 shrink-0" />
+          Ya tienes una inscripción activa en este congreso. Solo se permite una por congreso.
+        </p>
+      )}
 
       {inscripciones.length === 0 && (
         <div className="mt-16 flex flex-col items-center gap-4 text-center">
@@ -98,12 +104,29 @@ export function MisInscripciones() {
                         <BookOpen className="size-3.5" />
                         Inscripción al congreso
                       </div>
-                      <Badge variant={ESTADO_INSCRIPCION_VARIANT[inscripcion.estado_inscripcion]}>
-                        {ESTADO_INSCRIPCION_LABEL[inscripcion.estado_inscripcion] ?? inscripcion.estado_inscripcion}
-                      </Badge>
+                      <div className="hidden lg:block">
+                        <Badge variant={ESTADO_INSCRIPCION_VARIANT[inscripcion.estado_inscripcion]}>
+                          {ESTADO_INSCRIPCION_LABEL[inscripcion.estado_inscripcion] ?? inscripcion.estado_inscripcion}
+                        </Badge>
+                      </div>
                     </div>
 
                     <p className="mt-2 font-sans text-2xl font-bold text-text-primary">{congreso?.nombre}</p>
+
+                    <div className="mt-4 border-t border-border pt-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                        Participante
+                      </p>
+                      <p className="mt-1 text-base font-bold text-text-primary">
+                        {capitalizar(user?.nombre)} {capitalizar(user?.apellido)}
+                      </p>
+                      {user?.institucion && (
+                        <div className="mt-1 flex items-center gap-1.5 text-sm text-text-muted">
+                          <Building2 className="size-4" />
+                          {capitalizar(user.institucion)}
+                        </div>
+                      )}
+                    </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4">
                       <div>
@@ -126,29 +149,32 @@ export function MisInscripciones() {
                       </div>
                     </div>
 
-                    <div className="mt-4 border-t border-border pt-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                        Participante
-                      </p>
-                      <p className="mt-1 text-base font-bold text-text-primary">
-                        {capitalizar(user?.nombre)} {capitalizar(user?.apellido)}
-                      </p>
-                      {user?.institucion && (
-                        <div className="mt-1 flex items-center gap-1.5 text-sm text-text-muted">
-                          <Building2 className="size-4" />
-                          {capitalizar(user.institucion)}
-                        </div>
-                      )}
+                    <div className="mt-4 flex items-center gap-3 rounded-lg border border-border bg-background p-3 lg:hidden">
+                      <FileText
+                        className={clsx(
+                          'size-5 shrink-0',
+                          ESTADO_INSCRIPCION_TEXT[inscripcion.estado_inscripcion] ?? 'text-text-muted',
+                        )}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary">
+                          {ESTADO_INSCRIPCION_LABEL[inscripcion.estado_inscripcion] ?? inscripcion.estado_inscripcion}
+                        </p>
+                        <p className="text-xs text-text-muted">Estado de la inscripción</p>
+                      </div>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
                       <div className="flex items-center gap-1.5 text-sm text-text-muted">
                         <Calendar className="size-4" />
                         Fecha de inscripción
                       </div>
-                      <span className="text-sm text-text-primary">
-                        {formatFecha(inscripcion.fecha_inscripcion)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-text-primary">
+                          {formatFecha(inscripcion.fecha_inscripcion)}
+                        </span>
+                        <CheckCircle className="size-5 shrink-0 text-success-text" />
+                      </div>
                     </div>
                   </Card>
                 </Link>

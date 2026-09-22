@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Clock, Star, FileText, MapPin } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Clock, Star, FileText, MapPin, Layers } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
@@ -10,7 +11,6 @@ import { Modal } from '../components/ui/Modal';
 import { PageLoader } from '../components/ui/PageLoader';
 import { Spinner } from '../components/ui/Spinner';
 import { TextoConFormulas } from '../components/ui/TextoConFormulas';
-import { div } from 'framer-motion/client';
 
 const DIA_SEMANA_CORTO = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 
@@ -34,6 +34,26 @@ const COLOR_ACTIVIDAD = {
   text: 'text-text-muted',
   bg: 'bg-surface',
   solid: 'bg-text-muted',
+};
+
+// Sesión de pósteres: color fijo (rojo) en vez de rotar por COLOR_CICLO como cualquier otro
+// tipo_participacion — se asigna aparte en tipoColorMap (ver más abajo) para que la mini-card, la
+// leyenda y el acento del Modal de detalle de un póster individual siempre coincidan en rojo.
+const COLOR_POSTERS = {
+  dot: '--c-error-text',
+  border: 'border-error-text',
+  text: 'text-error-text',
+  bg: 'bg-error-bg',
+  solid: 'bg-error-text',
+};
+
+// Transición tipo carrusel entre las 2 vistas del Modal de sesión de pósteres: `direction` decide
+// desde/hacia qué lado se desliza (1 = avanzando a detalle, entra desde la derecha; -1 = volviendo
+// a la lista, entra desde la izquierda), como un slide horizontal en vez de un simple fade.
+const VARIANTES_SLIDE_SESION = {
+  enter: (direction) => ({ x: direction > 0 ? 24 : -24, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (direction) => ({ x: direction > 0 ? -24 : 24, opacity: 0 }),
 };
 
 const INTERVALO_MINUTOS = 30;
@@ -147,16 +167,48 @@ function indiceBloqueParaFecha(diasOrdenados, fechaObjetivo) {
   return Math.floor(indice / TAMANO_BLOQUE);
 }
 
-// Un slot se muestra en la agenda pública si es una ponencia (talk) o una actividad libre
-// (titulo_actividad). Solo se ocultan los espacios vacíos, donde ambos vienen null.
+// Un slot se muestra en la agenda pública si es una ponencia (talk), una actividad libre
+// (titulo_actividad) o una sesión de pósteres (posters). Solo se ocultan los espacios vacíos,
+// donde los tres vienen null/vacío.
 function esSlotVisible(slot) {
-  return Boolean(slot.talk || slot.titulo_actividad);
+  return Boolean(slot.talk || slot.titulo_actividad || (slot.posters && slot.posters.length > 0));
 }
 
 // Card compacta de un evento para la vista mobile (lista vertical por día) — mismo estilo visual
 // (borde de color por tipo, hora, título, salón/área) que la card del grid semanal, pero sin el
 // posicionamiento absoluto por celda de grid que usa esa vista.
-function EventoCardMobile({ slot, tipoColorMap, onClick }) {
+function EventoCardMobile({ slot, tipoColorMap, onClick, onClickPosters }) {
+  if (slot.posters && slot.posters.length > 0) {
+    const color = tipoColorMap.Poster ?? COLOR_POSTERS;
+    return (
+      <div
+        onClick={() => onClickPosters(slot)}
+        className={clsx(
+          'cursor-pointer overflow-hidden rounded-lg border-l-4 p-3 shadow-sm transition-opacity hover:opacity-80',
+          color.border,
+          color.bg,
+        )}
+      >
+        <div className="flex items-center gap-1 text-xs text-text-muted">
+          <Clock className="size-3 shrink-0" />
+          <span>
+            {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
+          </span>
+        </div>
+        <div className={clsx('mt-1 flex items-center gap-1.5 text-sm font-medium', color.text)}>
+          <Layers className="size-4 shrink-0" />
+          Sesión de Pósteres ({slot.posters.length})
+        </div>
+        {slot.salon?.nombre && (
+          <div className="mt-1 flex items-center gap-1 text-text-muted">
+            <MapPin className="size-3 shrink-0" />
+            <span className="text-xs">{slot.salon.nombre}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (!slot.talk) {
     return (
       <div
@@ -233,6 +285,168 @@ function EventoCardMobile({ slot, tipoColorMap, onClick }) {
   );
 }
 
+// Contenido del detalle público de una ponencia (eyebrow tipo/área, título, sesiones,
+// descripción, palabras clave, autor/coautores) — extraído para reutilizarlo tal cual tanto en
+// el Modal de detalle directo (clic en una ponencia individual) como en la vista 'detalle' del
+// Modal de sesión de pósteres (clic en uno de los pósteres listados).
+function DetalleTalkContenido({ detalle, tipoColorDetalle }) {
+  return (
+    <div className="flex flex-col">
+      {/* Eyebrow: tipo de participación (coloreado según tipoColorMap) + separador + pill de área */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span
+          className={clsx(
+            'flex items-center gap-1 text-xs font-medium uppercase tracking-wide',
+            tipoColorDetalle.text,
+          )}
+        >
+          <FileText className="size-3.5" />
+          {detalle.tipo_participacion?.nombre?.toUpperCase() ?? 'PONENCIA'}
+        </span>
+        <span className="text-text-muted">·</span>
+        <span className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
+          {detalle.area.nombre}
+        </span>
+      </div>
+
+      {/* Título grande */}
+      <h3 className="mt-2 text-xl font-bold text-text-primary sm:text-xl">{detalle.titulo}</h3>
+
+      {/* Fecha/hora + salón — una fila si es sesión única, una fila por sesión si es cursillo */}
+      <div className="mt-4 border-t border-border pt-4">
+        {detalle.schedules.length === 1 ? (
+          <div className="flex flex-wrap items-center gap-4 text-sm text-text-primary">
+            <span className="flex items-center gap-1.5">
+              <Clock className="size-4 shrink-0 text-text-muted" />
+              {formatFechaSolo(detalle.schedules[0].fecha)}, {formatHora(detalle.schedules[0].hora_inicio)}–
+              {formatHora(detalle.schedules[0].hora_fin)}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <MapPin className="size-4 shrink-0 text-text-muted" />
+              {detalle.schedules[0].salon.nombre}
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {detalle.schedules.map((s, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-4 text-sm text-text-primary">
+                <span className="text-xs font-semibold uppercase tracking-wide text-accent">
+                  Sesión {i + 1}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Clock className="size-4 shrink-0 text-text-muted" />
+                  {formatFechaSolo(s.fecha)}, {formatHora(s.hora_inicio)}–{formatHora(s.hora_fin)}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="size-4 shrink-0 text-text-muted" />
+                  {s.salon.nombre}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Descripción — mismo tratamiento (justificado + LaTeX) que PonenciaDetalle.jsx */}
+      {detalle.descripcion && (
+        <div className="mt-4 border-t border-border pt-4">
+          <div className="text-justify text-xs leading-relaxed text-text-primary [text-wrap:pretty]">
+            <TextoConFormulas texto={detalle.descripcion} />
+          </div>
+        </div>
+      )}
+
+      {/* Palabras clave */}
+      {detalle.palabras_clave && (
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Palabras clave</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {detalle.palabras_clave
+              .split(',')
+              .map((p) => p.trim())
+              .filter(Boolean)
+              .map((palabra, i) => (
+                <span
+                  key={i}
+                  className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-text-primary"
+                >
+                  {palabra}
+                </span>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Autor principal | Coautores */}
+      <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+        <div className={detalle.coautores.length === 0 ? 'sm:col-span-2' : undefined}>
+          <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Autor principal</p>
+          <p className="mt-1 text-sm font-bold text-text-primary">
+            {capitalizar(detalle.autor_principal.nombre)} {capitalizar(detalle.autor_principal.apellido)}
+          </p>
+          {detalle.autor_principal.institucion && (
+            <p className="text-xs text-text-muted mt-0.5">{detalle.autor_principal.institucion}</p>
+          )}
+        </div>
+        {detalle.coautores.length > 0 && (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Coautores</p>
+            <ul className="mt-1 space-y-1.5">
+              {detalle.coautores.map((c, i) => (
+                <li key={c.id_user ?? c.id ?? i}>
+                  <p className="text-sm text-text-primary">
+                    {capitalizar(c.nombre)} {capitalizar(c.apellido)}
+                  </p>
+                  {c.institucion && (
+                    <p className="text-xs text-text-muted mt-0.5">{c.institucion}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Vista 'lista' del Modal de sesión de pósteres: hora + salón arriba, cada póster como fila
+// clickeable que lleva a la vista 'detalle' de ESE póster específico.
+function VistaListaPosters({ sesion, onSeleccionar }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-4 border-b border-border pb-3 text-sm text-text-primary">
+        <span className="flex items-center gap-1.5">
+          <Clock className="size-4 shrink-0 text-text-muted" />
+          {formatHora(sesion.hora_inicio)}–{formatHora(sesion.hora_fin)}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <MapPin className="size-4 shrink-0 text-text-muted" />
+          {sesion.salon.nombre}
+        </span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {sesion.posters.map((poster) => (
+          <button
+            key={poster.id_talk}
+            type="button"
+            onClick={() => onSeleccionar(poster.id_talk)}
+            className="flex flex-col items-start gap-1 rounded-lg border border-border bg-surface px-3 py-2 text-left text-sm transition-colors hover:border-accent"
+          >
+            {poster.area && (
+              <span className="inline-flex items-center rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">
+                {poster.area.nombre}
+              </span>
+            )}
+            <span className="font-medium text-text-primary">{poster.titulo}</span>
+            <span className="text-xs text-text-muted">{capitalizar(poster.autor)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function Agenda() {
   const { congreso } = useCongreso();
   const idCongreso = congreso?.id_congreso;
@@ -285,6 +499,40 @@ export function Agenda() {
     setDetalleTalkId(null);
   }
 
+  // Modal de sesión de pósteres: slot completo (no solo su id) porque la vista 'lista' necesita
+  // sus posters/hora/salón directamente, sin otro fetch. `direccionSlide` decide el sentido del
+  // slide (1 = avanzando a detalle, -1 = volviendo a la lista) — ver VARIANTES_SLIDE_SESION.
+  const [sesionPostersActiva, setSesionPostersActiva] = useState(null);
+  const [vistaModalSesion, setVistaModalSesion] = useState('lista');
+  const [direccionSlide, setDireccionSlide] = useState(1);
+
+  function handleAbrirSesionPosters(slot) {
+    setSesionPostersActiva(slot);
+    setVistaModalSesion('lista');
+  }
+
+  function handleCerrarSesionPosters() {
+    setSesionPostersActiva(null);
+    setVistaModalSesion('lista');
+    // Limpia también el detalle cargado (si el usuario llegó a entrar a 'detalle'), para que la
+    // próxima sesión que se abra —la misma u otra— no arranque mostrando un póster ya viejo antes
+    // de que la vista 'lista' termine de montarse.
+    handleCerrarDetalle();
+  }
+
+  // Reutiliza el mismo fetch/estado (`detalleTalkId`/`detalle`) que el detalle de una ponencia
+  // individual — es exactamente la misma llamada a GET /talks/:id_talk/detalle-publico.
+  function handleSeleccionarPoster(idTalk) {
+    setDireccionSlide(1);
+    handleAbrirDetalle(idTalk);
+    setVistaModalSesion('detalle');
+  }
+
+  function handleVolverALista() {
+    setDireccionSlide(-1);
+    setVistaModalSesion('lista');
+  }
+
   useEffect(() => {
     setLoading(true);
     setError('');
@@ -332,10 +580,13 @@ export function Agenda() {
   // color, para que la asignación sea determinística sin depender del orden de aparición.
   const tipoColorMap = useMemo(() => {
     const vistos = new Set();
+    let haySesionesPosteres = false;
     for (const dia of dias) {
       for (const slot of dia.slots) {
-        if (!slot.talk) continue;
-        vistos.add(slot.talk.tipo_participacion?.nombre ?? 'Sin tipo');
+        if (slot.talk) vistos.add(slot.talk.tipo_participacion?.nombre ?? 'Sin tipo');
+        // Una sesión de pósteres no trae `talk` (son varios, en `posters`) y no entra al ciclo
+        // rotativo: tiene su propio color fijo (rojo, COLOR_POSTERS), asignado aparte más abajo.
+        if (slot.posters && slot.posters.length > 0) haySesionesPosteres = true;
       }
     }
     const tipos = [...vistos].sort((a, b) => a.localeCompare(b));
@@ -343,6 +594,7 @@ export function Agenda() {
     tipos.forEach((nombre, index) => {
       mapa[nombre] = COLOR_CICLO[index % COLOR_CICLO.length];
     });
+    if (haySesionesPosteres) mapa.Poster = COLOR_POSTERS;
     return mapa;
   }, [dias]);
 
@@ -577,6 +829,44 @@ export function Agenda() {
                     className="flex flex-col overflow-hidden p-3 mt-1 gap-3"
                   > 
                     {grupo.eventos.map((slot) => {
+                      if (slot.posters && slot.posters.length > 0) {
+                        const color = tipoColorMap.Poster ?? COLOR_POSTERS;
+                        return (
+                          <div
+                            key={slot.id_schedule}
+                            onClick={() => handleAbrirSesionPosters(slot)}
+                            className={clsx(
+                              'm-1 min-h-0 flex-1 cursor-pointer overflow-hidden rounded-lg border-l-4 p-2 shadow-sm pb-4 transition-opacity hover:opacity-80',
+                              color.border,
+                              color.bg,
+                            )}
+                          >
+                            <div className="flex items-center gap-1 text-[10px] text-text-muted">
+                              <Clock className="size-2.5 shrink-0" />
+                              <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+                                {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
+                              </span>
+                            </div>
+                            <div
+                              className={clsx(
+                                'mt-1 flex items-center gap-1 text-[10px] font-medium',
+                                color.text,
+                              )}
+                            >
+                              <Layers className="size-3 shrink-0" />
+                              <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+                                Sesión de Pósteres ({slot.posters.length})
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center gap-1 text-text-muted">
+                              <MapPin className="size-2.5 shrink-0" />
+                              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px]">
+                                {slot.salon.nombre}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
                       if (!slot.talk) {
                         return (
                           <div
@@ -712,6 +1002,7 @@ export function Agenda() {
                           slot={eventos[0]}
                           tipoColorMap={tipoColorMap}
                           onClick={handleAbrirDetalle}
+                          onClickPosters={handleAbrirSesionPosters}
                         />
                       );
                     }
@@ -736,6 +1027,7 @@ export function Agenda() {
                                 slot={slot}
                                 tipoColorMap={tipoColorMap}
                                 onClick={handleAbrirDetalle}
+                                onClickPosters={handleAbrirSesionPosters}
                               />
                             ))}
                           </div>
@@ -763,7 +1055,7 @@ export function Agenda() {
       )}
 
       <Modal
-        open={detalleTalkId !== null}
+        open={detalleTalkId !== null && sesionPostersActiva === null}
         onClose={handleCerrarDetalle}
         size="lg"
         accentClassName={tipoColorDetalle?.solid}
@@ -775,123 +1067,63 @@ export function Agenda() {
         ) : detalleError ? (
           <Alert variant="error">{detalleError}</Alert>
         ) : detalle ? (
-          <div className="flex flex-col">
-            {/* Eyebrow: tipo de participación (coloreado según tipoColorMap) + separador + pill de área */}
-            <div className="flex flex-wrap items-center gap-3">
-              <span
-                className={clsx(
-                  'flex items-center gap-1 text-xs font-medium uppercase tracking-wide',
-                  tipoColorDetalle.text,
-                )}
-              >
-                <FileText className="size-3.5" />
-                {detalle.tipo_participacion?.nombre?.toUpperCase() ?? 'PONENCIA'}
-              </span>
-              <span className="text-text-muted">·</span>
-              <span className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
-                {detalle.area.nombre}
-              </span>
-            </div>
-
-            {/* Título grande */}
-            <h3 className="mt-2 text-xl font-bold text-text-primary sm:text-xl">{detalle.titulo}</h3>
-
-            {/* Fecha/hora + salón — una fila si es sesión única, una fila por sesión si es cursillo */}
-            <div className="mt-4 border-t border-border pt-4">
-              {detalle.schedules.length === 1 ? (
-                <div className="flex flex-wrap items-center gap-4 text-sm text-text-primary">
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="size-4 shrink-0 text-text-muted" />
-                    {formatFechaSolo(detalle.schedules[0].fecha)}, {formatHora(detalle.schedules[0].hora_inicio)}–
-                    {formatHora(detalle.schedules[0].hora_fin)}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="size-4 shrink-0 text-text-muted" />
-                    {detalle.schedules[0].salon.nombre}
-                  </span>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {detalle.schedules.map((s, i) => (
-                    <div key={i} className="flex flex-wrap items-center gap-4 text-sm text-text-primary">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-accent">
-                        Sesión {i + 1}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="size-4 shrink-0 text-text-muted" />
-                        {formatFechaSolo(s.fecha)}, {formatHora(s.hora_inicio)}–{formatHora(s.hora_fin)}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="size-4 shrink-0 text-text-muted" />
-                        {s.salon.nombre}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Descripción — mismo tratamiento (justificado + LaTeX) que PonenciaDetalle.jsx */}
-            {detalle.descripcion && (
-              <div className="mt-4 border-t border-border pt-4">
-                <div className="text-justify text-xs leading-relaxed text-text-primary [text-wrap:pretty]">
-                  <TextoConFormulas texto={detalle.descripcion} />
-                </div>
-              </div>
-            )}
-
-            {/* Palabras clave */}
-            {detalle.palabras_clave && (
-              <div className="mt-4 border-t border-border pt-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Palabras clave</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {detalle.palabras_clave
-                    .split(',')
-                    .map((p) => p.trim())
-                    .filter(Boolean)
-                    .map((palabra, i) => (
-                      <span
-                        key={i}
-                        className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-text-primary"
-                      >
-                        {palabra}
-                      </span>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Autor principal | Coautores */}
-            <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
-              <div className={detalle.coautores.length === 0 ? 'sm:col-span-2' : undefined}>
-                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Autor principal</p>
-                <p className="mt-1 text-sm font-bold text-text-primary">
-                  {capitalizar(detalle.autor_principal.nombre)} {capitalizar(detalle.autor_principal.apellido)}
-                </p>
-                {detalle.autor_principal.institucion && (
-                  <p className="text-xs text-text-muted mt-0.5">{detalle.autor_principal.institucion}</p>
-                )}
-              </div>
-              {detalle.coautores.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Coautores</p>
-                  <ul className="mt-1 space-y-1.5">
-                    {detalle.coautores.map((c, i) => (
-                      <li key={c.id_user ?? c.id ?? i}>
-                        <p className="text-sm text-text-primary">
-                          {capitalizar(c.nombre)} {capitalizar(c.apellido)}
-                        </p>
-                        {c.institucion && (
-                          <p className="text-xs text-text-muted mt-0.5">{c.institucion}</p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
+          <DetalleTalkContenido detalle={detalle} tipoColorDetalle={tipoColorDetalle} />
         ) : null}
+      </Modal>
+
+      <Modal
+        open={sesionPostersActiva !== null}
+        onClose={handleCerrarSesionPosters}
+        size="lg"
+        accentClassName={vistaModalSesion === 'detalle' ? tipoColorDetalle?.solid : undefined}
+      >
+        {sesionPostersActiva && (
+          <div className="overflow-hidden">
+            <AnimatePresence mode="wait" initial={false} custom={direccionSlide}>
+              {vistaModalSesion === 'lista' ? (
+                <motion.div
+                  key="lista"
+                  custom={direccionSlide}
+                  variants={VARIANTES_SLIDE_SESION}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                >
+                  <VistaListaPosters sesion={sesionPostersActiva} onSeleccionar={handleSeleccionarPoster} />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="detalle"
+                  custom={direccionSlide}
+                  variants={VARIANTES_SLIDE_SESION}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                >
+                  <button
+                    type="button"
+                    onClick={handleVolverALista}
+                    className="mb-3 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+                  >
+                    <ChevronLeft className="size-4" />
+                    Volver
+                  </button>
+                  {detalleLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Spinner className="size-6 text-accent" />
+                    </div>
+                  ) : detalleError ? (
+                    <Alert variant="error">{detalleError}</Alert>
+                  ) : detalle ? (
+                    <DetalleTalkContenido detalle={detalle} tipoColorDetalle={tipoColorDetalle} />
+                  ) : null}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </Modal>
     </div>
   );

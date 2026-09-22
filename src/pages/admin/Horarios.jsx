@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Star, Layers, Search } from 'lucide-react';
+import { Star, Layers, Search, Check } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
@@ -17,9 +17,12 @@ import { PageLoader } from '../../components/ui/PageLoader';
 const FORM_INICIAL = { id_salon: '', fecha: '', hora_inicio: '', hora_fin: '' };
 const ACTIVIDAD_INICIAL = { titulo: '', descripcion: '' };
 
-// Un slot es UNA de estas 3 cosas — nunca ponencia y actividad a la vez (el backend responde
+// Un slot es UNA de estas cosas — nunca ponencia y actividad a la vez (el backend responde
 // 400 SLOT_TIPO_AMBIGUO si llegan ambas). El selector de tipo del Modal lo garantiza en origen.
-const TIPO_SLOT = { PONENCIA: 'ponencia', ACTIVIDAD: 'actividad', VACIO: 'vacio' };
+// POSTERS solo se ofrece al crear un slot nuevo (ver más abajo): el backend expone su creación
+// vía un endpoint dedicado (POST .../schedule/sesion-posters) que siempre inserta una fila
+// nueva, sin equivalente de edición — no tiene sentido ofrecerlo al editar un slot existente.
+const TIPO_SLOT = { PONENCIA: 'ponencia', ACTIVIDAD: 'actividad', VACIO: 'vacio', POSTERS: 'posters' };
 
 const GENERADOR_FORM_INICIAL = {
   id_salon: '',
@@ -85,6 +88,9 @@ export function Horarios() {
   const [tipoSlot, setTipoSlot] = useState(TIPO_SLOT.PONENCIA);
   const [actividad, setActividad] = useState(ACTIVIDAD_INICIAL);
   const [busquedaPonencia, setBusquedaPonencia] = useState('');
+  const [postersDisponibles, setPostersDisponibles] = useState([]);
+  const [postersSeleccionados, setPostersSeleccionados] = useState([]);
+  const [busquedaPoster, setBusquedaPoster] = useState('');
   // 'false' (Sin programar) por defecto: al abrir el Modal, se prioriza mostrar lo que
   // falta programar en vez de lo que ya está resuelto.
   const [areaFiltro, setAreaFiltro] = useState('');
@@ -169,6 +175,40 @@ export function Horarios() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idCongreso, areaFiltro, tipoParticipacionFiltro, programadoFiltro]);
 
+  // Resuelto desde el catálogo en vez de hardcodear un ID: el id_tipo_participacion de "Poster"
+  // puede variar entre congresos/entornos.
+  const idTipoPoster = useMemo(
+    () => tiposParticipacion.find((t) => t.nombre === 'Poster')?.id_tipo_participacion ?? null,
+    [tiposParticipacion],
+  );
+
+  function cargarPosters() {
+    if (!idTipoPoster) return Promise.resolve();
+    const params = new URLSearchParams();
+    params.set('id_congreso', idCongreso);
+    params.set('estado_talk', 'aceptada');
+    params.set('solo_programables', 'true');
+    params.set('id_tipo_participacion', idTipoPoster);
+    params.set('programado', 'false');
+    return apiFetch(`/talks?${params.toString()}`).then((data) => setPostersDisponibles(data ?? []));
+  }
+
+  // Se carga bajo demanda (al elegir el tipo "Sesión de Pósteres"), no de entrada como
+  // talksAceptadas: la mayoría de las veces el admin no está creando una sesión de pósteres.
+  useEffect(() => {
+    if (tipoSlot !== TIPO_SLOT.POSTERS || !idTipoPoster) return;
+    cargarPosters().catch(() => setPostersDisponibles([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoSlot, idTipoPoster, modalOpen]);
+
+  function handleTogglePoster(talk) {
+    setPostersSeleccionados((prev) =>
+      prev.some((p) => p.id_talk === talk.id_talk)
+        ? prev.filter((p) => p.id_talk !== talk.id_talk)
+        : [...prev, talk],
+    );
+  }
+
   const gruposPorSalon = useMemo(() => {
     const mapa = new Map();
     for (const slot of schedule) {
@@ -186,6 +226,12 @@ export function Horarios() {
     return talksAceptadas.filter((t) => t.titulo.toLowerCase().includes(texto));
   }, [talksAceptadas, busquedaPonencia]);
 
+  const postersFiltrados = useMemo(() => {
+    const texto = busquedaPoster.trim().toLowerCase();
+    if (!texto) return postersDisponibles;
+    return postersDisponibles.filter((t) => t.titulo.toLowerCase().includes(texto));
+  }, [postersDisponibles, busquedaPoster]);
+
   function handleAbrirCrear() {
     setEditando(null);
     setForm({ ...FORM_INICIAL, fecha: fecha ?? '' });
@@ -196,6 +242,8 @@ export function Horarios() {
     setAreaFiltro('');
     setTipoParticipacionFiltro('');
     setProgramadoFiltro('false');
+    setPostersSeleccionados([]);
+    setBusquedaPoster('');
     setFormError('');
     setModalOpen(true);
   }
@@ -221,6 +269,8 @@ export function Horarios() {
     setAreaFiltro('');
     setTipoParticipacionFiltro('');
     setProgramadoFiltro('false');
+    setPostersSeleccionados([]);
+    setBusquedaPoster('');
     setFormError('');
     setModalOpen(true);
   }
@@ -235,6 +285,24 @@ export function Horarios() {
     setFormError('');
     setSubmitting(true);
     try {
+      // Sesión de pósteres: siempre creación (nunca editando, la opción ni se ofrece al editar),
+      // vía su propio endpoint que agrupa varios id_talk bajo una sola fila de Schedule.
+      if (tipoSlot === TIPO_SLOT.POSTERS) {
+        await apiFetch(`/congresos/${idCongreso}/schedule/sesion-posters`, {
+          method: 'POST',
+          body: JSON.stringify({
+            id_salon: Number(form.id_salon),
+            fecha: form.fecha,
+            hora_inicio: form.hora_inicio,
+            hora_fin: form.hora_fin,
+            id_talks: postersSeleccionados.map((p) => p.id_talk),
+          }),
+        });
+        await cargarSchedule();
+        setModalOpen(false);
+        return;
+      }
+
       // Valores finales de los 3 campos que definen el tipo de slot. El que no corresponde al
       // tipo elegido va explícitamente en null (no omitido): el backend lo exige para permitir
       // convertir un slot existente de ponencia a actividad, o al revés.
@@ -284,7 +352,11 @@ export function Horarios() {
         setFormError(
           'Un horario no puede tener una ponencia y una actividad a la vez. Elige solo uno de los dos tipos.',
         );
-      } else if (err.code === 'INSCRIPCION_NO_HABILITADA_PARA_PROGRAMAR') {
+      } else if (err.code === 'TALKS_DUPLICADOS') {
+        setFormError('Hay pósteres repetidos en la selección — cada uno solo puede elegirse una vez.');
+      } else if (err.code === 'TALK_NO_ES_POSTER') {
+        setFormError('Una de las ponencias seleccionadas no es de tipo Poster.');
+      } else if (err.code === 'INSCRIPCION_NO_HABILITADA_PARA_PROGRAMAR' && talkSeleccionado) {
         const estadoInscripcion = talkSeleccionado?.inscripcion?.estado_inscripcion;
         const estadoInscripcionLegible = ESTADO_INSCRIPCION_LABEL[estadoInscripcion] ?? estadoInscripcion;
         setFormError(
@@ -361,10 +433,12 @@ export function Horarios() {
     }
   }
 
-  // Ponencia exige elegir una; actividad exige título. "Vacío" siempre es válido.
+  // Ponencia exige elegir una; actividad exige título; pósteres exige al menos uno. "Vacío"
+  // siempre es válido.
   const slotFormValido =
     (tipoSlot !== TIPO_SLOT.PONENCIA || talkSeleccionado !== null) &&
-    (tipoSlot !== TIPO_SLOT.ACTIVIDAD || actividad.titulo.trim() !== '');
+    (tipoSlot !== TIPO_SLOT.ACTIVIDAD || actividad.titulo.trim() !== '') &&
+    (tipoSlot !== TIPO_SLOT.POSTERS || postersSeleccionados.length > 0);
 
   // Validación en frontend, antes de permitir el submit — cantidad_slots entre 1 y 50 y
   // duracion_minutos > 0, mismos límites que valida el backend (ver generarSlotsVacios), para
@@ -452,6 +526,20 @@ export function Horarios() {
                           {capitalizar(slot.talk.inscripcion?.usuario?.nombre)}{' '}
                           {capitalizar(slot.talk.inscripcion?.usuario?.apellido)}
                         </p>
+                      ) : slot.posters && slot.posters.length > 0 ? (
+                        <div className="text-sm">
+                          <p className="flex items-center gap-1.5 font-medium text-accent">
+                            <Layers className="size-3.5 shrink-0" />
+                            Sesión de Pósteres ({slot.posters.length})
+                          </p>
+                          <ul className="mt-0.5 list-disc pl-5 text-text-muted">
+                            {slot.posters.map((p) => (
+                              <li key={p.id_talk}>
+                                {p.titulo} — {capitalizar(p.autor)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       ) : slot.titulo_actividad ? (
                         <p className="flex items-center gap-1.5 text-sm text-warning-text">
                           <Star className="size-3.5 shrink-0" />
@@ -467,9 +555,14 @@ export function Horarios() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => handleAbrirEditar(slot)}>
-                        Editar
-                      </Button>
+                      {/* Editar una sesión de pósteres no está soportado: el Modal no tiene forma de
+                          precargar el multi-select con los pósteres ya asignados a esta fila —
+                          solo queda eliminarla y volver a crearla. */}
+                      {!(slot.posters && slot.posters.length > 0) && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleAbrirEditar(slot)}>
+                          Editar
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="destructive"
@@ -499,7 +592,7 @@ export function Horarios() {
           <div
             className={clsx(
               'grid grid-cols-1 gap-6',
-              tipoSlot === TIPO_SLOT.PONENCIA && 'lg:grid-cols-2',
+              (tipoSlot === TIPO_SLOT.PONENCIA || tipoSlot === TIPO_SLOT.POSTERS) && 'lg:grid-cols-2',
             )}
           >
             <div className="flex flex-col gap-4">
@@ -551,6 +644,8 @@ export function Horarios() {
                 <option value={TIPO_SLOT.PONENCIA}>Ponencia</option>
                 <option value={TIPO_SLOT.ACTIVIDAD}>Actividad libre</option>
                 <option value={TIPO_SLOT.VACIO}>Vacío</option>
+                {/* Solo al crear: ver nota junto a TIPO_SLOT sobre por qué no se ofrece al editar. */}
+                {!editando && <option value={TIPO_SLOT.POSTERS}>Sesión de Pósteres</option>}
               </Select>
 
               {tipoSlot === TIPO_SLOT.ACTIVIDAD && (
@@ -626,6 +721,19 @@ export function Horarios() {
                 </div>
               </div>
               )}
+
+              {tipoSlot === TIPO_SLOT.POSTERS && (
+                <div className="flex flex-col gap-2 border-t border-border pt-4">
+                  <label className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                    Sesión de pósteres
+                  </label>
+                  <p className="text-xs text-text-muted">
+                    Selecciona los pósteres que compartirán este salón y horario. Solo se muestran
+                    pósteres aceptados, sin horario aún, con inscripción confirmada o en carta de
+                    compromiso.
+                  </p>
+                </div>
+              )}
             </div>
 
             {tipoSlot === TIPO_SLOT.PONENCIA && (
@@ -658,6 +766,59 @@ export function Horarios() {
                   <p className="px-3 py-4 text-center text-sm text-text-muted">Sin resultados</p>
                 )}
               </div>
+            </div>
+            )}
+
+            {tipoSlot === TIPO_SLOT.POSTERS && (
+            <div className="flex flex-col gap-3 lg:pt-6">
+              <Input
+                icon={<Search className="size-4" />}
+                placeholder="Buscar por título..."
+                value={busquedaPoster}
+                onChange={(e) => setBusquedaPoster(e.target.value)}
+              />
+              <div className="max-h-80 overflow-y-auto rounded-lg border border-border bg-surface">
+                {postersFiltrados.map((talk) => {
+                  const seleccionado = postersSeleccionados.some((p) => p.id_talk === talk.id_talk);
+                  return (
+                    <button
+                      key={talk.id_talk}
+                      type="button"
+                      onClick={() => handleTogglePoster(talk)}
+                      className={clsx(
+                        'flex w-full items-start gap-2 border-t border-border px-3 py-2 text-left text-sm transition-colors hover:bg-background',
+                        seleccionado && 'bg-accent/10',
+                      )}
+                    >
+                      <span
+                        className={clsx(
+                          'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border',
+                          seleccionado ? 'border-accent bg-accent text-white' : 'border-border',
+                        )}
+                      >
+                        {seleccionado && <Check className="size-3" />}
+                      </span>
+                      <span className="flex flex-col gap-0.5">
+                        <span className={clsx('font-medium', talk.schedules.length > 0 ? 'text-success-text' : 'text-text-primary')}>
+                          {talk.titulo}
+                        </span>
+                        {talk.schedules.length > 0 && (
+                          <span className="text-xs text-success-text/80">Ya tiene horario asignado</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+                {postersFiltrados.length === 0 && (
+                  <p className="px-3 py-4 text-center text-sm text-text-muted">Sin resultados</p>
+                )}
+              </div>
+              {postersSeleccionados.length > 0 && (
+                <p className="text-xs text-text-muted">
+                  {postersSeleccionados.length} póster{postersSeleccionados.length === 1 ? '' : 'es'} seleccionado
+                  {postersSeleccionados.length === 1 ? '' : 's'}.
+                </p>
+              )}
             </div>
             )}
           </div>

@@ -110,6 +110,31 @@ function formatMinutosComoHora(minutos) {
   return `${horas}:${mins}`;
 }
 
+// Auditorios que deben verse primero cuando varias mini-cards coinciden en la misma hora (tanto
+// apiladas en la misma celda del grid de desktop como agrupadas bajo la misma hora en mobile).
+// Coincidencia por substring en minúsculas (no exacta) para no depender del nombre completo tal
+// cual está en la BD (ej. "Auditorio Luis Santander Benavides", "Auditorio Bloque 1B Sur").
+const CLAVES_SALONES_PRIORITARIOS = ['luis santander', 'bloque 1b'];
+
+function prioridadSalon(nombreSalon) {
+  const normalizado = (nombreSalon ?? '').toLowerCase();
+  const indice = CLAVES_SALONES_PRIORITARIOS.findIndex((clave) => normalizado.includes(clave));
+  return indice === -1 ? CLAVES_SALONES_PRIORITARIOS.length : indice;
+}
+
+// Orden estable: hora_inicio asc (igual que ya entrega el backend) -> salón prioritario primero
+// -> resto alfabético, como desempate original del backend. Se aplica una sola vez al recibir
+// `dias`, así el grid de desktop y la lista de mobile heredan el mismo orden sin duplicar lógica.
+function ordenarSlotsPorSalonPrioritario(slots) {
+  return [...slots].sort((a, b) => {
+    const horaCmp = minutosDesdeMedianoche(a.hora_inicio) - minutosDesdeMedianoche(b.hora_inicio);
+    if (horaCmp !== 0) return horaCmp;
+    const prioridadCmp = prioridadSalon(a.salon?.nombre) - prioridadSalon(b.salon?.nombre);
+    if (prioridadCmp !== 0) return prioridadCmp;
+    return (a.salon?.nombre ?? '').localeCompare(b.salon?.nombre ?? '');
+  });
+}
+
 // Solapamiento en el sentido de intervalos semiabiertos [inicio, fin) — mismo criterio que ya
 // usa el backend para detectar solapamiento de Schedule (dos eventos consecutivos, donde uno
 // termina justo cuando el otro empieza, NO se solapan).
@@ -538,7 +563,13 @@ export function Agenda() {
     setError('');
     setAgendaNoPublicada(false);
     apiFetch(`/congresos/${idCongreso}/schedule/agenda`)
-      .then((data) => setDias(data?.dias ?? []))
+      .then((data) => {
+        const diasConSlotsOrdenados = (data?.dias ?? []).map((dia) => ({
+          ...dia,
+          slots: ordenarSlotsPorSalonPrioritario(dia.slots),
+        }));
+        setDias(diasConSlotsOrdenados);
+      })
       .catch((err) => {
         if (err.code === 'AGENDA_NO_PUBLICADA') {
           setAgendaNoPublicada(true);
@@ -836,7 +867,7 @@ export function Agenda() {
                             key={slot.id_schedule}
                             onClick={() => handleAbrirSesionPosters(slot)}
                             className={clsx(
-                              'm-1 min-h-0 flex-1 cursor-pointer overflow-hidden rounded-lg border-l-4 p-2 shadow-sm pb-4 transition-opacity hover:opacity-80',
+                              'm-1 cursor-pointer overflow-hidden rounded-lg border-l-4 p-2 pb-3 shadow-sm transition-opacity hover:opacity-80',
                               color.border,
                               color.bg,
                             )}
@@ -872,7 +903,7 @@ export function Agenda() {
                           <div
                             key={slot.id_schedule}
                             className={clsx(
-                              'm-1 min-h-0 flex-1 overflow-hidden rounded-lg border-l-4 p-2 pb-4 shadow-sm',
+                              'm-1 overflow-hidden rounded-lg border-l-4 p-2 pb-3 shadow-sm',
                               COLOR_ACTIVIDAD.border,
                               COLOR_ACTIVIDAD.bg,
                             )}
@@ -924,7 +955,7 @@ export function Agenda() {
                             </span>
                           </div>
                           <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] font-medium">
-                            <span className={clsx('flex items-center gap-1', color.text)}>
+                            <span className={clsx('overflow-hidden text-ellipsis whitespace-nowrap', color.text)}>
                               <span className={clsx('size-1.5 shrink-0 rounded-full', color.dot)} />
                               <span className="overflow-hidden text-ellipsis whitespace-nowrap">
                                 {slot.talk.tipo_participacion?.nombre ?? 'Sin tipo'}

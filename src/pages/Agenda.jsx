@@ -214,15 +214,18 @@ function EventoCardMobile({ slot, tipoColorMap, onClick, onClickPosters }) {
           color.bg,
         )}
       >
-        <div className="flex items-center gap-1 text-xs text-text-muted">
+        <div className="flex flex-col gap-1 text-xs text-text-muted">
+          <div className="flex  items-center gap-1 text-xs text-text-muted">
           <Clock className="size-3 shrink-0" />
           <span>
             {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
           </span>
+          </div>
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap"> ☕+🥐=🙂  </span>
         </div>
         <div className={clsx('mt-1 flex items-center gap-1.5 text-sm font-medium', color.text)}>
           <Layers className="size-4 shrink-0" />
-          Sesión de Pósteres ({slot.posters.length})
+          Sesión de Pósters  ({slot.posters.length})
         </div>
         {slot.salon?.nombre && (
           <div className="mt-1 flex items-center gap-1 text-text-muted">
@@ -872,21 +875,24 @@ export function Agenda() {
                               color.bg,
                             )}
                           >
-                            <div className="flex items-center gap-1 text-[10px] text-text-muted">
+                            <div className="flex flex-col   gap-1 text-[10px] text-text-muted">
+                              <div className="flex items-center gap-1 text-[10px] text-text-muted">
                               <Clock className="size-2.5 shrink-0" />
                               <span className="overflow-hidden text-ellipsis whitespace-nowrap">
                                 {formatHora(slot.hora_inicio)}–{formatHora(slot.hora_fin)}
                               </span>
+                              </div>
+                              <span className="overflow-hidden text-ellipsis whitespace-nowrap"> ☕+🥐=🙂  </span>
                             </div>
                             <div
                               className={clsx(
-                                'mt-1 flex items-center gap-1 text-[10px] font-medium',
+                                'mt-1 flex  gap-1 text-[10px] font-medium',
                                 color.text,
                               )}
                             >
                               <Layers className="size-3 shrink-0" />
                               <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-                                Sesión de Pósteres ({slot.posters.length})
+                               Sesión de Pósters({slot.posters.length})
                               </span>
                             </div>
                             <div className="mt-1 flex items-center gap-1 text-text-muted">

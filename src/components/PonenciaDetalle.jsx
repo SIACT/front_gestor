@@ -340,7 +340,8 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
                     </p>
                     <p className="text-xs text-text-muted">{ponente.correo}</p>
                   </div>
-                  {canManageCoponentes && !ponente.es_principal && (
+                  {/* actualmento comente el boton de quitar coautor por que no se esta aplicando la validacion de convocatoria cerrada en el backend, por lo que se puede quitar coautores aunque la convocatoria este cerrada */}
+                  {/* {canManageCoponentes && !ponente.es_principal && (
                     <Button
                       type="button"
                       variant="destructive"
@@ -349,13 +350,13 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
                     >
                       Quitar
                     </Button>
-                  )}
+                  )} */}
                 </li>
               ))}
             </ul>
           )}
 
-          {canManageCoponentes && (
+          {/* {canManageCoponentes && (
             <>
               <form className="mt-4 flex items-end gap-2" onSubmit={handleAgregarCoponente}>
                 <Input
@@ -367,7 +368,9 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
                   disabled={convocatoriaFinalizada}
                   className="flex-1 disabled:cursor-not-allowed disabled:opacity-60"
                 />
-                <Button
+
+                  
+                 <Button
                   type="submit"
                   variant="secondary"
                   loading={agregandoCoponente}
@@ -375,7 +378,7 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
                   title={convocatoriaFinalizada ? 'La convocatoria de ponencias ya finalizó' : undefined}
                 >
                   Agregar Coautor
-                </Button>
+                </Button>  
               </form>
               {convocatoriaFinalizada && (
                 <p className="mt-1 text-xs text-text-muted">La convocatoria de ponencias ya finalizó</p>
@@ -386,7 +389,7 @@ export function PonenciaDetalle({ talk, isAdmin, canEdit, canManageCoponentes, o
             <Alert variant="error" className="mt-2">
               {coponenteError}
             </Alert>
-          )}
+          )} */}
         </div>
       </div>
 

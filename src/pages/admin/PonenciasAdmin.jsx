@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Globe, Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
@@ -96,11 +96,12 @@ function ParticipanteCard({ persona, idCongreso }) {
 
 // El input vive en la fila de filtros de PonenciasAdmin; los resultados se
 // renderizan aparte, debajo, a ancho completo. Este hook comparte el state entre ambos.
-function useBuscarParticipantes() {
+// queryInicial viene de la URL (?busqueda=) para sobrevivir al "atrás" del navegador.
+function useBuscarParticipantes(queryInicial = '') {
   const { congreso } = useCongreso();
   const idCongreso = congreso?.id_congreso;
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(queryInicial);
   // null = sin búsqueda activa (< 2 caracteres): la sección de resultados no se renderiza.
   const [resultados, setResultados] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -187,84 +188,125 @@ function SeccionEstadisticas() {
   );
 }
 
+// Todos los filtros viven en la query string (?busqueda=&pais=&estado_talk=&id_area=
+// &id_tipo_participacion=&programado=&pagina=): al volver del detalle con el "atrás" del
+// navegador, el componente se remonta y los reconstruye desde la URL. Los cambios usan
+// replace para no llenar el historial con una entrada por cada tecla o select.
 export function PonenciasAdmin() {
   const navigate = useNavigate();
   const { id_congreso } = useParams();
-  const busquedaParticipantes = useBuscarParticipantes();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const busquedaParticipantes = useBuscarParticipantes(searchParams.get('busqueda') ?? '');
   const [talks, setTalks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filtro, setFiltro] = useState('');
   const [areas, setAreas] = useState([]);
-  const [areaFiltro, setAreaFiltro] = useState('');
   const [tipos, setTipos] = useState([]);
-  const [tipoFiltro, setTipoFiltro] = useState('');
-  const [paisFiltro, setPaisFiltro] = useState('');
-  const [paginaActual, setPaginaActual] = useState(1);
 
-  // Filtros server-side: el backend (GET /talks) soporta id_congreso, estado_talk,
-  // id_area y pais (coincidencia parcial sobre el país del ponente principal),
-  // combinables entre sí.
-  function cargar(estado, idArea, paisTexto) {
-    setLoading(true);
-    setError('');
-    const params = new URLSearchParams();
-    params.set('id_congreso', id_congreso);
-    if (estado) params.set('estado_talk', estado);
-    if (idArea) params.set('id_area', idArea);
-    if (paisTexto) params.set('pais', paisTexto);
-    return apiFetch(`/talks?${params.toString()}`)
-      .then((data) => setTalks(data ?? []))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+  const filtro = searchParams.get('estado_talk') ?? '';
+  const areaFiltro = searchParams.get('id_area') ?? '';
+  const tipoFiltro = searchParams.get('id_tipo_participacion') ?? '';
+  const programadoFiltro = searchParams.get('programado') ?? '';
+  const paginaParam = Number(searchParams.get('pagina')) || 1;
+
+  // Los inputs de texto necesitan state local para no perder el cursor; la URL se
+  // actualiza en cada tecla y el fetch del país va con debounce.
+  const [paisFiltro, setPaisFiltro] = useState(() => searchParams.get('pais') ?? '');
+  const [paisDebounced, setPaisDebounced] = useState(() => (searchParams.get('pais') ?? '').trim());
+
+  // Cualquier cambio de filtro vuelve a la página 1: evita quedar "atascado" en una
+  // página que ya no existe.
+  function actualizarParam(clave, valor) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (valor) next.set(clave, valor);
+        else next.delete(clave);
+        if (clave !== 'pagina') next.delete('pagina');
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  function setPaginaActual(pagina) {
+    actualizarParam('pagina', pagina > 1 ? String(pagina) : '');
   }
 
   useEffect(() => {
-    cargar();
     apiFetch(`/congresos/${id_congreso}/areas-estudio?activo=true`)
       .then((data) => setAreas(data ?? []))
       .catch((err) => setError(err.message));
     apiFetch(`/congresos/${id_congreso}/tipos-participacion?activo=true`)
       .then((data) => setTipos(data ?? []))
       .catch((err) => setError(err.message));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id_congreso]);
-
-  function handleFiltroChange(e) {
-    const valor = e.target.value;
-    setFiltro(valor);
-    cargar(valor, areaFiltro, paisFiltro.trim());
-  }
-
-  function handleAreaChange(e) {
-    const valor = e.target.value;
-    setAreaFiltro(valor);
-    cargar(filtro, valor, paisFiltro.trim());
-  }
 
   // Debounce del país: mismo patrón (350ms, sin longitud mínima) ya usado para
   // país/institución en InscripcionesAdmin.jsx.
-  const esPrimerRenderPais = useRef(true);
   useEffect(() => {
-    if (esPrimerRenderPais.current) {
-      esPrimerRenderPais.current = false;
-      return;
-    }
-    const timeoutId = setTimeout(() => {
-      cargar(filtro, areaFiltro, paisFiltro.trim());
-    }, 350);
+    const timeoutId = setTimeout(() => setPaisDebounced(paisFiltro.trim()), 350);
     return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paisFiltro]);
 
-  // Los filtros server-side (estado/área/país) siempre implican una tabla nueva:
-  // evita quedar "atascado" en una página que ya no existe.
+  // Filtros server-side: el backend (GET /talks) soporta id_congreso, estado_talk,
+  // id_area, pais (coincidencia parcial sobre el país del ponente principal) y
+  // programado, combinables entre sí (AND).
   useEffect(() => {
-    setPaginaActual(1);
-  }, [filtro, areaFiltro, paisFiltro]);
+    let cancelado = false;
+    setLoading(true);
+    setError('');
+    const params = new URLSearchParams();
+    params.set('id_congreso', id_congreso);
+    if (filtro) params.set('estado_talk', filtro);
+    if (areaFiltro) params.set('id_area', areaFiltro);
+    if (paisDebounced) params.set('pais', paisDebounced);
+    if (programadoFiltro) params.set('programado', programadoFiltro);
+    apiFetch(`/talks?${params.toString()}`)
+      .then((data) => {
+        if (!cancelado) setTalks(data ?? []);
+      })
+      .catch((err) => {
+        if (!cancelado) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelado) setLoading(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [id_congreso, filtro, areaFiltro, paisDebounced, programadoFiltro]);
 
-  // Filtro de tipo en memoria: el backend GET /talks no soporta id_tipo_participacion
-  // (solo id_congreso, estado_talk e id_area, ver listarTodasLasTalks en el backend).
+  function handleBusquedaChange(e) {
+    const valor = e.target.value;
+    busquedaParticipantes.setQuery(valor);
+    actualizarParam('busqueda', valor);
+  }
+
+  function handlePaisChange(e) {
+    const valor = e.target.value;
+    setPaisFiltro(valor);
+    actualizarParam('pais', valor);
+  }
+
+  function handleLimpiarFiltros() {
+    busquedaParticipantes.setQuery('');
+    setPaisFiltro('');
+    setPaisDebounced('');
+    setSearchParams({}, { replace: true });
+  }
+
+  const hayFiltrosActivos = Boolean(
+    busquedaParticipantes.query.trim() ||
+      paisFiltro.trim() ||
+      filtro ||
+      areaFiltro ||
+      tipoFiltro ||
+      programadoFiltro,
+  );
+
+  // Filtro de tipo en memoria (no server-side) para que "Mostrando X de Y" siga
+  // reflejando cuántos trabajos descarta el tipo sobre los filtros del backend.
   const talksFiltradas = useMemo(() => {
     if (!tipoFiltro) return talks;
     return talks.filter(
@@ -274,6 +316,8 @@ export function PonenciasAdmin() {
 
   const PONENCIAS_POR_PAGINA = 15;
   const totalPaginas = Math.ceil(talksFiltradas.length / PONENCIAS_POR_PAGINA);
+  // Una ?pagina= de la URL puede quedar fuera de rango (enlace viejo, datos que cambiaron).
+  const paginaActual = Math.min(paginaParam, Math.max(totalPaginas, 1));
   const talksPagina = useMemo(() => {
     const inicio = (paginaActual - 1) * PONENCIAS_POR_PAGINA;
     return talksFiltradas.slice(inicio, inicio + PONENCIAS_POR_PAGINA);
@@ -294,7 +338,7 @@ export function PonenciasAdmin() {
             icon={<Search className="size-4" />}
             placeholder="Buscar por nombre, apellido o correo..."
             value={busquedaParticipantes.query}
-            onChange={(e) => busquedaParticipantes.setQuery(e.target.value)}
+            onChange={handleBusquedaChange}
           />
           {busquedaParticipantes.loading && (
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">
@@ -307,12 +351,12 @@ export function PonenciasAdmin() {
           icon={<Globe className="size-4" />}
           placeholder="País..."
           value={paisFiltro}
-          onChange={(e) => setPaisFiltro(e.target.value)}
+          onChange={handlePaisChange}
           className="w-40"
         />
 
         <div className="w-40">
-          <Select label="Estado" value={filtro} onChange={handleFiltroChange}>
+          <Select label="Estado" value={filtro} onChange={(e) => actualizarParam('estado_talk', e.target.value)}>
             <option value="">Todas</option>
             <option value="pendiente">Pendientes</option>
             <option value="aceptada">Aceptadas</option>
@@ -321,7 +365,7 @@ export function PonenciasAdmin() {
         </div>
 
         <div className="w-40">
-          <Select label="Área" value={areaFiltro} onChange={handleAreaChange}>
+          <Select label="Área" value={areaFiltro} onChange={(e) => actualizarParam('id_area', e.target.value)}>
             <option value="">Todas las áreas</option>
             {areas.map((a) => (
               <option key={a.id_area} value={a.id_area}>
@@ -332,7 +376,11 @@ export function PonenciasAdmin() {
         </div>
 
         <div className="w-40">
-          <Select label="Tipo" value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)}>
+          <Select
+            label="Tipo"
+            value={tipoFiltro}
+            onChange={(e) => actualizarParam('id_tipo_participacion', e.target.value)}
+          >
             <option value="">Todos los tipos</option>
             {tipos.map((t) => (
               <option key={t.id_tipo_participacion} value={t.id_tipo_participacion}>
@@ -341,6 +389,24 @@ export function PonenciasAdmin() {
             ))}
           </Select>
         </div>
+
+        <div className="w-40">
+          <Select
+            label="Estado de programación"
+            value={programadoFiltro}
+            onChange={(e) => actualizarParam('programado', e.target.value)}
+          >
+            <option value="">Todas</option>
+            <option value="true">Programadas</option>
+            <option value="false">Sin programar</option>
+          </Select>
+        </div>
+
+        {hayFiltrosActivos && (
+          <Button type="button" variant="ghost" onClick={handleLimpiarFiltros}>
+            Limpiar filtros
+          </Button>
+        )}
       </div>
 
       {busquedaParticipantes.error && <Alert variant="error">{busquedaParticipantes.error}</Alert>}
@@ -438,7 +504,7 @@ export function PonenciasAdmin() {
                     variant="ghost"
                     size="sm"
                     disabled={paginaActual === 1}
-                    onClick={() => setPaginaActual((p) => p - 1)}
+                    onClick={() => setPaginaActual(paginaActual - 1)}
                   >
                     Anterior
                   </Button>
@@ -447,7 +513,7 @@ export function PonenciasAdmin() {
                     variant="ghost"
                     size="sm"
                     disabled={paginaActual === totalPaginas}
-                    onClick={() => setPaginaActual((p) => p + 1)}
+                    onClick={() => setPaginaActual(paginaActual + 1)}
                   >
                     Siguiente
                   </Button>

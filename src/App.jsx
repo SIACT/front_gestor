@@ -9,6 +9,7 @@ import { GlobalLayout } from './layouts/GlobalLayout';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { CongresoLayout } from './layouts/CongresoLayout';
 import { Home } from './pages/Home';
+import { Creditos } from './pages/Creditos';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { OlvideContrasena } from './pages/OlvideContrasena';
@@ -44,6 +45,10 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          {/* Standalone: sin AuthLayout (layout de una sola columna, distinto al panel dividido
+              de login/registro) y pública, fuera de ProtectedRoute. */}
+          <Route path="/creditos" element={<Creditos />} />
+
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />

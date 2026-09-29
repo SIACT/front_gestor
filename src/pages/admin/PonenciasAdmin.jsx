@@ -21,6 +21,12 @@ const ESTADO_TALK_VARIANT = {
   rechazada: 'rechazado',
 };
 
+// Mismo criterio que el filtro `programado` del backend: una talk está programada si tiene
+// un horario individual (schedules) o si es un póster agrupado en una sesión (posters).
+function estaProgramada(talk) {
+  return talk.schedules?.length > 0 || talk.posters?.length > 0;
+}
+
 function TalkListItem({ talk, idCongreso, subtitulo }) {
   return (
     <Link
@@ -249,20 +255,19 @@ export function PonenciasAdmin() {
     return () => clearTimeout(timeoutId);
   }, [paisFiltro]);
 
-  // Filtros server-side: el backend (GET /talks) soporta id_congreso, estado_talk,
+  // Filtros server-side: GET /congresos/:id/talks/para-programacion soporta estado_talk,
   // id_area, pais (coincidencia parcial sobre el país del ponente principal) y
-  // programado, combinables entre sí (AND).
+  // programado (ponencia individual o póster agrupado en sesión), combinables (AND).
   useEffect(() => {
     let cancelado = false;
     setLoading(true);
     setError('');
     const params = new URLSearchParams();
-    params.set('id_congreso', id_congreso);
     if (filtro) params.set('estado_talk', filtro);
     if (areaFiltro) params.set('id_area', areaFiltro);
     if (paisDebounced) params.set('pais', paisDebounced);
     if (programadoFiltro) params.set('programado', programadoFiltro);
-    apiFetch(`/talks?${params.toString()}`)
+    apiFetch(`/congresos/${id_congreso}/talks/para-programacion?${params.toString()}`)
       .then((data) => {
         if (!cancelado) setTalks(data ?? []);
       })
@@ -481,8 +486,8 @@ export function PonenciasAdmin() {
                       </Badge>
                     </Table.Cell>
                     <Table.Cell>
-                      <Badge variant={talk.schedules?.length > 0 ? 'revisado' : 'default'}>
-                        {talk.schedules?.length > 0 ? 'Programada' : 'Sin programar'}
+                      <Badge variant={estaProgramada(talk) ? 'revisado' : 'default'}>
+                        {estaProgramada(talk) ? 'Programada' : 'Sin programar'}
                       </Badge>
                     </Table.Cell>
                     <Table.Cell className="text-text-muted">{formatFecha(talk.fecha_creacion)}</Table.Cell>

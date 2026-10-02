@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import clsx from 'clsx';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
+import { capitalizar, formatFechaHora } from '../../utils/formato';
 import { PonenciaDetalle } from '../../components/PonenciaDetalle';
 import { SugerenciasMensaje } from '../../components/SugerenciasMensaje';
 import { Select } from '../../components/ui/Select';
@@ -66,6 +68,96 @@ function RevisionTalk({ talk, onRefresh }) {
   );
 }
 
+const OPCIONES_PRESENTO = [
+  { valor: null, label: 'Sin definir' },
+  { valor: true, label: 'Presentó' },
+  { valor: false, label: 'No presentó' },
+];
+
+// Marcado único por trabajo (certificado de participación en la ponencia): distinto de la
+// asistencia por día al congreso, que vive en admin/Asistencia.
+function PresentoTalk({ talk, onRefresh }) {
+  const { congreso } = useCongreso();
+  const [guardando, setGuardando] = useState(null);
+  const [error, setError] = useState('');
+  const [exito, setExito] = useState('');
+
+  const actual = talk.presento ?? null;
+  const marcador = talk.marcador_presento;
+
+  async function handleMarcar(valor) {
+    if (valor === actual || valor === null) return;
+    setGuardando(valor);
+    setError('');
+    setExito('');
+    try {
+      await apiFetch(`/congresos/${congreso?.id_congreso}/talks/${talk.id_talk}/presento`, {
+        method: 'PATCH',
+        body: JSON.stringify({ presento: valor }),
+      });
+      setExito(valor ? "Trabajo marcado como 'Presentó'." : "Trabajo marcado como 'No presentó'.");
+      // La respuesta del PATCH no trae el nombre de quien marcó: se recarga el detalle completo.
+      onRefresh?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGuardando(null);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-surface p-6">
+      <h2 className="font-sans text-lg font-semibold text-text-primary">¿Presentó?</h2>
+
+      <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="¿Presentó?">
+        {OPCIONES_PRESENTO.map((opcion) => {
+          const seleccionada = actual === opcion.valor;
+          return (
+            <Button
+              key={opcion.label}
+              type="button"
+              size="sm"
+              variant={seleccionada ? (opcion.valor === false ? 'destructive' : 'primary') : 'secondary'}
+              aria-pressed={seleccionada}
+              loading={guardando === opcion.valor}
+              // El backend solo acepta true/false: una vez marcado, no se puede volver a "Sin definir".
+              disabled={guardando !== null || (opcion.valor === null && !seleccionada)}
+              title={opcion.valor === null && !seleccionada ? 'Una vez marcado no se puede volver a "Sin definir"' : undefined}
+              onClick={() => handleMarcar(opcion.valor)}
+              className={clsx(seleccionada && 'pointer-events-none')}
+            >
+              {opcion.label}
+            </Button>
+          );
+        })}
+      </div>
+
+      <p className="mt-3 text-sm text-text-muted">
+        Al marcar 'Presentó', todos los integrantes de este trabajo (autor principal y coautores) quedan
+        habilitados para el certificado de participación de esta ponencia.
+      </p>
+
+      {actual !== null && (
+        <p className="mt-2 text-xs text-text-muted">
+          Marcado como {actual ? 'Presentó' : 'No presentó'} por {capitalizar(marcador?.nombre)}{' '}
+          {capitalizar(marcador?.apellido)} el {formatFechaHora(talk.presento_marcado_en)}
+        </p>
+      )}
+
+      {error && (
+        <Alert variant="error" className="mt-3">
+          {error}
+        </Alert>
+      )}
+      {exito && (
+        <Alert variant="success" className="mt-3">
+          {exito}
+        </Alert>
+      )}
+    </div>
+  );
+}
+
 export function PonenciaAdminDetalle() {
   const { id } = useParams();
   const [talk, setTalk] = useState(null);
@@ -103,7 +195,12 @@ export function PonenciaAdminDetalle() {
       canEdit
       canManageCoponentes
       onRefresh={cargarTalk}
-      adminReviewSlot={<RevisionTalk talk={talk} onRefresh={cargarTalk} />}
+      adminReviewSlot={
+        <>
+          <RevisionTalk talk={talk} onRefresh={cargarTalk} />
+          <PresentoTalk talk={talk} onRefresh={cargarTalk} />
+        </>
+      }
     />
   );
 }

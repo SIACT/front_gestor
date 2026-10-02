@@ -46,6 +46,25 @@ export function formatFecha(value) {
   });
 }
 
+// Para timestamps (instante exacto, ej. Talks.presento_marcado_en): fecha + hora local del
+// navegador, como "15 de junio de 2026, 3:45 PM". es-CO escribe el periodo como "p. m.", así que
+// se reemplaza esa parte por AM/PM; los espacios especiales (U+202F/U+00A0) se normalizan.
+export function formatFechaHora(value) {
+  const fecha = new Date(value);
+  return new Intl.DateTimeFormat('es-CO', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+    .formatToParts(fecha)
+    .map((parte) => (parte.type === 'dayPeriod' ? (fecha.getHours() < 12 ? 'AM' : 'PM') : parte.value))
+    .join('')
+    .replace(/[\u202f\u00a0]/g, ' ');
+}
+
 // Para campos de fecha PURA (sin hora), como Schedule.fecha: 'YYYY-MM-DDT00:00:00.000Z' se
 // interpreta como medianoche UTC, y en husos horarios negativos toLocaleDateString la muestra
 // un día atrás. Se arma el Date con año/mes/día explícitos (mismo criterio que

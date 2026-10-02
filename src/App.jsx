@@ -38,6 +38,9 @@ import { EstadisticasCongreso } from './pages/admin/EstadisticasCongreso';
 import { Salones } from './pages/admin/Salones';
 import { Horarios } from './pages/admin/Horarios';
 import { CalendarioAdmin } from './pages/admin/CalendarioAdmin';
+import { Asistencia } from './pages/admin/Asistencia';
+import { CertificadosTrabajo } from './pages/admin/CertificadosTrabajo';
+import { MiAsistencia } from './pages/MiAsistencia';
 
 function App() {
   return (
@@ -76,6 +79,7 @@ function App() {
                   <Route path="inscripciones/:id" element={<DetalleInscripcion />} />
                   <Route path="ponencias" element={<MisPonencias />} />
                   <Route path="ponencias/:id" element={<DetallePonencia />} />
+                  <Route path="mi-asistencia" element={<MiAsistencia />} />
                 </Route>
                 <Route element={<CongresoAdminRoute />}>
                   <Route path="admin/categorias" element={<Categorias />} />
@@ -91,6 +95,8 @@ function App() {
                   <Route path="admin/ponencias/:id" element={<PonenciaAdminDetalle />} />
                   <Route path="admin/horarios" element={<Horarios />} />
                   <Route path="admin/calendario" element={<CalendarioAdmin />} />
+                  <Route path="admin/asistencia" element={<Asistencia />} />
+                  <Route path="admin/certificados-trabajo" element={<CertificadosTrabajo />} />
                   <Route path="admin/estadisticas" element={<EstadisticasCongreso />} />
                 </Route>
               </Route>

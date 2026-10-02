@@ -254,6 +254,7 @@ function SidebarContent({ collapsed, onNavigate, onToggleCollapse, onExpandSideb
         {navItems(id_congreso)
           .filter((item) => !item.roles || item.roles.includes(user?.id_rol))
           .filter((item) => item.label !== 'Mis ponencias' || esExpositorEnEsteCongreso)
+          .filter((item) => item.label !== 'Mi Asistencia' || tieneInscripcion)
           .map((item) => {
             if (item.label === 'Nueva inscripción' && tieneInscripcion) {
               return (

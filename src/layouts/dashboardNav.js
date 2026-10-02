@@ -4,6 +4,7 @@ import {
   BookOpen,
   CalendarClock,
   CalendarDays,
+  CheckSquare,
   ClipboardList,
   DoorOpen,
   FolderTree,
@@ -55,6 +56,14 @@ export function navItems(idCongreso) {
       icon: Mic,
     },
     {
+      // Solo Participante con inscripción en ESTE congreso: el filtro por inscripción se
+      // aplica en DashboardLayout (tieneInscripcion), igual que otros items por congreso.
+      to: `/congresos/${idCongreso}/mi-asistencia`,
+      label: 'Mi Asistencia',
+      icon: CheckSquare,
+      roles: [ROLES.PARTICIPANTE],
+    },
+    {
       // Sin `roles`: visible para cualquier usuario del congreso, Admin incluido (placeholder
       // "próximamente" hasta que exista la generación de certificados).
       to: `/congresos/${idCongreso}/certificacion`,
@@ -100,6 +109,12 @@ export function adminGroups(idCongreso) {
         { label: 'Trabajos', path: `/congresos/${idCongreso}/admin/ponencias`, icon: Mic },
         { label: 'Horarios', path: `/congresos/${idCongreso}/admin/horarios`, icon: CalendarClock },
         { label: 'Calendario', path: `/congresos/${idCongreso}/admin/calendario`, icon: CalendarDays },
+        { label: 'Asistencia', path: `/congresos/${idCongreso}/admin/asistencia`, icon: CheckSquare },
+        {
+          label: 'Certificados por trabajo',
+          path: `/congresos/${idCongreso}/admin/certificados-trabajo`,
+          icon: Award,
+        },
       ],
     },
   ];

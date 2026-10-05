@@ -40,6 +40,9 @@ import { Horarios } from './pages/admin/Horarios';
 import { CalendarioAdmin } from './pages/admin/CalendarioAdmin';
 import { Asistencia } from './pages/admin/Asistencia';
 import { CertificadosTrabajo } from './pages/admin/CertificadosTrabajo';
+import { EditorCertificado } from './pages/admin/EditorCertificado';
+import { EmisionMasiva } from './pages/admin/EmisionMasiva';
+import { VerificarCertificado } from './pages/VerificarCertificado';
 import { MiAsistencia } from './pages/MiAsistencia';
 
 function App() {
@@ -53,6 +56,11 @@ function App() {
             <Route path="/olvide-contrasena" element={<OlvideContrasena />} />
             <Route path="/reset-password" element={<RestablecerContrasena />} />
           </Route>
+
+          {/* PÚBLICA: verificación de certificados, sin sesión ni AuthLayout */}
+          <Route path="/verificar" element={<VerificarCertificado />} />
+          {/* La que abre el QR impreso en el certificado */}
+          <Route path="/verificar/:codigo" element={<VerificarCertificado />} />
 
           <Route element={<ProtectedRoute />}>
             {/* GLOBAL — no depende de ningún congreso */}
@@ -97,6 +105,8 @@ function App() {
                   <Route path="admin/calendario" element={<CalendarioAdmin />} />
                   <Route path="admin/asistencia" element={<Asistencia />} />
                   <Route path="admin/certificados-trabajo" element={<CertificadosTrabajo />} />
+                  <Route path="admin/editor-certificado" element={<EditorCertificado />} />
+                  <Route path="admin/emision-masiva" element={<EmisionMasiva />} />
                   <Route path="admin/estadisticas" element={<EstadisticasCongreso />} />
                 </Route>
               </Route>

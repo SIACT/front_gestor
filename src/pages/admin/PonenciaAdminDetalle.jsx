@@ -5,6 +5,7 @@ import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
 import { capitalizar, formatFechaHora } from '../../utils/formato';
 import { PonenciaDetalle } from '../../components/PonenciaDetalle';
+import { ResultadoEmision } from '../../components/ResultadoEmision';
 import { SugerenciasMensaje } from '../../components/SugerenciasMensaje';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
@@ -64,6 +65,78 @@ function RevisionTalk({ talk, onRefresh }) {
         </Button>
         <p className="text-xs text-text-muted">Esto notificará por correo al ponente principal.</p>
       </div>
+    </div>
+  );
+}
+
+// Un botón por integrante (principal + coautores). La lista de ponentes vive dentro de
+// PonenciaDetalle (estado interno, no expuesto), así que aquí se pide GET /talks/:id/ponentes
+// solo cuando el trabajo ya está marcado "Presentó".
+function EmisionParticipacion({ talk, idCongreso }) {
+  const [ponentes, setPonentes] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState('');
+  const [emitiendo, setEmitiendo] = useState(null);
+  const [resultado, setResultado] = useState(null);
+
+  useEffect(() => {
+    setCargando(true);
+    apiFetch(`/talks/${talk.id_talk}/ponentes`)
+      .then((data) => setPonentes(data ?? []))
+      .catch((err) => setErrorCarga(err.message))
+      .finally(() => setCargando(false));
+  }, [talk.id_talk]);
+
+  async function emitir(ponente) {
+    setEmitiendo(ponente.id_inscripcion);
+    setResultado(null);
+    const nombre = `${capitalizar(ponente.nombre)} ${capitalizar(ponente.apellido)}`;
+    try {
+      const data = await apiFetch(`/congresos/${idCongreso}/certificacion/emitir`, {
+        method: 'POST',
+        body: JSON.stringify({ id_inscripcion: ponente.id_inscripcion, tipo: 'participacion', id_talk: talk.id_talk }),
+      });
+      setResultado({ nombre, data });
+    } catch (err) {
+      setResultado({ nombre, error: err });
+    } finally {
+      setEmitiendo(null);
+    }
+  }
+
+  return (
+    <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
+      <h3 className="text-sm font-medium uppercase tracking-wide text-text-muted">Certificados de participación</h3>
+      {cargando ? (
+        <p className="text-sm text-text-muted">Cargando integrantes…</p>
+      ) : errorCarga ? (
+        <Alert variant="error">{errorCarga}</Alert>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {ponentes.map((ponente) => (
+            <li key={ponente.id_inscripcion} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <div>
+                <p className="text-text-primary">
+                  {capitalizar(ponente.nombre)} {capitalizar(ponente.apellido)}{' '}
+                  <span className="text-xs text-text-muted">· {ponente.es_principal ? 'Principal' : 'Coautor'}</span>
+                </p>
+                <p className="text-xs text-text-muted">{ponente.correo}</p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                loading={emitiendo === ponente.id_inscripcion}
+                disabled={emitiendo !== null}
+                onClick={() => emitir(ponente)}
+              >
+                Emitir certificado de participación
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <ResultadoEmision resultado={resultado} idCongreso={idCongreso} />
     </div>
   );
 }
@@ -154,6 +227,8 @@ function PresentoTalk({ talk, onRefresh }) {
           {exito}
         </Alert>
       )}
+
+      {actual === true && <EmisionParticipacion talk={talk} idCongreso={congreso?.id_congreso} />}
     </div>
   );
 }

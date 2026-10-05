@@ -7,6 +7,7 @@ import {
   CheckSquare,
   ClipboardList,
   DoorOpen,
+  FileEdit,
   FolderTree,
   LayoutDashboard,
   LayoutGrid,
@@ -16,6 +17,7 @@ import {
   PlusCircle,
   Presentation,
   Receipt,
+  Send,
   Settings,
   Tag,
 } from 'lucide-react';
@@ -99,6 +101,11 @@ export function adminGroups(idCongreso) {
           icon: MessageSquare,
         },
         { label: 'Salones', path: `/congresos/${idCongreso}/admin/salones`, icon: DoorOpen },
+        {
+          label: 'Editor de certificados',
+          path: `/congresos/${idCongreso}/admin/editor-certificado`,
+          icon: FileEdit,
+        },
       ],
     },
     {
@@ -115,6 +122,7 @@ export function adminGroups(idCongreso) {
           path: `/congresos/${idCongreso}/admin/certificados-trabajo`,
           icon: Award,
         },
+        { label: 'Emisión masiva', path: `/congresos/${idCongreso}/admin/emision-masiva`, icon: Send },
       ],
     },
   ];

@@ -14,6 +14,7 @@ import { Select } from '../../components/ui/Select';
 import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 import { DatePicker } from '../../components/ui/DatePicker';
+import { ResultadoEmision } from '../../components/ResultadoEmision';
 
 const ESTADOS_INSCRIPCION = ['pendiente', 'carta_compromiso', 'confirmada', 'rechazada', 'cancelada'];
 
@@ -417,6 +418,26 @@ function EliminarAsistenciaModal({ objetivo, idCongreso, onClose, onEliminada })
 function ResumenCumplimiento({ resumen, error, hayFiltros, idCongreso, onAsistenciaEliminada }) {
   const [expandido, setExpandido] = useState({});
   const [aEliminar, setAEliminar] = useState(null);
+  const [emitiendo, setEmitiendo] = useState(null);
+  const [resultadoEmision, setResultadoEmision] = useState(null);
+
+  // Certificado de asistencia individual: solo se ofrece a quien ya cumple el umbral.
+  async function emitirCertificado(d) {
+    setEmitiendo(d.id_inscripcion);
+    setResultadoEmision(null);
+    const nombre = nombreCompleto(d.usuario);
+    try {
+      const data = await apiFetch(`/congresos/${idCongreso}/certificacion/emitir`, {
+        method: 'POST',
+        body: JSON.stringify({ id_inscripcion: d.id_inscripcion, tipo: 'asistencia' }),
+      });
+      setResultadoEmision({ nombre, data });
+    } catch (err) {
+      setResultadoEmision({ nombre, error: err });
+    } finally {
+      setEmitiendo(null);
+    }
+  }
 
   if (error) return <Alert variant="error">{error}</Alert>;
 
@@ -429,6 +450,8 @@ function ResumenCumplimiento({ resumen, error, hayFiltros, idCongreso, onAsisten
         <span className="font-bold text-accent">{resumen?.cumplen_asistencia ?? 0}</span> de{' '}
         <span className="font-bold">{resumen?.total_inscripciones ?? 0}</span> inscritos cumplen asistencia
       </p>
+
+      <ResultadoEmision resultado={resultadoEmision} idCongreso={idCongreso} />
 
       {detalle.length === 0 ? (
         <p className="text-sm text-text-muted">
@@ -446,6 +469,7 @@ function ResumenCumplimiento({ resumen, error, hayFiltros, idCongreso, onAsisten
               <Table.HeadCell>Correo</Table.HeadCell>
               <Table.HeadCell>Días marcados</Table.HeadCell>
               <Table.HeadCell>Estado</Table.HeadCell>
+              <Table.HeadCell>Certificado</Table.HeadCell>
             </tr>
           </Table.Head>
           <tbody>
@@ -475,10 +499,24 @@ function ResumenCumplimiento({ resumen, error, hayFiltros, idCongreso, onAsisten
                         {d.cumple === null ? 'Sin definir' : d.cumple ? 'Cumple' : 'No cumple'}
                       </Badge>
                     </Table.Cell>
+                    <Table.Cell>
+                      {d.cumple === true && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          loading={emitiendo === d.id_inscripcion}
+                          disabled={emitiendo !== null}
+                          onClick={() => emitirCertificado(d)}
+                        >
+                          Emitir certificado
+                        </Button>
+                      )}
+                    </Table.Cell>
                   </Table.Row>
                   {abierto && (
                     <tr className="border-b border-border last:border-0">
-                      <td colSpan={5} className="px-4 pb-2 pl-14">
+                      <td colSpan={6} className="px-4 pb-2 pl-14">
                         {asistencias.length === 0 ? (
                           <p className="py-2 text-sm text-text-muted">Sin asistencias marcadas.</p>
                         ) : (

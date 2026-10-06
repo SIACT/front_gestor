@@ -6,6 +6,7 @@ import { useCongreso } from '../../context/CongresoContext';
 import { ESTADO_INSCRIPCION_LABEL, ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP, formatFecha, formatFechaHora } from '../../utils/formato';
 import { ROL_PARTICIPACION } from '../../utils/roles';
 import { SugerenciasMensaje } from '../../components/SugerenciasMensaje';
+import { BotonDescargarCertificado } from '../../components/BotonDescargarCertificado';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -164,6 +165,8 @@ function CertificadosInscripcion({ idCongreso, idInscripcion }) {
   const [certificados, setCertificados] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  // Se incrementa para volver a pedir la lista (p. ej. si un certificado ya no existe al descargarlo).
+  const [recarga, setRecarga] = useState(0);
 
   useEffect(() => {
     setCargando(true);
@@ -172,7 +175,7 @@ function CertificadosInscripcion({ idCongreso, idInscripcion }) {
       .then((data) => setCertificados(data ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setCargando(false));
-  }, [idCongreso, idInscripcion]);
+  }, [idCongreso, idInscripcion, recarga]);
 
   return (
     <Card>
@@ -198,11 +201,20 @@ function CertificadosInscripcion({ idCongreso, idInscripcion }) {
                 )}
                 <p className="text-xs text-text-muted">Emitido el {formatFecha(c.fecha_emision)}</p>
               </div>
-              {c.notificado_en ? (
-                <Badge variant="revisado">Notificado el {formatFechaHora(c.notificado_en)}</Badge>
-              ) : (
-                <Badge variant="default">Sin notificar</Badge>
-              )}
+              <div className="flex flex-col items-end gap-2">
+                {c.notificado_en ? (
+                  <Badge variant="revisado">Notificado el {formatFechaHora(c.notificado_en)}</Badge>
+                ) : (
+                  <Badge variant="default">Sin notificar</Badge>
+                )}
+                <BotonDescargarCertificado
+                  idCongreso={idCongreso}
+                  idInscripcion={idInscripcion}
+                  idCertificado={c.id_certificado}
+                  size="sm"
+                  onNoEncontrado={() => setRecarga((n) => n + 1)}
+                />
+              </div>
             </li>
           ))}
         </ul>

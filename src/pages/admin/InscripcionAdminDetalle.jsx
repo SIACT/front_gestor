@@ -202,6 +202,8 @@ function CertificadosInscripcion({ idCongreso, idInscripcion }) {
                 <p className="text-xs text-text-muted">Emitido el {formatFecha(c.fecha_emision)}</p>
               </div>
               <div className="flex flex-col items-end gap-2">
+                {/* Historial de cómo se emitió: se conserva aunque la inscripción ya esté confirmada. */}
+                {c.emitido_sin_pago === true && <Badge variant="alerta">Emitido sin pago confirmado</Badge>}
                 {c.notificado_en ? (
                   <Badge variant="revisado">Notificado el {formatFechaHora(c.notificado_en)}</Badge>
                 ) : (

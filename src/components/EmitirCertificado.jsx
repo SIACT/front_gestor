@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { apiFetch } from '../api/client';
-import { formatFechaHora } from '../utils/formato';
+import { estadoInscripcionClaro, formatFechaHora } from '../utils/formato';
 import { mensajeErrorEmision } from '../utils/mensajesCertificacion';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
@@ -9,9 +9,20 @@ import { Alert } from './ui/Alert';
 const TIPO_TEXTO = { asistencia: 'asistencia', participacion: 'participación' };
 
 // Botón + Modal de emisión individual, compartido por el resumen de Asistencia (tipo 'asistencia')
-// y el detalle de trabajo del Admin (tipo 'participacion', con idTalk). Dos vistas en el mismo
-// Modal: 'confirmar' (con la casilla de correo) y 'resultado'.
-export function EmitirCertificado({ idCongreso, idInscripcion, tipo, idTalk, nombrePersona, tituloTrabajo, onEmitido }) {
+// y el detalle de trabajo del Admin (tipo 'participacion', con idTalk). Vistas del mismo Modal:
+// 'confirmar' (con la casilla de correo), 'advertencia_sin_pago' (solo participación, tras un 409
+// INSCRIPCION_SIN_PAGO) y 'resultado'. estadoInscripcion es opcional: si el padre lo conoce, el
+// aviso de sin pago lo nombra; si no, se muestra el mensaje del backend.
+export function EmitirCertificado({
+  idCongreso,
+  idInscripcion,
+  tipo,
+  idTalk,
+  nombrePersona,
+  tituloTrabajo,
+  estadoInscripcion,
+  onEmitido,
+}) {
   const [abierto, setAbierto] = useState(false);
   const [vista, setVista] = useState('confirmar');
   // Siempre booleano (e.target.checked): el backend responde 400 a "true" como string.
@@ -24,6 +35,11 @@ export function EmitirCertificado({ idCongreso, idInscripcion, tipo, idTalk, nom
   const [yaExistia, setYaExistia] = useState(false);
   const [reintentando, setReintentando] = useState(false);
   const [errorCorreo, setErrorCorreo] = useState(null);
+  // Mensaje del 409 INSCRIPCION_SIN_PAGO (respaldo si no se conoce el estado) y error de la
+  // segunda petición. No hay ninguna "autorización" guardada: confirmar_sin_pago solo se pone en
+  // la petición que dispara "Emitir de todas formas".
+  const [mensajeSinPago, setMensajeSinPago] = useState('');
+  const [errorSinPago, setErrorSinPago] = useState(null);
 
   function abrir() {
     setVista('confirmar');
@@ -32,6 +48,8 @@ export function EmitirCertificado({ idCongreso, idInscripcion, tipo, idTalk, nom
     setResultado(null);
     setYaExistia(false);
     setErrorCorreo(null);
+    setMensajeSinPago('');
+    setErrorSinPago(null);
     setAbierto(true);
   }
 
@@ -53,22 +71,47 @@ export function EmitirCertificado({ idCongreso, idInscripcion, tipo, idTalk, nom
     });
   }
 
+  function mostrarResultado(data) {
+    setResultado(data);
+    setYaExistia(data?.ya_existia === true);
+    setVista('resultado');
+  }
+
+  // Primera petición: nunca lleva confirmar_sin_pago.
   async function handleEmitir() {
     setEmitiendo(true);
     setError(null);
     try {
-      const data = await emitirConCorreo({ notificar });
-      setResultado(data);
-      setYaExistia(data?.ya_existia === true);
-      setVista('resultado');
+      mostrarResultado(await emitirConCorreo({ notificar }));
     } catch (err) {
-      setError(err);
+      // Solo participación: asistencia responde 400 INSCRIPCION_NO_CONFIRMADA y se queda en el error.
+      if (tipo === 'participacion' && err.code === 'INSCRIPCION_SIN_PAGO') {
+        setMensajeSinPago(err.message);
+        setErrorSinPago(null);
+        setVista('advertencia_sin_pago');
+      } else {
+        setError(err);
+      }
+    } finally {
+      setEmitiendo(false);
+    }
+  }
+
+  // Segunda petición: la MISMA (id_inscripcion, tipo, id_talk, notificar) más confirmar_sin_pago.
+  async function handleEmitirSinPago() {
+    setEmitiendo(true);
+    setErrorSinPago(null);
+    try {
+      mostrarResultado(await emitirConCorreo({ notificar, confirmar_sin_pago: true }));
+    } catch (err) {
+      setErrorSinPago(err);
     } finally {
       setEmitiendo(false);
     }
   }
 
   // Reenviar (ya notificado) o reintentar (falló): el certificado ya existe, solo se repite el aviso.
+  // No llevan confirmar_sin_pago: un certificado existente no pide confirmación.
   async function handleCorreoDeNuevo(reenviar) {
     setReintentando(true);
     setErrorCorreo(null);
@@ -124,6 +167,36 @@ export function EmitirCertificado({ idCongreso, idInscripcion, tipo, idTalk, nom
               </Button>
             </div>
           </div>
+        ) : vista === 'advertencia_sin_pago' && tipo === 'participacion' ? (
+          <div className="flex flex-col gap-4">
+            <Alert variant="warning">
+              {estadoInscripcion
+                ? `${nombrePersona} no tiene la inscripción confirmada (estado: ${estadoInscripcionClaro(estadoInscripcion)}). ¿Quieres emitir el certificado de todas formas? Quedará marcado como emitido sin pago confirmado.`
+                : mensajeSinPago}
+            </Alert>
+            {!estadoInscripcion && (
+              <p className="text-sm text-text-muted">Si lo emites, quedará marcado como emitido sin pago confirmado.</p>
+            )}
+            {notificar && <p className="text-sm text-text-primary">Además se enviará el correo de aviso a la persona.</p>}
+            {errorSinPago && <Alert variant="error">{mensajeErrorEmision(errorSinPago, idCongreso)}</Alert>}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="primary"
+                autoFocus
+                disabled={emitiendo}
+                onClick={() => {
+                  setErrorSinPago(null);
+                  setVista('confirmar');
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="button" variant="destructive" loading={emitiendo} disabled={emitiendo} onClick={handleEmitirSinPago}>
+                Emitir de todas formas
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="flex flex-col gap-4">
             <ResultadoCorreo
@@ -132,6 +205,9 @@ export function EmitirCertificado({ idCongreso, idInscripcion, tipo, idTalk, nom
               reintentando={reintentando}
               onCorreoDeNuevo={handleCorreoDeNuevo}
             />
+            {resultado?.emitido_sin_pago === true && (
+              <p className="text-sm text-text-primary">Emitido sin pago confirmado.</p>
+            )}
             {resultado?.codigo_verificacion && (
               <p className="text-xs text-text-muted">
                 Código de verificación <span className="font-mono">{resultado.codigo_verificacion}</span>

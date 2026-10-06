@@ -24,6 +24,10 @@ export function mensajeErrorEmision(error, idCongreso) {
       return 'La inscripción no está confirmada: solo las inscripciones confirmadas pueden recibir certificado (la carta de compromiso no habilita la emisión).';
     case 'ASISTENCIA_INSUFICIENTE':
       return `No cumple la asistencia requerida. ${error.message}`;
+    case 'INSCRIPCION_INACTIVA':
+      return 'La inscripción de esta persona está inactiva: reactívala antes de emitir el certificado.';
+    case 'NO_ES_PARTICIPANTE_DEL_TRABAJO':
+      return 'Esta persona no figura como autora ni coautora del trabajo: no se puede emitir su certificado de participación.';
     case 'TRABAJO_NO_PRESENTO':
       return "Este trabajo no está marcado como 'Presentó': no se puede emitir el certificado de participación.";
     case 'UMBRAL_NO_CONFIGURADO':

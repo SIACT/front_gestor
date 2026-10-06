@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
-import { Building2, GraduationCap, Globe } from 'lucide-react';
+import { Building2, ChevronDown, GraduationCap, Globe } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
 import { ESTADO_INSCRIPCION_VARIANT } from '../../utils/formato';
@@ -9,6 +9,7 @@ import { Alert } from '../../components/ui/Alert';
 import { Badge } from '../../components/ui/Badge';
 import { PageLoader } from '../../components/ui/PageLoader';
 import { GraficoCircular } from '../../components/ui/GraficoCircular';
+import { GraficoBarrasAgrupadas } from '../../components/ui/GraficoBarrasAgrupadas';
 import { BarraEstadistica, EstadisticasPanel, GrupoBarras } from '../../components/EstadisticasPanel';
 
 // Barra grande y coloreada — reemplaza el tratamiento monocromático de EstadisticasPanel
@@ -111,6 +112,8 @@ const ENDPOINTS = {
   paises: (id) => `/congresos/${id}/estadisticas/paises`,
   instituciones: (id) => `/congresos/${id}/estadisticas/instituciones`,
   comprobantes: (id) => `/congresos/${id}/estadisticas/comprobantes`,
+  indicadoresExito: (id) => `/congresos/${id}/estadisticas/indicadores-exito`,
+  indicadoresExitoPorArea: (id) => `/congresos/${id}/estadisticas/indicadores-exito/por-area`,
 };
 
 function ordenarDesc(items) {
@@ -196,6 +199,104 @@ function ListaProcedencia({ titulo, items, limiteInicial }) {
           </button>
         )}
       </div>
+    </Card>
+  );
+}
+
+// Carril gris de fondo (mismo bg-surface que BarraGrande) para que una etapa en 0% siga
+// mostrando dónde iría su barra.
+function BarraEmbudo({ porcentaje, className }) {
+  return (
+    <div className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-surface">
+      <div className={clsx('h-full rounded-full', className)} style={{ width: `${porcentaje}%` }} />
+    </div>
+  );
+}
+
+function FlechaEmbudo() {
+  return <ChevronDown className="mx-auto size-4 text-text-muted" />;
+}
+
+// Embudo Aceptadas → Habilitadas por pago → Programadas. Todos los anchos son relativos a
+// total_aceptadas (la base), no al máximo de cada etapa, para que la pérdida entre etapas
+// se vea. Con total_aceptadas = 0 el backend devuelve los porcentajes en null, así que ese
+// caso no renderiza barras.
+function IndicadoresExito({ data, error }) {
+  return (
+    <Card>
+      <h3 className="mb-4 text-center font-display text-lg">Indicadores de Éxito Trabajos</h3>
+
+      {error ? (
+        <Alert variant="error">{error}</Alert>
+      ) : !data || data.total_aceptadas === 0 ? (
+        <p className="text-center text-text-muted">Aún no hay ponencias aceptadas.</p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div>
+            <div className="flex justify-between text-sm">
+              <span>Aceptadas</span>
+              <span className="font-semibold">{data.total_aceptadas} (100%)</span>
+            </div>
+            <BarraEmbudo porcentaje={100} className="bg-accent" />
+          </div>
+
+          <FlechaEmbudo />
+
+          <div>
+            <div className="flex justify-between text-sm">
+              <span>Habilitadas por pago</span>
+              <span className="font-semibold">
+                {data.habilitadas_para_pago} ({data.porcentaje_habilitadas_pago}%)
+              </span>
+            </div>
+            <BarraEmbudo porcentaje={data.porcentaje_habilitadas_pago} className="bg-blue-text" />
+          </div>
+
+          <FlechaEmbudo />
+
+          {/* Indicador de éxito principal: destacado con fondo/borde de acento y número grande. */}
+          <div className="rounded-lg border border-accent/30 bg-accent/10 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-text-muted">Programadas</span>
+              <span className="text-2xl font-bold text-accent">{data.porcentaje_programadas}%</span>
+            </div>
+            <p className="text-xs text-text-muted">
+              {data.programadas} de {data.total_aceptadas} ponencias aceptadas
+            </p>
+            <BarraEmbudo porcentaje={data.porcentaje_programadas} className="bg-accent" />
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// El backend ya ordena por porcentaje_programadas desc, con las áreas sin aceptadas al
+// final: se respeta ese orden tal cual en las categorías.
+function IndicadoresExitoPorArea({ data, error }) {
+  const porArea = data?.por_area ?? [];
+  return (
+    <Card>
+      <h3 className="mb-4 text-center font-display text-lg">Indicadores de Éxito por Área</h3>
+
+      {error ? (
+        <Alert variant="error">{error}</Alert>
+      ) : porArea.length === 0 ? (
+        <p className="text-center text-text-muted">Sin áreas de estudio para este congreso.</p>
+      ) : (
+        <GraficoBarrasAgrupadas
+          categorias={porArea.map((a) => a.nombre)}
+          series={[
+            { nombre: 'Aceptadas', color: 'var(--color-accent)', valores: porArea.map((a) => a.total_aceptadas) },
+            {
+              nombre: 'Habilitadas',
+              color: 'var(--color-blue-text)',
+              valores: porArea.map((a) => a.habilitadas_para_pago),
+            },
+            { nombre: 'Programadas', color: 'var(--color-purple-text)', valores: porArea.map((a) => a.programadas) },
+          ]}
+        />
+      )}
     </Card>
   );
 }
@@ -550,6 +651,12 @@ export function EstadisticasCongreso() {
           ],
         }}
       />
+
+      <h2 className="mt-12 text-center font-display text-2xl text-text-primary">Datos Reales</h2>
+
+      <IndicadoresExito data={datos.indicadoresExito} error={errores.indicadoresExito} />
+
+      <IndicadoresExitoPorArea data={datos.indicadoresExitoPorArea} error={errores.indicadoresExitoPorArea} />
     </div>
   );
 }

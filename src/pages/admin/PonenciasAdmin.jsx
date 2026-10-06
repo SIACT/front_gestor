@@ -310,14 +310,28 @@ export function PonenciasAdmin() {
       programadoFiltro,
   );
 
-  // Filtro de tipo en memoria (no server-side) para que "Mostrando X de Y" siga
-  // reflejando cuántos trabajos descarta el tipo sobre los filtros del backend.
+  // Tipo y texto se filtran en memoria (no server-side) para que "Mostrando X de Y" siga
+  // reflejando cuántos trabajos descartan sobre los filtros del backend. El texto busca en
+  // el título y en el autor principal (la tabla no trae coautores — esos los cubren las
+  // tarjetas de participante); mismo mínimo de 2 caracteres que la búsqueda de participantes.
+  const textoBusqueda = busquedaParticipantes.query.trim().toLowerCase();
   const talksFiltradas = useMemo(() => {
-    if (!tipoFiltro) return talks;
-    return talks.filter(
-      (talk) => String(talk.tipo_participacion?.id_tipo_participacion) === tipoFiltro,
-    );
-  }, [talks, tipoFiltro]);
+    const aplicarTexto = textoBusqueda.length >= 2;
+    if (!tipoFiltro && !aplicarTexto) return talks;
+    return talks.filter((talk) => {
+      if (tipoFiltro && String(talk.tipo_participacion?.id_tipo_participacion) !== tipoFiltro) {
+        return false;
+      }
+      if (!aplicarTexto) return true;
+      const usuario = talk.inscripcion?.usuario;
+      const nombreCompleto = `${usuario?.nombre ?? ''} ${usuario?.apellido ?? ''}`.toLowerCase();
+      return (
+        (talk.titulo ?? '').toLowerCase().includes(textoBusqueda) ||
+        nombreCompleto.includes(textoBusqueda) ||
+        (usuario?.correo ?? '').toLowerCase().includes(textoBusqueda)
+      );
+    });
+  }, [talks, tipoFiltro, textoBusqueda]);
 
   const PONENCIAS_POR_PAGINA = 15;
   const totalPaginas = Math.ceil(talksFiltradas.length / PONENCIAS_POR_PAGINA);
@@ -341,7 +355,7 @@ export function PonenciasAdmin() {
         <div className="relative w-full sm:w-64">
           <Input
             icon={<Search className="size-4" />}
-            placeholder="Buscar por nombre, apellido o correo..."
+            placeholder="Buscar por título, nombre, apellido o correo..."
             value={busquedaParticipantes.query}
             onChange={handleBusquedaChange}
           />

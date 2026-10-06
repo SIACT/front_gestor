@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { BarChart3, CalendarDays, MapPin, Mic, Pencil, UserCog } from 'lucide-react';
+import { Award, BarChart3, CalendarDays, MapPin, Mic, Pencil, UserCog } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
 import { capitalizar, formatFecha } from '../utils/formato';
@@ -467,6 +467,16 @@ export function CongresoOverview() {
           <p className="mt-3 font-medium text-text-primary">Agenda</p>
           <p className="mt-1 text-sm text-text-muted">
             Consulta el cronograma de ponencias y actividades del congreso.
+          </p>
+        </Card>
+        <Card
+          className="cursor-pointer transition-colors hover:border-accent"
+          onClick={() => navigate(`/congresos/${id_congreso}/certificacion`)}
+        >
+          <Award className="size-6 text-accent" />
+          <p className="mt-3 font-medium text-text-primary">Mis certificaciones</p>
+          <p className="mt-1 text-sm text-text-muted">
+            Consulta y descarga tus certificados de este congreso.
           </p>
         </Card>
       </div>

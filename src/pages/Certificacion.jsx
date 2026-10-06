@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Download } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import { useCongreso } from '../context/CongresoContext';
 import { formatFecha } from '../utils/formato';
 import { Logo } from '../components/ui/Logo';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
 import { PageLoader } from '../components/ui/PageLoader';
+import { BotonDescargarCertificado } from '../components/BotonDescargarCertificado';
 
 const TIPO_LABEL = {
   asistencia: 'Asistencia',
@@ -23,6 +22,8 @@ export function Certificacion() {
   const [certificados, setCertificados] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  // Se incrementa para volver a pedir la lista (p. ej. si un certificado ya no existe al descargarlo).
+  const [recarga, setRecarga] = useState(0);
 
   useEffect(() => {
     if (!idInscripcion) {
@@ -35,7 +36,7 @@ export function Certificacion() {
       .then((data) => setCertificados(data ?? []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [idCongreso, idInscripcion]);
+  }, [idCongreso, idInscripcion, recarga]);
 
   return (
     <div className="flex flex-col items-center gap-8 px-4 pt-6">
@@ -67,15 +68,12 @@ export function Certificacion() {
                   <p className="font-medium text-text-primary">{certificado.talk.titulo}</p>
                 )}
               </div>
-              {/* url_descarga es una URL firmada que expira en 5 minutos: se abre tal cual, sin guardarla. */}
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => window.open(certificado.url_descarga, '_blank', 'noopener,noreferrer')}
-              >
-                <Download className="size-4" />
-                Descargar
-              </Button>
+              <BotonDescargarCertificado
+                idCongreso={idCongreso}
+                idInscripcion={idInscripcion}
+                idCertificado={certificado.id_certificado}
+                onNoEncontrado={() => setRecarga((n) => n + 1)}
+              />
             </Card>
           ))
         )}

@@ -100,3 +100,18 @@ export const ESTADO_INSCRIPCION_LABEL = {
   rechazada: 'Rechazada',
   cancelada: 'Cancelada',
 };
+
+// Estado de inscripción en minúscula para usarlo dentro de una frase ("estado: pendiente de
+// pago"). Distinto de ESTADO_INSCRIPCION_LABEL (etiquetas/filtros): aquí se explica el pago.
+const ESTADO_INSCRIPCION_CLARO = {
+  pendiente: 'pendiente de pago',
+  carta_compromiso: 'carta de compromiso',
+  rechazada: 'rechazada',
+  cancelada: 'cancelada',
+  confirmada: 'confirmada',
+};
+
+// Valor desconocido: se devuelve tal cual.
+export function estadoInscripcionClaro(estado) {
+  return ESTADO_INSCRIPCION_CLARO[estado] ?? estado;
+}

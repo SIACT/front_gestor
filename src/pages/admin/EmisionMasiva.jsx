@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
+import { capitalizar, estadoInscripcionClaro } from '../../utils/formato';
 import { mensajeErrorEmision } from '../../utils/mensajesCertificacion';
 import { Card } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
@@ -12,8 +13,15 @@ import { Spinner } from '../../components/ui/Spinner';
 // Cortes del proxy (gateway/timeout de Cloudflare o del hosting): el backend pudo seguir procesando.
 const STATUS_SIN_RESPUESTA = [502, 503, 504, 524];
 
-const MENSAJE_SIN_RESPUESTA =
-  'No se recibió la respuesta del servidor. La operación puede haber continuado: revisa la lista de certificados. Si la repites, solo se escribirá a las personas que aún estén pendientes.';
+// La última frase depende de lo que pedía la corrida: con correo, lo que importa es no escribir
+// dos veces; sin correo, no duplicar certificados.
+function mensajeSinRespuesta(conCorreo) {
+  return `No se recibió la respuesta del servidor. La operación puede haber continuado: revisa la lista de certificados. ${
+    conCorreo
+      ? 'Si la repites, solo se escribirá a las personas que aún estén pendientes.'
+      : 'Si la repites, solo se emitirá lo que falte.'
+  }`;
+}
 
 // apiFetch: un fetch que lanza (red caída, conexión cortada) llega sin status; un corte del proxy
 // llega con status 502/503/504/524. En ambos casos no se sabe si el lote terminó.
@@ -86,21 +94,51 @@ function ResumenCorreos({ resumen, idCongreso }) {
   );
 }
 
+// Participación: integrantes que el lote omitió por tener la inscripción sin confirmar.
+function OmitidosSinPago({ omitidos, idCongreso, bloqueado, onCertificar }) {
+  return (
+    <Alert variant="warning">
+      <p className="font-medium">
+        {omitidos.length} {omitidos.length === 1 ? 'persona no se certificó' : 'personas no se certificaron'} porque su
+        inscripción no está confirmada
+      </p>
+      <ul className="mt-2 flex max-h-64 flex-col gap-1.5 overflow-y-auto pr-1">
+        {omitidos.map((o, i) => (
+          <li key={`${o.id_inscripcion}-${i}`}>
+            <Link to={`/congresos/${idCongreso}/admin/inscripciones/${o.id_inscripcion}`} className="font-medium underline">
+              {capitalizar(o.nombre)} {capitalizar(o.apellido)}
+            </Link>{' '}
+            ({estadoInscripcionClaro(o.estado_inscripcion)}) — {o.titulo_talk}
+          </li>
+        ))}
+      </ul>
+      <Button type="button" size="sm" variant="secondary" disabled={bloqueado} onClick={onCertificar} className="mt-3">
+        Certificar también a estas personas
+      </Button>
+    </Alert>
+  );
+}
+
 // loteEnCurso / onIniciar / onTerminar vienen del padre: mientras corre un lote, TODOS los botones
 // de lote quedan desactivados.
 function LoteCard({ titulo, descripcion, boton, ruta, idCongreso, loteEnCurso, onIniciar, onTerminar, renderResumen }) {
   // Siempre booleano (e.target.checked): el backend responde 400 a "true" como string.
   const [notificar, setNotificar] = useState(false);
   const [confirmarAbierto, setConfirmarAbierto] = useState(false);
+  const [confirmarSinPagoAbierto, setConfirmarSinPagoAbierto] = useState(false);
   const [resumen, setResumen] = useState(null);
   const [error, setError] = useState(null);
+  // notificar con el que se ejecutó la corrida: el segundo paso ("Certificar también…") lo reutiliza
+  // tal cual, aunque la casilla haya cambiado después.
+  const [notificarCorrida, setNotificarCorrida] = useState(false);
 
   const ejecutando = loteEnCurso === ruta;
   const bloqueado = loteEnCurso !== null;
 
   // Sin timeout propio: un lote grande puede tardar y cortarlo no lo detiene en el servidor.
-  async function ejecutar() {
+  async function correrLote(body) {
     setConfirmarAbierto(false);
+    setConfirmarSinPagoAbierto(false);
     // onIniciar es síncrono y devuelve false si ya hay un lote corriendo: evita el doble clic
     // antes de que el estado deshabilite los botones.
     if (!onIniciar(ruta)) return;
@@ -110,7 +148,7 @@ function LoteCard({ titulo, descripcion, boton, ruta, idCongreso, loteEnCurso, o
       setResumen(
         await apiFetch(`/congresos/${idCongreso}/certificacion/emitir-lote/${ruta}`, {
           method: 'POST',
-          body: JSON.stringify({ notificar: notificar === true }),
+          body: JSON.stringify(body),
         }),
       );
     } catch (err) {
@@ -118,6 +156,18 @@ function LoteCard({ titulo, descripcion, boton, ruta, idCongreso, loteEnCurso, o
     } finally {
       onTerminar();
     }
+  }
+
+  // Corrida nueva: solo notificar (sin incluir_sin_pago).
+  function ejecutar() {
+    const conCorreo = notificar === true;
+    setNotificarCorrida(conCorreo);
+    correrLote({ notificar: conCorreo });
+  }
+
+  // Segundo paso, solo tras confirmar en el Modal: mismo notificar de la corrida anterior.
+  function ejecutarIncluyendoSinPago() {
+    correrLote({ notificar: notificarCorrida === true, incluir_sin_pago: true });
   }
 
   function handleClic() {
@@ -160,12 +210,25 @@ function LoteCard({ titulo, descripcion, boton, ruta, idCongreso, loteEnCurso, o
       )}
       {error && (
         <Alert variant={esRespuestaPerdida(error) ? 'warning' : 'error'}>
-          {esRespuestaPerdida(error) ? MENSAJE_SIN_RESPUESTA : mensajeErrorEmision(error, idCongreso)}
+          {esRespuestaPerdida(error) ? mensajeSinRespuesta(notificarCorrida) : mensajeErrorEmision(error, idCongreso)}
         </Alert>
       )}
       {resumen && (
         <div className="flex flex-col gap-4 border-t border-border pt-4">
           {renderResumen(resumen)}
+          {resumen.incluir_sin_pago === true && (
+            <p className="text-sm text-text-primary">
+              {resumen.emitidos_sin_pago ?? 0} certificados emitidos sin pago confirmado
+            </p>
+          )}
+          {resumen.omitidos_sin_pago?.length > 0 && (
+            <OmitidosSinPago
+              omitidos={resumen.omitidos_sin_pago}
+              idCongreso={idCongreso}
+              bloqueado={bloqueado}
+              onCertificar={() => setConfirmarSinPagoAbierto(true)}
+            />
+          )}
           <ResumenCorreos resumen={resumen} idCongreso={idCongreso} />
           <ListaErrores errores={resumen.errores} idCongreso={idCongreso} />
         </div>
@@ -182,6 +245,28 @@ function LoteCard({ titulo, descripcion, boton, ruta, idCongreso, loteEnCurso, o
             </Button>
             <Button type="button" variant="secondary" disabled={bloqueado} onClick={ejecutar}>
               Emitir y enviar correos
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={confirmarSinPagoAbierto}
+        onClose={() => setConfirmarSinPagoAbierto(false)}
+        title="Certificar sin pago confirmado"
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-text-primary">
+            Se emitirán certificados a {resumen?.omitidos_sin_pago?.length ?? 0} personas con inscripción sin confirmar.
+            Quedarán marcados como emitidos sin pago confirmado.
+          </p>
+          {notificarCorrida && <p className="text-sm text-text-primary">Además se les enviará el correo de aviso.</p>}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="primary" autoFocus onClick={() => setConfirmarSinPagoAbierto(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="destructive" disabled={bloqueado} onClick={ejecutarIncluyendoSinPago}>
+              Emitir de todas formas
             </Button>
           </div>
         </div>
@@ -249,7 +334,11 @@ export function EmisionMasiva() {
               <Cifra valor={r.total_talks_presentadas} etiqueta="Trabajos presentados" />
               <Cifra valor={r.total_certificados_emitidos} etiqueta="Emitidos nuevos" destacada />
               <Cifra valor={r.ya_existian} etiqueta="Ya existían" />
-              <Cifra valor={r.omitidos_no_confirmados} etiqueta="Omitidos (no confirmados)" />
+              {/* Con la lista de omitidos por pago, el bloque detallado reemplaza esta cifra; sin
+                  lista (no debería pasar con omitidos > 0) se conserva como respaldo. */}
+              {!(r.omitidos_sin_pago?.length > 0) && (
+                <Cifra valor={r.omitidos_no_confirmados} etiqueta="Omitidos (no confirmados)" />
+              )}
             </div>
           )}
         />

@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
-import { capitalizar, formatFechaHora } from '../../utils/formato';
+import { capitalizar, estadoInscripcionClaro, formatFechaHora } from '../../utils/formato';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Alert } from '../../components/ui/Alert';
@@ -32,9 +32,17 @@ function agruparPorTrabajo(filas) {
       apellido: fila.apellido,
       correo: fila.correo,
       rol_en_talk: fila.rol_en_talk,
+      estado_inscripcion: fila.estado_inscripcion,
     });
   }
   return [...grupos.values()];
+}
+
+// Filtro "Pago" en el cliente, sobre las personas ya recibidas (área y tipo se filtran en el servidor).
+function cumpleFiltroPago(persona, pago) {
+  if (pago === 'confirmados') return persona.estado_inscripcion === 'confirmada';
+  if (pago === 'sin_confirmar') return persona.estado_inscripcion !== 'confirmada';
+  return true;
 }
 
 // Vista de solo lectura: quiénes quedan habilitados para el certificado de participación por
@@ -50,6 +58,8 @@ export function CertificadosTrabajo() {
   const [expandido, setExpandido] = useState({});
 
   const [filtros, setFiltros] = useState({ id_area: '', id_tipo_participacion: '' });
+  // Solo cliente: no se envía al backend ni dispara una recarga.
+  const [pago, setPago] = useState('');
   const [areas, setAreas] = useState([]);
   const [tipos, setTipos] = useState([]);
   // Solo se aplica la respuesta de la última petición: un filtro anterior lento no pisa al vigente.
@@ -93,6 +103,19 @@ export function CertificadosTrabajo() {
   }
 
   const grupos = useMemo(() => agruparPorTrabajo(filas), [filas]);
+  // Con filtro de pago: cada trabajo conserva solo las personas que cumplen, y se ocultan los que
+  // se quedan sin ninguna. total guarda cuántas tenía para mostrar "N de M".
+  const gruposVisibles = useMemo(
+    () =>
+      grupos
+        .map((grupo) => ({
+          ...grupo,
+          total: grupo.personas.length,
+          personas: grupo.personas.filter((p) => cumpleFiltroPago(p, pago)),
+        }))
+        .filter((grupo) => grupo.personas.length > 0),
+    [grupos, pago],
+  );
 
   function toggleExpandido(idTalk) {
     setExpandido((prev) => ({ ...prev, [idTalk]: !prev[idTalk] }));
@@ -135,19 +158,26 @@ export function CertificadosTrabajo() {
             ))}
           </Select>
         </div>
+        <div className="w-44">
+          <Select label="Pago" value={pago} onChange={(e) => setPago(e.target.value)}>
+            <option value="">Todos</option>
+            <option value="confirmados">Confirmados</option>
+            <option value="sin_confirmar">Sin confirmar</option>
+          </Select>
+        </div>
       </div>
 
       {error ? (
         <Alert variant="error">{error}</Alert>
-      ) : grupos.length === 0 ? (
+      ) : gruposVisibles.length === 0 ? (
         <p className="text-sm text-text-muted">
-          {filtros.id_area || filtros.id_tipo_participacion
+          {filtros.id_area || filtros.id_tipo_participacion || pago
             ? 'Ningún trabajo marcado como \u2018Presentó\u2019 coincide con los filtros seleccionados.'
             : 'Aún no hay trabajos marcados como \u2018Presentó\u2019 en este congreso.'}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          {grupos.map((grupo) => {
+          {gruposVisibles.map((grupo) => {
             const abierto = Boolean(expandido[grupo.id_talk]);
             return (
               <Card key={grupo.id_talk}>
@@ -171,7 +201,9 @@ export function CertificadosTrabajo() {
                       )}
                       <span>·</span>
                       <span>
-                        {grupo.personas.length} {grupo.personas.length === 1 ? 'integrante' : 'integrantes'}
+                        {pago && grupo.personas.length !== grupo.total
+                          ? `${grupo.personas.length} de ${grupo.total} integrantes`
+                          : `${grupo.personas.length} ${grupo.personas.length === 1 ? 'integrante' : 'integrantes'}`}
                       </span>
                     </div>
                   </div>
@@ -190,7 +222,15 @@ export function CertificadosTrabajo() {
                           </p>
                           <p className="text-xs text-text-muted">{p.correo}</p>
                         </div>
-                        <Badge variant="default">{p.rol_en_talk === 'principal' ? 'Principal' : 'Coautor'}</Badge>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {/* Informativo: no bloquea nada (el Admin decide al emitir). */}
+                          {p.estado_inscripcion !== 'confirmada' && (
+                            <Badge variant="alerta" title={estadoInscripcionClaro(p.estado_inscripcion)}>
+                              Sin pago confirmado
+                            </Badge>
+                          )}
+                          <Badge variant="default">{p.rol_en_talk === 'principal' ? 'Principal' : 'Coautor'}</Badge>
+                        </div>
                       </div>
                     ))}
                   </div>

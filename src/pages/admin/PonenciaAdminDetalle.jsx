@@ -5,7 +5,7 @@ import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
 import { capitalizar, formatFechaHora } from '../../utils/formato';
 import { PonenciaDetalle } from '../../components/PonenciaDetalle';
-import { ResultadoEmision } from '../../components/ResultadoEmision';
+import { EmitirCertificado } from '../../components/EmitirCertificado';
 import { SugerenciasMensaje } from '../../components/SugerenciasMensaje';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
@@ -76,8 +76,6 @@ function EmisionParticipacion({ talk, idCongreso }) {
   const [ponentes, setPonentes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState('');
-  const [emitiendo, setEmitiendo] = useState(null);
-  const [resultado, setResultado] = useState(null);
 
   useEffect(() => {
     setCargando(true);
@@ -86,23 +84,6 @@ function EmisionParticipacion({ talk, idCongreso }) {
       .catch((err) => setErrorCarga(err.message))
       .finally(() => setCargando(false));
   }, [talk.id_talk]);
-
-  async function emitir(ponente) {
-    setEmitiendo(ponente.id_inscripcion);
-    setResultado(null);
-    const nombre = `${capitalizar(ponente.nombre)} ${capitalizar(ponente.apellido)}`;
-    try {
-      const data = await apiFetch(`/congresos/${idCongreso}/certificacion/emitir`, {
-        method: 'POST',
-        body: JSON.stringify({ id_inscripcion: ponente.id_inscripcion, tipo: 'participacion', id_talk: talk.id_talk }),
-      });
-      setResultado({ nombre, data });
-    } catch (err) {
-      setResultado({ nombre, error: err });
-    } finally {
-      setEmitiendo(null);
-    }
-  }
 
   return (
     <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
@@ -122,21 +103,18 @@ function EmisionParticipacion({ talk, idCongreso }) {
                 </p>
                 <p className="text-xs text-text-muted">{ponente.correo}</p>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                loading={emitiendo === ponente.id_inscripcion}
-                disabled={emitiendo !== null}
-                onClick={() => emitir(ponente)}
-              >
-                Emitir certificado de participación
-              </Button>
+              <EmitirCertificado
+                idCongreso={idCongreso}
+                idInscripcion={ponente.id_inscripcion}
+                tipo="participacion"
+                idTalk={talk.id_talk}
+                nombrePersona={`${capitalizar(ponente.nombre)} ${capitalizar(ponente.apellido)}`}
+                tituloTrabajo={talk.titulo}
+              />
             </li>
           ))}
         </ul>
       )}
-      <ResultadoEmision resultado={resultado} idCongreso={idCongreso} />
     </div>
   );
 }

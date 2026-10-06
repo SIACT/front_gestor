@@ -19,6 +19,9 @@ export async function apiFetch(path, options = {}) {
   if (!res.ok) {
     const err = new Error(body?.error?.message || 'Error en la petición');
     err.code = body?.error?.code;
+    // Un error de red (fetch que lanza) no llega aquí y queda sin status; un corte de proxy (502/503/
+    // 504/524, cuerpo HTML) llega sin code. El status permite distinguir ambos de un error del backend.
+    err.status = res.status;
     throw err;
   }
 

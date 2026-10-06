@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { ChevronDown, Plus, Search, Trash2 } from 'lucide-react';
+import { CalendarDays, ChevronDown, Plus, Search, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
@@ -14,7 +14,7 @@ import { Select } from '../../components/ui/Select';
 import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 import { DatePicker } from '../../components/ui/DatePicker';
-import { ResultadoEmision } from '../../components/ResultadoEmision';
+import { EmitirCertificado } from '../../components/EmitirCertificado';
 
 const ESTADOS_INSCRIPCION = ['pendiente', 'carta_compromiso', 'confirmada', 'rechazada', 'cancelada'];
 
@@ -85,6 +85,252 @@ function CrearVentanaModal({ open, onClose, idCongreso, congreso, onCreada }) {
           </Button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function textoAsistencias(n) {
+  return `${n} ${n === 1 ? 'asistencia marcada' : 'asistencias marcadas'}`;
+}
+
+function rangoCongreso(congreso) {
+  const inicio = fechaDia(congreso?.fecha_inicio);
+  const fin = fechaDia(congreso?.fecha_fin);
+  return inicio && fin ? `del ${formatFechaSolo(inicio)} al ${formatFechaSolo(fin)}` : '';
+}
+
+// Recarga la lista y devuelve el total vigente de la ventana (null si ya no existe). Se usa cuando
+// el backend responde VENTANA_CON_ASISTENCIAS: el conteo cambió desde que se cargó la lista.
+async function totalActualizado(recargarVentanas, idVentana) {
+  const lista = await recargarVentanas();
+  const ventana = lista.find((v) => v.id_ventana === idVentana);
+  return ventana ? (ventana.total_asistencias ?? 0) : null;
+}
+
+// Dos vistas en el mismo Modal (como al crear ponencia): 'editar' con el DatePicker y, si la
+// ventana tiene asistencias, 'confirmar' con el aviso. Solo 'Confirmar cambio' manda confirmar.
+function EditarFechaModal({ ventana, abierto, idCongreso, congreso, onClose, onGuardada, onNoExiste, recargarVentanas }) {
+  const fechaActual = fechaDia(ventana.fecha);
+  const [fecha, setFecha] = useState(fechaActual);
+  const [paso, setPaso] = useState('editar');
+  const [total, setTotal] = useState(ventana.total_asistencias ?? 0);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const inicio = fechaDia(congreso?.fecha_inicio);
+  const fin = fechaDia(congreso?.fecha_fin);
+  const fueraDeRango = Boolean(fecha) && ((inicio && fecha < inicio) || (fin && fecha > fin));
+  const sinCambio = fecha === fechaActual;
+
+  function handleClose() {
+    if (!submitting) onClose();
+  }
+
+  async function guardar(confirmar) {
+    setSubmitting(true);
+    setError('');
+    try {
+      // confirmar como booleano real: el backend responde 409 a "true" como string.
+      await apiFetch(`/congresos/${idCongreso}/asistencia/ventanas/${ventana.id_ventana}`, {
+        method: 'PATCH',
+        body: JSON.stringify(confirmar ? { fecha, confirmar: true } : { fecha }),
+      });
+      onGuardada();
+    } catch (err) {
+      if (err.code === 'VENTANA_NOT_FOUND') {
+        onNoExiste();
+      } else if (err.code === 'VENTANA_CON_ASISTENCIAS') {
+        const nuevo = await totalActualizado(recargarVentanas, ventana.id_ventana).catch(() => total);
+        if (nuevo === null) {
+          onNoExiste();
+          return;
+        }
+        setTotal(nuevo);
+        setPaso('confirmar');
+        setError('El número de asistencias cambió mientras editabas. Revisa el nuevo conteo antes de confirmar.');
+      } else if (err.code === 'VENTANA_YA_EXISTE') {
+        setPaso('editar');
+        setError('Ya existe una ventana en esa fecha.');
+      } else if (err.code === 'FECHA_FUERA_DE_RANGO') {
+        setPaso('editar');
+        setError(`La fecha debe estar dentro del rango del congreso (${rangoCongreso(congreso)}).`);
+      } else {
+        // VENTANA_CON_CERTIFICADOS_EMITIDOS y otros: el mensaje del backend, sin opción de confirmar.
+        setPaso('editar');
+        setError(err.message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleGuardar(e) {
+    e.preventDefault();
+    if (!fecha || fueraDeRango || sinCambio) return;
+    if (total > 0) {
+      setError('');
+      setPaso('confirmar');
+      return;
+    }
+    guardar(false);
+  }
+
+  return (
+    <Modal open={abierto} onClose={handleClose} title="Editar fecha de la ventana">
+      {paso === 'editar' ? (
+        <form onSubmit={handleGuardar} className="flex flex-col gap-4">
+          <DatePicker label="Fecha" value={fecha} onChange={setFecha} />
+          {inicio && fin && <p className="text-xs text-text-muted">El congreso va {rangoCongreso(congreso)}.</p>}
+          <p className="text-xs text-text-muted">El código de autochequeo de la ventana no cambia al editar la fecha.</p>
+          {fueraDeRango && (
+            <Alert variant="error">La fecha debe estar dentro del rango del congreso ({rangoCongreso(congreso)}).</Alert>
+          )}
+          {error && <Alert variant="error">{error}</Alert>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={handleClose} disabled={submitting}>
+              Cancelar
+            </Button>
+            <Button type="submit" loading={submitting} disabled={!fecha || fueraDeRango || sinCambio || submitting}>
+              Guardar
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-text-primary">
+            Mover la ventana del {formatFechaSolo(fechaActual)} al {formatFechaSolo(fecha)}.
+          </p>
+          <Alert variant="warning">
+            Esta ventana tiene {textoAsistencias(total)}. Al cambiar la fecha pasan al nuevo día.
+          </Alert>
+          {error && <Alert variant="error">{error}</Alert>}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={submitting}
+              onClick={() => {
+                setError('');
+                setPaso('editar');
+              }}
+            >
+              Volver
+            </Button>
+            <Button type="button" loading={submitting} disabled={submitting} onClick={() => guardar(true)}>
+              Confirmar cambio
+            </Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function EliminarVentanaModal({ ventana, abierto, idCongreso, onClose, onEliminada, onNoExiste, onIrUmbral, recargarVentanas }) {
+  const fecha = formatFechaSolo(fechaDia(ventana.fecha));
+  const [total, setTotal] = useState(ventana.total_asistencias ?? 0);
+  // bloqueo: { tipo: 'certificados' | 'umbral' | 'otro', mensaje } — ninguno ofrece confirmar.
+  const [bloqueo, setBloqueo] = useState(null);
+  const [aviso, setAviso] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  function handleClose() {
+    if (!submitting) onClose();
+  }
+
+  async function handleEliminar() {
+    setSubmitting(true);
+    setAviso('');
+    try {
+      // confirmar va en la QUERY con el texto exacto true (el backend no lo lee del body).
+      const confirmar = total > 0 ? '?confirmar=true' : '';
+      const data = await apiFetch(`/congresos/${idCongreso}/asistencia/ventanas/${ventana.id_ventana}${confirmar}`, {
+        method: 'DELETE',
+      });
+      onEliminada(data?.asistencias_eliminadas ?? 0);
+    } catch (err) {
+      if (err.code === 'VENTANA_NOT_FOUND') {
+        onNoExiste();
+      } else if (err.code === 'VENTANA_CON_ASISTENCIAS') {
+        const nuevo = await totalActualizado(recargarVentanas, ventana.id_ventana).catch(() => total);
+        if (nuevo === null) {
+          onNoExiste();
+          return;
+        }
+        setTotal(nuevo);
+        setAviso('El número de asistencias cambió. Revisa el nuevo conteo antes de confirmar.');
+      } else if (err.code === 'VENTANA_CON_CERTIFICADOS_EMITIDOS') {
+        setBloqueo({
+          tipo: 'certificados',
+          mensaje:
+            'No se puede eliminar: ya se emitieron certificados de asistencia a personas que marcaron en esta fecha.',
+        });
+      } else if (err.code === 'UMBRAL_QUEDARIA_IMPOSIBLE') {
+        setBloqueo({ tipo: 'umbral', mensaje: err.message });
+      } else {
+        setBloqueo({ tipo: 'otro', mensaje: err.message });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal open={abierto} onClose={handleClose} title="Eliminar ventana de asistencia">
+      <div className="flex flex-col gap-4">
+        {bloqueo ? (
+          <>
+            <Alert variant="error">{bloqueo.mensaje}</Alert>
+            {bloqueo.tipo === 'certificados' && (
+              <p className="text-sm text-text-muted">
+                Si la fecha está mal, usa Editar fecha: las asistencias se conservan.
+              </p>
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={handleClose}>
+                Cerrar
+              </Button>
+              {bloqueo.tipo === 'umbral' && (
+                <Button type="button" variant="secondary" onClick={onIrUmbral}>
+                  Ir a configuración del umbral
+                </Button>
+              )}
+            </div>
+          </>
+        ) : total === 0 ? (
+          <>
+            <p className="text-sm text-text-primary">¿Eliminar la ventana del {fecha}?</p>
+            {aviso && <Alert variant="warning">{aviso}</Alert>}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={handleClose} disabled={submitting}>
+                Cancelar
+              </Button>
+              <Button type="button" variant="destructive" loading={submitting} disabled={submitting} onClick={handleEliminar}>
+                Eliminar
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-text-primary">Ventana del {fecha}.</p>
+            <Alert variant="error">
+              Esta ventana tiene {textoAsistencias(total)}. Si la eliminas, esas asistencias se borran y afectan el
+              cumplimiento de esas personas. Esta acción no se puede deshacer.
+            </Alert>
+            <p className="text-sm text-text-muted">Si la fecha está mal, usa Editar fecha: las asistencias se conservan.</p>
+            {aviso && <Alert variant="warning">{aviso}</Alert>}
+            <div className="flex flex-wrap justify-end gap-2">
+              {/* Cancelar es la acción destacada: borrar asistencias no debe ser la opción fácil. */}
+              <Button type="button" variant="primary" autoFocus onClick={handleClose} disabled={submitting}>
+                Cancelar
+              </Button>
+              <Button type="button" variant="destructive" loading={submitting} disabled={submitting} onClick={handleEliminar}>
+                Eliminar ventana y sus {total} asistencias
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </Modal>
   );
 }
@@ -162,7 +408,7 @@ function MarcarManualForm({ idCongreso, idVentana, onMarcada }) {
   );
 }
 
-function VentanaCard({ ventana, idCongreso, onActualizada, onMarcada }) {
+function VentanaCard({ ventana, idCongreso, onActualizada, onMarcada, onEditar, onEliminar }) {
   const [accion, setAccion] = useState(null);
   const [error, setError] = useState('');
   const [marcarAbierto, setMarcarAbierto] = useState(false);
@@ -186,7 +432,10 @@ function VentanaCard({ ventana, idCongreso, onActualizada, onMarcada }) {
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-sans text-lg font-semibold text-text-primary">{formatFechaSolo(ventana.fecha)}</h3>
+        <div>
+          <h3 className="font-sans text-lg font-semibold text-text-primary">{formatFechaSolo(ventana.fecha)}</h3>
+          <p className="text-xs text-text-muted">{textoAsistencias(ventana.total_asistencias ?? 0)}</p>
+        </div>
         <Badge variant={ventana.habilitar_autochequeo ? 'revisado' : 'default'}>
           {ventana.habilitar_autochequeo ? 'Autochequeo activo' : 'Autochequeo inactivo'}
         </Badge>
@@ -237,10 +486,20 @@ function VentanaCard({ ventana, idCongreso, onActualizada, onMarcada }) {
         </Alert>
       )}
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={() => setMarcarAbierto((v) => !v)}>
           {marcarAbierto ? 'Ocultar marcado manual' : 'Marcar asistencia manual'}
         </Button>
+        <div className="ml-auto flex gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={onEditar}>
+            <CalendarDays className="size-4" />
+            Editar fecha
+          </Button>
+          <Button type="button" variant="destructive" size="sm" onClick={onEliminar}>
+            <Trash2 className="size-4" />
+            Eliminar
+          </Button>
+        </div>
       </div>
 
       {marcarAbierto && (
@@ -418,26 +677,6 @@ function EliminarAsistenciaModal({ objetivo, idCongreso, onClose, onEliminada })
 function ResumenCumplimiento({ resumen, error, hayFiltros, idCongreso, onAsistenciaEliminada }) {
   const [expandido, setExpandido] = useState({});
   const [aEliminar, setAEliminar] = useState(null);
-  const [emitiendo, setEmitiendo] = useState(null);
-  const [resultadoEmision, setResultadoEmision] = useState(null);
-
-  // Certificado de asistencia individual: solo se ofrece a quien ya cumple el umbral.
-  async function emitirCertificado(d) {
-    setEmitiendo(d.id_inscripcion);
-    setResultadoEmision(null);
-    const nombre = nombreCompleto(d.usuario);
-    try {
-      const data = await apiFetch(`/congresos/${idCongreso}/certificacion/emitir`, {
-        method: 'POST',
-        body: JSON.stringify({ id_inscripcion: d.id_inscripcion, tipo: 'asistencia' }),
-      });
-      setResultadoEmision({ nombre, data });
-    } catch (err) {
-      setResultadoEmision({ nombre, error: err });
-    } finally {
-      setEmitiendo(null);
-    }
-  }
 
   if (error) return <Alert variant="error">{error}</Alert>;
 
@@ -450,8 +689,6 @@ function ResumenCumplimiento({ resumen, error, hayFiltros, idCongreso, onAsisten
         <span className="font-bold text-accent">{resumen?.cumplen_asistencia ?? 0}</span> de{' '}
         <span className="font-bold">{resumen?.total_inscripciones ?? 0}</span> inscritos cumplen asistencia
       </p>
-
-      <ResultadoEmision resultado={resultadoEmision} idCongreso={idCongreso} />
 
       {detalle.length === 0 ? (
         <p className="text-sm text-text-muted">
@@ -500,17 +737,14 @@ function ResumenCumplimiento({ resumen, error, hayFiltros, idCongreso, onAsisten
                       </Badge>
                     </Table.Cell>
                     <Table.Cell>
+                      {/* Certificado de asistencia individual: solo se ofrece a quien ya cumple el umbral. */}
                       {d.cumple === true && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          loading={emitiendo === d.id_inscripcion}
-                          disabled={emitiendo !== null}
-                          onClick={() => emitirCertificado(d)}
-                        >
-                          Emitir certificado
-                        </Button>
+                        <EmitirCertificado
+                          idCongreso={idCongreso}
+                          idInscripcion={d.id_inscripcion}
+                          tipo="asistencia"
+                          nombrePersona={nombreCompleto(d.usuario)}
+                        />
                       )}
                     </Table.Cell>
                   </Table.Row>
@@ -580,6 +814,19 @@ export function Asistencia() {
   const [ventanasAbiertas, setVentanasAbiertas] = useState(false);
   // Igual que las ventanas: el umbral se configura una vez, colapsado por defecto.
   const [umbralAbierto, setUmbralAbierto] = useState(false);
+  const umbralRef = useRef(null);
+  // { ventana, abierto, apertura }: la ventana se conserva al cerrar para la animación de salida;
+  // 'apertura' remonta el Modal en cada apertura para que empiece con el estado limpio.
+  const [edicion, setEdicion] = useState({ ventana: null, abierto: false, apertura: 0 });
+  const [eliminacion, setEliminacion] = useState({ ventana: null, abierto: false, apertura: 0 });
+  const [avisoVentanas, setAvisoVentanas] = useState(null);
+
+  // Aviso breve tras editar o borrar: desaparece solo.
+  useEffect(() => {
+    if (avisoVentanas?.variant !== 'success') return;
+    const temporizador = setTimeout(() => setAvisoVentanas(null), 5000);
+    return () => clearTimeout(temporizador);
+  }, [avisoVentanas]);
 
   // El umbral no tiene GET propio: viene en el resumen (dias_requeridos).
   // Los filtros vacíos ("Todos") se omiten del query string; el backend los combina con AND.
@@ -648,7 +895,71 @@ export function Asistencia() {
   }
 
   function handleVentanaActualizada(actualizada) {
-    setVentanas((prev) => prev.map((v) => (v.id_ventana === actualizada.id_ventana ? actualizada : v)));
+    // Los PATCH de autochequeo no traen total_asistencias: se mezcla para no perder el conteo.
+    setVentanas((prev) => prev.map((v) => (v.id_ventana === actualizada.id_ventana ? { ...v, ...actualizada } : v)));
+  }
+
+  async function recargarVentanas() {
+    const data = (await apiFetch(`/congresos/${idCongreso}/asistencia/ventanas`)) ?? [];
+    setVentanas(data);
+    setErrorVentanas('');
+    return data;
+  }
+
+  // Marcar o borrar una asistencia cambia el conteo de la ventana, que decide el aviso al editar/borrar.
+  function handleAsistenciasCambiadas() {
+    cargarResumen();
+    recargarVentanas().catch(() => {});
+  }
+
+  // Editar o borrar una ventana cambia días marcados y cumplimiento: se recargan ambas listas.
+  // cargarResumen() sin argumentos usa los filtros y la búsqueda vigentes.
+  function refrescarTrasCambio() {
+    recargarVentanas().catch((err) => setErrorVentanas(err.message));
+    cargarResumen();
+  }
+
+  function abrirEdicion(ventana) {
+    setAvisoVentanas(null);
+    setEdicion((prev) => ({ ventana, abierto: true, apertura: prev.apertura + 1 }));
+  }
+
+  function abrirEliminacion(ventana) {
+    setAvisoVentanas(null);
+    setEliminacion((prev) => ({ ventana, abierto: true, apertura: prev.apertura + 1 }));
+  }
+
+  function cerrarModalesVentana() {
+    setEdicion((prev) => ({ ...prev, abierto: false }));
+    setEliminacion((prev) => ({ ...prev, abierto: false }));
+  }
+
+  function handleVentanaNoExiste() {
+    cerrarModalesVentana();
+    setAvisoVentanas({ variant: 'error', mensaje: 'La ventana ya no existe.' });
+    recargarVentanas().catch((err) => setErrorVentanas(err.message));
+  }
+
+  function handleFechaEditada() {
+    cerrarModalesVentana();
+    setAvisoVentanas({ variant: 'success', mensaje: 'Fecha de la ventana actualizada.' });
+    refrescarTrasCambio();
+  }
+
+  function handleVentanaEliminada(asistenciasEliminadas) {
+    cerrarModalesVentana();
+    setAvisoVentanas({
+      variant: 'success',
+      mensaje: `Ventana eliminada (${asistenciasEliminadas} ${asistenciasEliminadas === 1 ? 'asistencia eliminada' : 'asistencias eliminadas'})`,
+    });
+    refrescarTrasCambio();
+  }
+
+  function irAConfiguracionUmbral() {
+    cerrarModalesVentana();
+    setUmbralAbierto(true);
+    // Tras cerrar el Modal y desplegar la sección (siguiente frame), para que el scroll llegue a su posición final.
+    requestAnimationFrame(() => umbralRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
   if (loading) return <PageLoader />;
@@ -679,6 +990,8 @@ export function Asistencia() {
           </Button>
         </div>
 
+        {avisoVentanas && <Alert variant={avisoVentanas.variant}>{avisoVentanas.mensaje}</Alert>}
+
         {errorVentanas ? (
           <Alert variant="error">{errorVentanas}</Alert>
         ) : !ventanasAbiertas ? null : ventanas.length === 0 ? (
@@ -691,14 +1004,16 @@ export function Asistencia() {
                 ventana={ventana}
                 idCongreso={idCongreso}
                 onActualizada={handleVentanaActualizada}
-                onMarcada={() => cargarResumen()}
+                onMarcada={handleAsistenciasCambiadas}
+                onEditar={() => abrirEdicion(ventana)}
+                onEliminar={() => abrirEliminacion(ventana)}
               />
             ))}
           </div>
         )}
       </section>
 
-      <section className="flex flex-col gap-4">
+      <section ref={umbralRef} className="flex scroll-mt-6 flex-col gap-4">
         <button
           type="button"
           onClick={() => setUmbralAbierto((v) => !v)}
@@ -736,7 +1051,7 @@ export function Asistencia() {
           error={errorResumen}
           hayFiltros={Boolean(filtros.estado_inscripcion || filtros.cumple || busquedaEfectiva(busqueda))}
           idCongreso={idCongreso}
-          onAsistenciaEliminada={() => cargarResumen()}
+          onAsistenciaEliminada={handleAsistenciasCambiadas}
         />
       </section>
 
@@ -747,6 +1062,34 @@ export function Asistencia() {
         congreso={congreso}
         onCreada={handleVentanaCreada}
       />
+
+      {edicion.ventana && (
+        <EditarFechaModal
+          key={edicion.apertura}
+          ventana={edicion.ventana}
+          abierto={edicion.abierto}
+          idCongreso={idCongreso}
+          congreso={congreso}
+          onClose={() => setEdicion((prev) => ({ ...prev, abierto: false }))}
+          onGuardada={handleFechaEditada}
+          onNoExiste={handleVentanaNoExiste}
+          recargarVentanas={recargarVentanas}
+        />
+      )}
+
+      {eliminacion.ventana && (
+        <EliminarVentanaModal
+          key={eliminacion.apertura}
+          ventana={eliminacion.ventana}
+          abierto={eliminacion.abierto}
+          idCongreso={idCongreso}
+          onClose={() => setEliminacion((prev) => ({ ...prev, abierto: false }))}
+          onEliminada={handleVentanaEliminada}
+          onNoExiste={handleVentanaNoExiste}
+          onIrUmbral={irAConfiguracionUmbral}
+          recargarVentanas={recargarVentanas}
+        />
+      )}
     </div>
   );
 }

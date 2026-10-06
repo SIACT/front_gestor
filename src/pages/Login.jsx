@@ -38,6 +38,17 @@ function ArrowRightIcon(props) {
   );
 }
 
+// Destino tras el login: la ruta protegida que mandó aquí (ProtectedRoute la pone en state.from).
+// Solo rutas internas ("/..." pero no "//...", que el navegador trata como otro dominio) y nunca
+// las de autenticación, para no entrar en un bucle. Si no es válido, a "/" como siempre.
+function destinoTrasLogin(from) {
+  if (!from || typeof from.pathname !== 'string') return '/';
+  const { pathname } = from;
+  if (!pathname.startsWith('/') || pathname.startsWith('//')) return '/';
+  if (pathname === '/login' || pathname === '/register') return '/';
+  return pathname + (from.search ?? '') + (from.hash ?? '');
+}
+
 export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -55,7 +66,9 @@ export function Login() {
     setSubmitting(true);
     try {
       await login(correo, contrasena);
-      navigate('/');
+      const destino = destinoTrasLogin(location.state?.from);
+      // Sin destino guardado, a "/" como siempre; con destino, se reemplaza /login en el historial.
+      navigate(destino, destino === '/' ? undefined : { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {

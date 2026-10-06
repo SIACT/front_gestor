@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Eye } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
-import { ESTADO_INSCRIPCION_LABEL, ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP, formatFecha } from '../../utils/formato';
+import { ESTADO_INSCRIPCION_LABEL, ESTADO_INSCRIPCION_VARIANT, capitalizar, formatCOP, formatFecha, formatFechaHora } from '../../utils/formato';
 import { ROL_PARTICIPACION } from '../../utils/roles';
 import { SugerenciasMensaje } from '../../components/SugerenciasMensaje';
 import { Card } from '../../components/ui/Card';
@@ -153,6 +153,61 @@ function ArchivoItem({ archivo, onRefrescar }) {
         </div>
       </Modal>
     </div>
+  );
+}
+
+const TIPO_CERTIFICADO_LABEL = { asistencia: 'Asistencia', participacion: 'Participación' };
+
+// Certificados emitidos a esta inscripción, con la marca de correo. Solo en Admin: la vista del
+// propio usuario (Certificacion.jsx) no muestra notificado_en.
+function CertificadosInscripcion({ idCongreso, idInscripcion }) {
+  const [certificados, setCertificados] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setCargando(true);
+    setError('');
+    apiFetch(`/congresos/${idCongreso}/certificacion/certificados/${idInscripcion}`)
+      .then((data) => setCertificados(data ?? []))
+      .catch((err) => setError(err.message))
+      .finally(() => setCargando(false));
+  }, [idCongreso, idInscripcion]);
+
+  return (
+    <Card>
+      <h2 className="text-sm font-medium uppercase tracking-wide text-text-muted">Certificados</h2>
+      {cargando ? (
+        <div className="mt-4 flex justify-center">
+          <Spinner className="size-6 text-accent" />
+        </div>
+      ) : error ? (
+        <Alert variant="error" className="mt-4">
+          {error}
+        </Alert>
+      ) : certificados.length === 0 ? (
+        <p className="mt-4 text-sm text-text-muted">Aún no se han emitido certificados a esta persona.</p>
+      ) : (
+        <ul className="mt-4 flex flex-col divide-y divide-border">
+          {certificados.map((c) => (
+            <li key={c.id_certificado} className="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0 last:pb-0">
+              <div>
+                <p className="font-medium text-text-primary">{TIPO_CERTIFICADO_LABEL[c.tipo] ?? c.tipo}</p>
+                {c.tipo === 'participacion' && c.talk?.titulo && (
+                  <p className="text-sm text-text-primary">{c.talk.titulo}</p>
+                )}
+                <p className="text-xs text-text-muted">Emitido el {formatFecha(c.fecha_emision)}</p>
+              </div>
+              {c.notificado_en ? (
+                <Badge variant="revisado">Notificado el {formatFechaHora(c.notificado_en)}</Badge>
+              ) : (
+                <Badge variant="default">Sin notificar</Badge>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 
@@ -1011,6 +1066,8 @@ export function InscripcionAdminDetalle() {
               </div>
             )}
           </Card>
+
+          <CertificadosInscripcion idCongreso={id_congreso} idInscripcion={id} />
         </div>
 
         {/* Columna derecha */}

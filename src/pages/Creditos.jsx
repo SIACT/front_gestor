@@ -52,7 +52,7 @@ export function Creditos() {
               <h1 className="font-display text-4xl text-text-primary">Equipo de Desarrollo</h1>
               <p className="font-sans text-sm text-text-muted">
                 <span className="font-semibold text-text-primary">Altenua Systems</span> · talksGestor
-                — Plataforma de gestión de ponentes
+                — Plataforma de gestión de Congresos
               </p>
             </div>
           </div>
@@ -135,36 +135,46 @@ export function Creditos() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Card className="overflow-hidden p-0!">
+          <div className="flex flex-col gap-4">
+            <Card className="flex overflow-hidden p-0!">
               <img
-                src="https://res.cloudinary.com/dspprxtpr/image/upload/v1750217852/samples/animals/kitten-playing.gif"
+                src="https://www.udenar.edu.co/recursos/wp-content/uploads/2022/06/catalina_rua.jpg"
                 alt="Catalina Rúa"
-                className="h-48 w-full rounded-t-xl object-cover"
+                className="w-1/3 max-w-48 shrink-0 object-contain"
                 loading="lazy"
               />
-              <div className="flex flex-col gap-1 p-4">
+              <div className="flex min-w-0 flex-col gap-1 p-4">
                 <p className="font-bold text-text-primary">Catalina Rúa</p>
                 <p className="text-xs font-medium uppercase tracking-wide text-accent">
                   Asesora · Coordinadora del Congreso
                 </p>
                 <p className="text-xs text-text-muted">Congreso ALTENCOA · Universidad de Nariño</p>
+                <p className="mt-2 text-sm text-text-muted">
+                  Matemática de la Universidad de Antioquia, Magíster en Computación Científica de
+                  la Universidad de Puerto Rico Recinto de Mayagüez, Doctora en Matemática Aplicada
+                  de la Universidad de São Paulo. Fundadora y Coordinadora de la Olimpiada Regional
+                  de Matemáticas de la Universidad de Nariño (ORM-UDENAR).
+                </p>
               </div>
             </Card>
 
-            <Card className="overflow-hidden p-0!">
+            <Card className="flex overflow-hidden p-0!">
               <img
-                src="https://res.cloudinary.com/dspprxtpr/image/upload/v1750217850/samples/animals/cat.jpg"
+                src="https://www.udenar.edu.co/recursos/wp-content/uploads/2021/08/JOHN-HERMES-CASTILLO-GOMEZ.jpg"
                 alt="John Hermes"
-                className="h-48 w-full rounded-t-xl object-cover"
+                className="w-1/3 max-w-48 shrink-0 object-contain"
                 loading="lazy"
               />
-              <div className="flex flex-col gap-1 p-4">
+              <div className="flex min-w-0 flex-col gap-1 p-4">
                 <p className="font-bold text-text-primary">John Hermes</p>
                 <p className="text-xs font-medium uppercase tracking-wide text-accent">
                   Asesor · Coordinador del Congreso
                 </p>
                 <p className="text-xs text-text-muted">Congreso ALTENCOA · Universidad de Nariño</p>
+                <p className="mt-2 text-sm text-text-muted">
+                  Matemático de la Universidad del Cauca, Magíster en Matemáticas de la Universidad
+                  de Antioquia y Doutorado em Matemáticas de Universidade de São Paulo – USP.
+                </p>
               </div>
             </Card>
           </div>

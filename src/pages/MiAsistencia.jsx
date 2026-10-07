@@ -11,6 +11,9 @@ import { Badge } from '../components/ui/Badge';
 import { Alert } from '../components/ui/Alert';
 import { PageLoader } from '../components/ui/PageLoader';
 
+// Autochequeo oculto temporalmente para usuarios. Cambiar a true para volver a mostrarlo.
+const MOSTRAR_AUTOCHEQUEO = false;
+
 const MENSAJE_SIN_INSCRIPCION =
   'Necesitas tener una inscripción activa en este congreso para marcar asistencia';
 
@@ -120,7 +123,7 @@ function MiProgreso({ asistencia }) {
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-sm text-text-muted">Aún no has marcado asistencia en ningún día.</p>
+        <p className="mt-4 text-sm text-text-muted">Aún no has marcado asistencia en ningún día, no debes de preocuparte, porque sera cargado por el sistema ALTENUA.</p>
       )}
     </Card>
   );
@@ -155,14 +158,14 @@ export function MiAsistencia() {
     <div className="flex flex-col gap-6 pt-6">
       <div>
         <h1 className="font-sans text-2xl font-bold text-text-primary">Mi Asistencia</h1>
-        <p className="mt-1 text-sm text-text-muted">Marca tu asistencia diaria y revisa tu progreso.</p>
+        <p className="mt-1 text-sm text-text-muted">Marca tu asistencia diaria y revisa tu progreso, este panel es cargado por el sistema ALTENUA</p>
       </div>
 
       {error?.code === 'SIN_INSCRIPCION_EN_CONGRESO' ? (
         <Alert variant="error">{MENSAJE_SIN_INSCRIPCION}</Alert>
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Autochequeo idCongreso={idCongreso} onRegistrada={cargar} />
+        <div className={`grid grid-cols-1 gap-6 ${MOSTRAR_AUTOCHEQUEO ? 'lg:grid-cols-2' : ''}`}>
+          {MOSTRAR_AUTOCHEQUEO && <Autochequeo idCongreso={idCongreso} onRegistrada={cargar} />}
           {error ? <Alert variant="error">{error.message}</Alert> : asistencia && <MiProgreso asistencia={asistencia} />}
         </div>
       )}

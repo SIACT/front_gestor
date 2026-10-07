@@ -151,6 +151,8 @@ export function Login() {
         </Link>
       </p>
 
+     
+
       <div className="mt-0 overflow-hidden rounded-2xl bg-white p-3">
         <div className="overflow-x-auto">
           <img
@@ -161,6 +163,12 @@ export function Login() {
           />
         </div>
       </div>
+       <Link
+        to="/creditos"
+        className="text-center text-sm text-text-muted transition-colors hover:text-text-primary"
+      >
+        Créditos
+      </Link>
     </div>
   );
 }

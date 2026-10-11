@@ -7,6 +7,7 @@ import { ESTADO_INSCRIPCION_VARIANT } from '../../utils/formato';
 import { Card } from '../../components/ui/Card';
 import { Alert } from '../../components/ui/Alert';
 import { Badge } from '../../components/ui/Badge';
+import { Table } from '../../components/ui/Table';
 import { PageLoader } from '../../components/ui/PageLoader';
 import { GraficoCircular } from '../../components/ui/GraficoCircular';
 import { GraficoBarrasAgrupadas } from '../../components/ui/GraficoBarrasAgrupadas';
@@ -114,6 +115,7 @@ const ENDPOINTS = {
   comprobantes: (id) => `/congresos/${id}/estadisticas/comprobantes`,
   indicadoresExito: (id) => `/congresos/${id}/estadisticas/indicadores-exito`,
   indicadoresExitoPorArea: (id) => `/congresos/${id}/estadisticas/indicadores-exito/por-area`,
+  tasaPresentacion: (id) => `/congresos/${id}/estadisticas/tasa-presentacion`,
 };
 
 function ordenarDesc(items) {
@@ -298,6 +300,247 @@ function IndicadoresExitoPorArea({ data, error }) {
         />
       )}
     </Card>
+  );
+}
+
+// Mismo formato que ya usa IndicadoresExito (`{valor}%`, el número tal cual llega del
+// backend). null significa "sin base para calcular", no 0%: se muestra como texto aparte.
+function formatPorcentaje(valor) {
+  return valor === null || valor === undefined ? 'Sin datos' : `${valor}%`;
+}
+
+// Más de la mitad sin marcar: la tasa todavía no es representativa.
+function mayoriaSinMarcar(sinMarcar, programadas) {
+  return programadas > 0 && sinMarcar / programadas > 0.5;
+}
+
+const SEGMENTOS_ESTADO = [
+  { clave: 'presentadas', nombre: 'Presentaron', color: 'bg-success-text' },
+  { clave: 'no_presentaron', nombre: 'No presentaron', color: 'bg-error-text' },
+  { clave: 'sin_marcar', nombre: 'Sin marcar', color: 'bg-border' },
+];
+
+// Mejor/peor tasa entre las áreas con datos (tasa !== null). Con una sola área solo se
+// marca como mejor; si todas empatan no se resalta ninguna; los empates se resaltan todos.
+function calcularResaltado(porArea) {
+  const tasas = porArea.map((a) => a.tasa_presentacion).filter((t) => t !== null);
+  if (tasas.length === 0) return { mejor: null, peor: null };
+  const max = Math.max(...tasas);
+  const min = Math.min(...tasas);
+  if (tasas.length === 1) return { mejor: max, peor: null };
+  if (max === min) return { mejor: null, peor: null };
+  return { mejor: max, peor: min };
+}
+
+// Solo trabajos aceptados y programados. sin_marcar = el Admin aún no lo marcó (no es "no
+// presentó"); presentadas_sin_programar no entra en las tasas. Las tasas vienen del backend.
+function TasaPresentacion({ data, error }) {
+  const global = data?.global;
+  const porArea = data?.por_area ?? [];
+  const hayProgramadas = !error && global && global.programadas > 0;
+
+  return (
+    <>
+      <Card>
+        <h3 className="mb-4 text-center font-display text-lg">Tasa de éxito de presentación</h3>
+
+        {error ? (
+          <Alert variant="error">{error}</Alert>
+        ) : !global || global.programadas === 0 ? (
+          <p className="text-center text-text-muted">Aún no hay trabajos programados</p>
+        ) : (
+          <div className="flex flex-col gap-6">
+            <AvisosTasaPresentacion global={global} />
+            <EmbudoPresentacion global={global} />
+            <BarraEstadosPresentacion global={global} />
+            <TasasPresentacion global={global} />
+          </div>
+        )}
+      </Card>
+
+      {hayProgramadas && porArea.length > 0 && <TablaTasaPorArea porArea={porArea} />}
+    </>
+  );
+}
+
+function AvisosTasaPresentacion({ global }) {
+  const { sin_marcar, programadas, presentadas_sin_programar } = global;
+  if (sin_marcar === 0 && presentadas_sin_programar === 0) return null;
+  const mensaje = `${sin_marcar} de ${programadas} trabajos programados aún no se han marcado. Las tasas cambiarán a medida que se marquen.`;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {sin_marcar > 0 &&
+        (mayoriaSinMarcar(sin_marcar, programadas) ? (
+          <Alert variant="warning">{mensaje}</Alert>
+        ) : (
+          <p className="text-xs text-text-muted">{mensaje}</p>
+        ))}
+      {presentadas_sin_programar > 0 && (
+        <p className="text-xs text-text-muted">
+          {presentadas_sin_programar === 1
+            ? '1 trabajo marcado como presentado no está programado y no cuenta en las tasas.'
+            : `${presentadas_sin_programar} trabajos marcados como presentados no están programados y no cuentan en las tasas.`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function EmbudoPresentacion({ global }) {
+  const { programadas, presentadas, tasa_presentacion } = global;
+  // tasa 0 con programados > 0 deja un trazo mínimo visible; null no dibuja barra.
+  const anchoPresentaron =
+    tasa_presentacion === null ? '0' : tasa_presentacion === 0 ? '2px' : `${tasa_presentacion}%`;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <div className="flex justify-between text-sm">
+          <span>Programados</span>
+          <span className="font-semibold">{programadas}</span>
+        </div>
+        <BarraEmbudo porcentaje={100} className="bg-accent" />
+      </div>
+
+      <FlechaEmbudo />
+
+      <div>
+        <div className="flex justify-between text-sm">
+          <span>Presentaron</span>
+          <span className="font-semibold">
+            {presentadas} ({formatPorcentaje(tasa_presentacion)})
+          </span>
+        </div>
+        <div className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-surface">
+          <div className="h-full rounded-full bg-success-text" style={{ width: anchoPresentaron }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BarraEstadosPresentacion({ global }) {
+  const { programadas } = global;
+  // programadas > 0 garantizado por el estado vacío de TasaPresentacion.
+  const segmentos = SEGMENTOS_ESTADO.map((seg) => ({
+    ...seg,
+    total: global[seg.clave],
+    porcentaje: Math.round((global[seg.clave] / programadas) * 1000) / 10,
+  }));
+
+  return (
+    <div>
+      <div className="flex h-4 w-full overflow-hidden rounded-full bg-surface">
+        {segmentos
+          .filter((seg) => seg.total > 0)
+          .map((seg) => (
+            <div
+              key={seg.clave}
+              className={clsx('h-full', seg.color)}
+              style={{ width: `${(seg.total / programadas) * 100}%` }}
+              title={`${seg.nombre}: ${seg.total}`}
+            />
+          ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        {segmentos.map((seg) => (
+          <div key={seg.clave} className="flex items-center gap-2">
+            <span className={clsx('size-3 shrink-0 rounded-sm', seg.color)} />
+            <span className="text-text-muted">{seg.nombre}</span>
+            <span className="font-semibold">{seg.total}</span>
+            <span className="text-text-muted">({formatPorcentaje(seg.porcentaje)})</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TasasPresentacion({ global }) {
+  const { presentadas, no_presentaron, sin_marcar, programadas, tasa_presentacion, tasa_sobre_marcadas } = global;
+  const marcadas = presentadas + no_presentaron;
+  const preliminar = mayoriaSinMarcar(sin_marcar, programadas);
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="rounded-lg border border-accent/30 bg-accent/10 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-text-muted">Tasa de presentación</span>
+          {preliminar && tasa_presentacion !== null && <Badge variant="alerta">Preliminar</Badge>}
+        </div>
+        <p
+          className={clsx(
+            'text-2xl font-bold',
+            tasa_presentacion === null ? 'text-text-muted' : 'text-accent',
+            preliminar && 'opacity-60',
+          )}
+        >
+          {formatPorcentaje(tasa_presentacion)}
+        </p>
+        <p className="text-xs text-text-muted">Presentaron / programados. Los sin marcar cuentan como pendientes.</p>
+      </div>
+
+      <div className="rounded-lg border border-border p-3">
+        <span className="text-sm text-text-muted">Sobre lo ya marcado</span>
+        <p className={clsx('text-2xl font-bold', tasa_sobre_marcadas === null ? 'text-text-muted' : 'text-accent')}>
+          {marcadas === 0 ? 'Sin datos' : formatPorcentaje(tasa_sobre_marcadas)}
+        </p>
+        <p className="text-xs text-text-muted">
+          {marcadas === 0 ? 'Aún no hay trabajos marcados' : `${presentadas} de ${marcadas} marcados`}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Respeta el orden del backend (mayor tasa primero, null al final): no se reordena aquí.
+function TablaTasaPorArea({ porArea }) {
+  const { mejor, peor } = calcularResaltado(porArea);
+
+  return (
+    <Table>
+      <Table.Head>
+        <tr>
+          <Table.HeadCell>Área</Table.HeadCell>
+          <Table.HeadCell className="text-right">Programados</Table.HeadCell>
+          <Table.HeadCell className="text-right">Presentaron</Table.HeadCell>
+          <Table.HeadCell className="text-right">No presentaron</Table.HeadCell>
+          <Table.HeadCell className="text-right">Sin marcar</Table.HeadCell>
+          <Table.HeadCell className="text-right">Tasa de presentación</Table.HeadCell>
+        </tr>
+      </Table.Head>
+      <tbody>
+        {porArea.map((area) => {
+          const tasa = area.tasa_presentacion;
+          return (
+            <Table.Row
+              key={area.id_area}
+              className={clsx(
+                tasa !== null && tasa === mejor && 'bg-success-text/10',
+                tasa !== null && tasa === peor && 'bg-error-text/10',
+              )}
+            >
+              <Table.Cell>{area.nombre}</Table.Cell>
+              <Table.Cell className="text-right">{area.programadas}</Table.Cell>
+              <Table.Cell className="text-right">{area.presentadas}</Table.Cell>
+              <Table.Cell className="text-right">{area.no_presentaron}</Table.Cell>
+              <Table.Cell
+                className={clsx(
+                  'text-right',
+                  mayoriaSinMarcar(area.sin_marcar, area.programadas) && 'text-text-muted opacity-60',
+                )}
+              >
+                {area.sin_marcar}
+              </Table.Cell>
+              <Table.Cell className={clsx('text-right', tasa === null ? 'text-text-muted' : 'font-semibold')}>
+                {formatPorcentaje(tasa)}
+              </Table.Cell>
+            </Table.Row>
+          );
+        })}
+      </tbody>
+    </Table>
   );
 }
 
@@ -657,6 +900,8 @@ export function EstadisticasCongreso() {
       <IndicadoresExito data={datos.indicadoresExito} error={errores.indicadoresExito} />
 
       <IndicadoresExitoPorArea data={datos.indicadoresExitoPorArea} error={errores.indicadoresExitoPorArea} />
+
+      <TasaPresentacion data={datos.tasaPresentacion} error={errores.tasaPresentacion} />
     </div>
   );
 }

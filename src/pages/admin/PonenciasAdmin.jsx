@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Globe, Search } from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import { useCongreso } from '../../context/CongresoContext';
-import { capitalizar, formatFecha } from '../../utils/formato';
+import { capitalizar, formatFecha, formatFechaHora } from '../../utils/formato';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -25,6 +25,34 @@ const ESTADO_TALK_VARIANT = {
 // un horario individual (schedules) o si es un póster agrupado en una sesión (posters).
 function estaProgramada(talk) {
   return talk.schedules?.length > 0 || talk.posters?.length > 0;
+}
+
+// Valores exactos que acepta el filtro presento del backend; cualquier otro da 400.
+// sin_marcar = el Admin aún no lo marcó (presento null), que NO es lo mismo que "no presentó".
+const PRESENTO_VALIDOS = ['true', 'false', 'sin_marcar'];
+
+// Comparaciones estrictas: null o ausente es "Sin marcar", nunca "No presentó".
+function BadgePresento({ talk }) {
+  const title = talk.presento_marcado_en ? `Marcado el ${formatFechaHora(talk.presento_marcado_en)}` : undefined;
+  if (talk.presento === true) {
+    return (
+      <Badge variant="revisado" title={title}>
+        Presentó
+      </Badge>
+    );
+  }
+  if (talk.presento === false) {
+    return (
+      <Badge variant="rechazado" title={title}>
+        No presentó
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="default" title={title}>
+      Sin marcar
+    </Badge>
+  );
 }
 
 function TalkListItem({ talk, idCongreso, subtitulo }) {
@@ -195,7 +223,7 @@ function SeccionEstadisticas() {
 }
 
 // Todos los filtros viven en la query string (?busqueda=&pais=&estado_talk=&id_area=
-// &id_tipo_participacion=&programado=&pagina=): al volver del detalle con el "atrás" del
+// &id_tipo_participacion=&programado=&presento=&pagina=): al volver del detalle con el "atrás" del
 // navegador, el componente se remonta y los reconstruye desde la URL. Los cambios usan
 // replace para no llenar el historial con una entrada por cada tecla o select.
 export function PonenciasAdmin() {
@@ -213,6 +241,11 @@ export function PonenciasAdmin() {
   const areaFiltro = searchParams.get('id_area') ?? '';
   const tipoFiltro = searchParams.get('id_tipo_participacion') ?? '';
   const programadoFiltro = searchParams.get('programado') ?? '';
+  // Un ?presento= editado a mano con un valor no reconocido se trata como "Todos" y nunca se
+  // envía al backend (respondería 400); el efecto de abajo lo quita de la URL.
+  const presentoParam = searchParams.get('presento');
+  const presentoValido = presentoParam === null || PRESENTO_VALIDOS.includes(presentoParam);
+  const presentoFiltro = presentoValido ? (presentoParam ?? '') : '';
   const paginaParam = Number(searchParams.get('pagina')) || 1;
 
   // Los inputs de texto necesitan state local para no perder el cursor; la URL se
@@ -240,6 +273,18 @@ export function PonenciasAdmin() {
   }
 
   useEffect(() => {
+    if (presentoValido) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('presento');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [presentoValido, setSearchParams]);
+
+  useEffect(() => {
     apiFetch(`/congresos/${id_congreso}/areas-estudio?activo=true`)
       .then((data) => setAreas(data ?? []))
       .catch((err) => setError(err.message));
@@ -257,7 +302,8 @@ export function PonenciasAdmin() {
 
   // Filtros server-side: GET /congresos/:id/talks/para-programacion soporta estado_talk,
   // id_area, pais (coincidencia parcial sobre el país del ponente principal) y
-  // programado (ponencia individual o póster agrupado en sesión), combinables (AND).
+  // programado (ponencia individual o póster agrupado en sesión) y presento (true, false o
+  // sin_marcar), combinables (AND).
   useEffect(() => {
     let cancelado = false;
     setLoading(true);
@@ -267,6 +313,7 @@ export function PonenciasAdmin() {
     if (areaFiltro) params.set('id_area', areaFiltro);
     if (paisDebounced) params.set('pais', paisDebounced);
     if (programadoFiltro) params.set('programado', programadoFiltro);
+    if (presentoFiltro) params.set('presento', presentoFiltro);
     apiFetch(`/congresos/${id_congreso}/talks/para-programacion?${params.toString()}`)
       .then((data) => {
         if (!cancelado) setTalks(data ?? []);
@@ -280,7 +327,7 @@ export function PonenciasAdmin() {
     return () => {
       cancelado = true;
     };
-  }, [id_congreso, filtro, areaFiltro, paisDebounced, programadoFiltro]);
+  }, [id_congreso, filtro, areaFiltro, paisDebounced, programadoFiltro, presentoFiltro]);
 
   function handleBusquedaChange(e) {
     const valor = e.target.value;
@@ -307,7 +354,8 @@ export function PonenciasAdmin() {
       filtro ||
       areaFiltro ||
       tipoFiltro ||
-      programadoFiltro,
+      programadoFiltro ||
+      presentoFiltro,
   );
 
   // Tipo y texto se filtran en memoria (no server-side) para que "Mostrando X de Y" siga
@@ -421,6 +469,19 @@ export function PonenciasAdmin() {
           </Select>
         </div>
 
+        <div className="w-40">
+          <Select
+            label="Presentación"
+            value={presentoFiltro}
+            onChange={(e) => actualizarParam('presento', e.target.value)}
+          >
+            <option value="">Todos</option>
+            <option value="true">Presentó</option>
+            <option value="false">No presentó</option>
+            <option value="sin_marcar">Sin marcar</option>
+          </Select>
+        </div>
+
         {hayFiltrosActivos && (
           <Button type="button" variant="ghost" onClick={handleLimpiarFiltros}>
             Limpiar filtros
@@ -476,6 +537,7 @@ export function PonenciasAdmin() {
                   <Table.HeadCell>Tipo</Table.HeadCell>
                   <Table.HeadCell>Estado</Table.HeadCell>
                   <Table.HeadCell>Horario</Table.HeadCell>
+                  <Table.HeadCell>Presentación</Table.HeadCell>
                   <Table.HeadCell>Fecha</Table.HeadCell>
                 </tr>
               </Table.Head>
@@ -503,6 +565,9 @@ export function PonenciasAdmin() {
                       <Badge variant={estaProgramada(talk) ? 'revisado' : 'default'}>
                         {estaProgramada(talk) ? 'Programada' : 'Sin programar'}
                       </Badge>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <BadgePresento talk={talk} />
                     </Table.Cell>
                     <Table.Cell className="text-text-muted">{formatFecha(talk.fecha_creacion)}</Table.Cell>
                   </Table.Row>

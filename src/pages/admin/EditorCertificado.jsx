@@ -22,7 +22,16 @@ const TIPOS = [
 // Mismas variables que valida el backend (VARIABLES_POR_TIPO).
 const VARIABLES_POR_TIPO = {
   asistencia: ['nombre', 'dias_asistencia', 'nombreCongreso', 'fecha', 'codigo_verificacion'],
-  participacion: ['nombre', 'titulo', 'rol', 'nombreCongreso', 'fecha', 'codigo_verificacion'],
+  participacion: [
+    'nombre',
+    'titulo',
+    'rol',
+    'tipo_trabajo',
+    'tipo_trabajo_con_articulo',
+    'nombreCongreso',
+    'fecha',
+    'codigo_verificacion',
+  ],
 };
 
 const ETIQUETA_VARIABLE = {
@@ -32,6 +41,8 @@ const ETIQUETA_VARIABLE = {
   fecha: 'Fecha',
   titulo: 'Título del trabajo',
   rol: 'Rol',
+  tipo_trabajo: 'Tipo de trabajo',
+  tipo_trabajo_con_articulo: 'Tipo de trabajo con artículo',
   codigo_verificacion: 'Código de verificación',
 };
 
@@ -44,7 +55,14 @@ const EJEMPLOS = {
   dias_asistencia: '3',
   titulo: 'Aplicaciones del aprendizaje automático en la educación',
   rol: 'Autor',
+  tipo_trabajo: 'Ponencia',
+  tipo_trabajo_con_articulo: 'la Ponencia',
   codigo_verificacion: CODIGO_VERIFICACION_PRUEBA,
+};
+
+// Ayuda de las variables que necesitan explicación (selector "Variable a agregar" y panel del campo).
+const AYUDA_VARIABLE = {
+  tipo_trabajo_con_articulo: `Imprime el artículo y el tipo juntos (la Ponencia, el Poster). Si el tipo no tiene artículo, imprime solo el nombre. Para solo el nombre, usa "${ETIQUETA_VARIABLE.tipo_trabajo}".`,
 };
 
 const ALINEACIONES = [
@@ -81,12 +99,65 @@ const FACTOR_INTERLINEADO = {
 // línea base + este descenso cabe en la página; si no, recorta y cierra el último con "…".
 const FACTOR_DESCENSO = { helvetica: 0.207, times: 0.217, courier: 0.157 };
 
+// Límite del backend para el texto de un campo de texto fijo.
+const MAX_TEXTO_FIJO = 200;
+
+// Un campo es de texto fijo si trae texto como string, aunque esté vacío mientras se edita: no se
+// deduce por variable === null ni por truthiness.
+function esTextoFijo(campo) {
+  return typeof campo.texto === 'string';
+}
+
+// Lo que se dibuja en el visor y se mide para partir renglones. El texto fijo es LITERAL: "{{nombre}}"
+// sale con sus llaves, sin reemplazar nada.
+function textoVisible(campo, variablesPrueba) {
+  return esTextoFijo(campo) ? campo.texto : (variablesPrueba[campo.variable] ?? '');
+}
+
+// El backend rechaza saltos de línea y tabulaciones (para varios renglones está ancho_maximo). Sin
+// trim: hay que poder teclear el espacio entre dos palabras.
+function sanitizarTexto(valor) {
+  return valor.replace(/[\r\n\t]+/g, ' ');
+}
+
+// Avisa (sin bloquear) de caracteres fuera de Latin-1: las fuentes estándar del PDF pueden no tenerlos.
+function tieneCaracteresRaros(texto) {
+  return [...texto].some((caracter) => caracter.codePointAt(0) > 0xff);
+}
+
+function nombreCampo(campo) {
+  return esTextoFijo(campo) ? `Texto fijo "${campo.texto}"` : `{${campo.variable}}`;
+}
+
+// Constructor ÚNICO de lo que viaja en el PUT: lista blanca explícita y exactamente una de las dos
+// claves (variable o texto). Nunca viajan claves internas ni lo que haya traído el GET.
+function campoParaGuardar(campo) {
+  const propiedades = {
+    x: Number(campo.x),
+    y: Number(campo.y),
+    tamano_fuente: Number(campo.tamano_fuente),
+    ancho_maximo: campo.ancho_maximo === null ? null : Number(campo.ancho_maximo),
+    color: campo.color,
+    alineacion: campo.alineacion,
+    familia: campo.familia,
+    cursiva: campo.cursiva === true,
+    negrita: campo.negrita === true,
+  };
+  return esTextoFijo(campo)
+    ? { texto: campo.texto.trim(), ...propiedades }
+    : { variable: campo.variable, ...propiedades };
+}
+
 // Las plantillas guardadas antes de existir estas propiedades llegan sin ellas: Helvetica normal,
 // una sola línea. cursiva/negrita quedan siempre como booleanos reales y ancho_maximo como número
-// o null (el backend rechaza "true" o "200" como strings).
+// o null (el backend rechaza "true" o "200" como strings). Las anteriores al texto fijo no traen
+// texto: son campos de variable (texto null, nunca '').
 function normalizarCampo(campo) {
+  const texto = typeof campo.texto === 'string' ? campo.texto : null;
   return {
     ...campo,
+    variable: texto === null ? campo.variable : null,
+    texto,
     familia: Object.hasOwn(FAMILIAS, campo.familia) ? campo.familia : 'helvetica',
     cursiva: campo.cursiva === true,
     negrita: campo.negrita === true,
@@ -406,9 +477,12 @@ function fechaDeHoy() {
   }).format(new Date());
 }
 
+function valoresDelTipo(tipo, valores) {
+  return Object.fromEntries(VARIABLES_POR_TIPO[tipo].map((v) => [v, valores[v] ?? '']));
+}
+
 function valoresEjemplo(tipo, nombreCongreso) {
-  const valores = { ...EJEMPLOS, nombreCongreso: nombreCongreso ?? '', fecha: fechaDeHoy() };
-  return Object.fromEntries(VARIABLES_POR_TIPO[tipo].map((v) => [v, valores[v]]));
+  return valoresDelTipo(tipo, { ...EJEMPLOS, nombreCongreso: nombreCongreso ?? '', fecha: fechaDeHoy() });
 }
 
 // Lo guardado/cargado se compara serializado para saber si hay cambios pendientes.
@@ -432,7 +506,7 @@ function textoAncho(ancho) {
   return ancho === null ? '' : String(ancho);
 }
 
-function PropiedadesCampo({ campo, anchoViewbox, bajoQr, onCambiar, onEliminar }) {
+function PropiedadesCampo({ campo, anchoViewbox, bajoQr, variableValida, onCambiar, onEliminar }) {
   const multilinea = campo.ancho_maximo !== null;
   const maximo = Math.floor(maxAnchoPermitido(campo.alineacion, campo.x, anchoViewbox) * 10) / 10;
 
@@ -453,14 +527,45 @@ function PropiedadesCampo({ campo, anchoViewbox, bajoQr, onCambiar, onEliminar }
     if (texto.trim() !== '' && Number.isFinite(numero) && numero > 0) onCambiar({ ancho_maximo: numero });
   }
 
+  const textoFijo = esTextoFijo(campo);
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
       {bajoQr && <Alert variant="warning">Este campo queda debajo del QR y no se verá.</Alert>}
+      {!variableValida && (
+        <Alert variant="warning">
+          {`{${campo.variable}}`} no es una variable de este tipo de certificado: el servidor rechazará la plantilla
+          al guardarla. Elimina el campo.
+        </Alert>
+      )}
+      {textoFijo && (
+        <div className="flex flex-col gap-1.5">
+          <Input
+            label="Texto"
+            value={campo.texto}
+            maxLength={MAX_TEXTO_FIJO}
+            error={campo.texto.trim() === '' ? 'El texto no puede estar vacío' : undefined}
+            onChange={(e) => onCambiar({ texto: sanitizarTexto(e.target.value) })}
+            onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+          />
+          <p className="text-xs text-text-muted">
+            {campo.texto.length}/{MAX_TEXTO_FIJO} · Se imprime tal cual: no reemplaza {'{{...}}'} ni variables. No se
+            mueve con el texto de una variable: úsalo para etiquetas en un lugar fijo, como &ldquo;Autor:&rdquo;.
+          </p>
+          {tieneCaracteresRaros(campo.texto) && (
+            <Alert variant="warning">
+              Algunos caracteres pueden no verse bien en el PDF (letras fuera del español, flechas, emojis).
+            </Alert>
+          )}
+        </div>
+      )}
+      {!textoFijo && AYUDA_VARIABLE[campo.variable] && (
+        <p className="text-xs text-text-muted">{AYUDA_VARIABLE[campo.variable]}</p>
+      )}
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <Rotulo>Campo</Rotulo>
-          <p className="mt-1.5 font-mono text-sm text-text-primary">{`{${campo.variable}}`}</p>
-          <p className="text-xs text-text-muted">
+          <Rotulo>{textoFijo ? 'Texto fijo' : `Variable: ${campo.variable}`}</Rotulo>
+          <p className="mt-1.5 text-xs text-text-muted">
             x {redondear(campo.x)} · y {redondear(campo.y)}
           </p>
         </div>
@@ -600,8 +705,10 @@ export function EditorCertificado() {
   const [snapshot, setSnapshot] = useState(() => serializarPlantilla('', null, [], null));
   const [seleccionado, setSeleccionado] = useState(null);
   const [variableAAgregar, setVariableAAgregar] = useState('');
-  const [modoAgregar, setModoAgregar] = useState(false);
-  const [colocandoQr, setColocandoQr] = useState(false);
+  // Modo de colocación activo: 'variable', 'qr' o 'texto' (mutuamente excluyentes), o null.
+  const [colocando, setColocando] = useState(null);
+  const [filaTextoAbierta, setFilaTextoAbierta] = useState(false);
+  const [textoNuevo, setTextoNuevo] = useState('');
   const [avisoCaja, setAvisoCaja] = useState(null);
 
   const [errorArchivo, setErrorArchivo] = useState('');
@@ -627,9 +734,15 @@ export function EditorCertificado() {
   const hayCambios = serializarPlantilla(svgTexto, viewBox, campos, qr) !== snapshot;
 
   const renglonesPorCampo = useMemo(
-    () => campos.map((campo) => renglonesDeCampo(campo, variablesPrueba[campo.variable] ?? '')),
+    () => campos.map((campo) => renglonesDeCampo(campo, textoVisible(campo, variablesPrueba))),
     [campos, variablesPrueba],
   );
+  // Una plantilla puede traer variables que ya no son del tipo activo: se muestran con aviso, sin romper.
+  const camposInvalidos = campos.filter(
+    (campo) => !esTextoFijo(campo) && !VARIABLES_POR_TIPO[tipo].includes(campo.variable),
+  );
+  // Un texto fijo vacío se queda en el estado (para poder corregirlo), pero bloquea guardar y el PDF.
+  const hayTextoVacio = campos.some((campo) => esTextoFijo(campo) && campo.texto.trim() === '');
   const camposDesbordados = viewBox
     ? campos.filter((campo, i) => desbordaPagina(campo, renglonesPorCampo[i], viewBox.alto))
     : [];
@@ -668,8 +781,8 @@ export function EditorCertificado() {
     setQr(null);
     setSnapshot(serializarPlantilla('', null, [], null));
     setSeleccionado(null);
-    setModoAgregar(false);
-    setColocandoQr(false);
+    setColocando(null);
+    cerrarFilaTexto();
     setErrorArchivo('');
     setErrorGuardar('');
     setAvisoCaja(null);
@@ -759,34 +872,47 @@ export function EditorCertificado() {
     };
   }
 
+  function cerrarFilaTexto() {
+    setFilaTextoAbierta(false);
+    setTextoNuevo('');
+    setColocando((modo) => (modo === 'texto' ? null : modo));
+  }
+
   function handleClicLienzo(e) {
-    if (colocandoQr) {
+    if (colocando === 'qr') {
       // Centrado en el clic y limitado al viewBox.
       const { x, y } = aCoordenadasViewBox(e);
       const mitad = QR_TAMANO_INICIAL / 2;
       setQr(ajustarQr({ x: x - mitad, y: y - mitad, tamano: QR_TAMANO_INICIAL }, viewBox));
-      setColocandoQr(false);
+      setColocando(null);
       setExito('');
       return;
     }
-    if (!modoAgregar || !variableAAgregar) {
+    const textoFijo = colocando === 'texto' ? textoNuevo.trim() : '';
+    if (!(colocando === 'variable' && variableAAgregar) && !textoFijo) {
       setSeleccionado(null);
       return;
     }
+    // Misma conversión a unidades del viewBox y mismos valores por defecto para los dos tipos.
     const { x, y } = aCoordenadasViewBox(e);
     setCampos((prev) => [
       ...prev,
       normalizarCampo({
-        variable: variableAAgregar,
+        ...(textoFijo ? { variable: null, texto: textoFijo } : { variable: variableAAgregar, texto: null }),
         x: redondear(limitar(x, viewBox.ancho)),
         y: redondear(limitar(y, viewBox.alto)),
         tamano_fuente: 24,
         color: '#000000',
         alineacion: 'centro',
+        familia: 'helvetica',
+        cursiva: false,
+        negrita: false,
+        ancho_maximo: null,
       }),
     ]);
     setSeleccionado(campos.length);
-    setModoAgregar(false);
+    setColocando(null);
+    if (textoFijo) cerrarFilaTexto();
     setExito('');
   }
 
@@ -886,7 +1012,8 @@ export function EditorCertificado() {
           svg_contenido: svgTexto,
           ancho_viewbox: dimensiones.ancho,
           alto_viewbox: dimensiones.alto,
-          campos: camposEnviados,
+          // Mismo orden que el estado, sin filtrar: campos[i] de un error es campos[i] del editor.
+          campos: camposEnviados.map(campoParaGuardar),
           // El PUT reemplaza la plantilla completa: sin qr el backend borraría el guardado. Siempre
           // el actual (o null para quitarlo).
           qr: qrEnviado,
@@ -898,8 +1025,8 @@ export function EditorCertificado() {
       setExiste(true);
       setExito('Plantilla guardada.');
     } catch (err) {
-      // VALIDATION_ERROR / POSICION_FUERA_DE_RANGO / VARIABLE_INVALIDA traen "campos[i] (variable): ..."
-      // en el mensaje: se selecciona ese campo para que el Admin lo ubique de inmediato.
+      // VALIDATION_ERROR / POSICION_FUERA_DE_RANGO / VARIABLE_INVALIDA traen "campos[i] ..." en el
+      // mensaje (también para textos fijos): se selecciona ese campo para que el Admin lo ubique de inmediato.
       const indice = /campos\[(\d+)\]/.exec(err.message ?? '');
       if (indice && camposEnviados[Number(indice[1])]) setSeleccionado(Number(indice[1]));
       throw err;
@@ -939,7 +1066,8 @@ export function EditorCertificado() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo, variables: variablesPrueba }),
+        // Solo las variables del tipo activo: asistencia nunca envía claves de participación.
+        body: JSON.stringify({ tipo, variables: valoresDelTipo(tipo, variablesPrueba) }),
       });
 
       if (!res.ok) {
@@ -1047,44 +1175,94 @@ export function EditorCertificado() {
                     value={variableAAgregar}
                     onChange={(e) => {
                       setVariableAAgregar(e.target.value);
-                      setModoAgregar(false);
+                      setColocando((modo) => (modo === 'variable' ? null : modo));
                     }}
                   >
                     <option value="">Selecciona una variable</option>
                     {VARIABLES_POR_TIPO[tipo].map((v) => (
                       <option key={v} value={v}>
-                        {v}
+                        {ETIQUETA_VARIABLE[v] ?? v}
                       </option>
                     ))}
                   </Select>
                 </div>
                 <Button
                   type="button"
-                  variant={modoAgregar ? 'primary' : 'secondary'}
+                  variant={colocando === 'variable' ? 'primary' : 'secondary'}
                   disabled={!variableAAgregar}
-                  onClick={() => {
-                    setModoAgregar((v) => !v);
-                    setColocandoQr(false);
-                  }}
+                  onClick={() => setColocando((modo) => (modo === 'variable' ? null : 'variable'))}
                 >
-                  {modoAgregar ? 'Cancelar: no agregar campo' : 'Agregar campo: clic en la imagen para ubicarlo'}
+                  {colocando === 'variable'
+                    ? 'Cancelar: no agregar campo'
+                    : 'Agregar campo: clic en la imagen para ubicarlo'}
+                </Button>
+                <Button
+                  type="button"
+                  variant={filaTextoAbierta ? 'primary' : 'secondary'}
+                  onClick={() => (filaTextoAbierta ? cerrarFilaTexto() : setFilaTextoAbierta(true))}
+                >
+                  Agregar texto fijo
                 </Button>
                 {qr === null && (
                   <Button
                     type="button"
-                    variant={colocandoQr ? 'primary' : 'secondary'}
+                    variant={colocando === 'qr' ? 'primary' : 'secondary'}
                     disabled={!viewBox || Math.min(viewBox.ancho, viewBox.alto) < QR_TAMANO_MINIMO}
-                    onClick={() => {
-                      setColocandoQr((v) => !v);
-                      setModoAgregar(false);
-                    }}
+                    onClick={() => setColocando((modo) => (modo === 'qr' ? null : 'qr'))}
                   >
-                    {colocandoQr ? 'Cancelar: no agregar QR' : 'Agregar QR de verificación'}
+                    {colocando === 'qr' ? 'Cancelar: no agregar QR' : 'Agregar QR de verificación'}
                   </Button>
                 )}
               </div>
-              {colocandoQr && <Alert variant="info">Haz clic sobre la imagen para ubicar el QR</Alert>}
-              {modoAgregar && (
+              {AYUDA_VARIABLE[variableAAgregar] && (
+                <p className="text-xs text-text-muted">{AYUDA_VARIABLE[variableAAgregar]}</p>
+              )}
+              {filaTextoAbierta && (
+                // Escape cancela desde el input o desde cualquiera de los botones de la fila.
+                <div
+                  className="flex flex-wrap items-start gap-3"
+                  onKeyDown={(e) => e.key === 'Escape' && cerrarFilaTexto()}
+                >
+                  <div className="w-80 max-w-full">
+                    <Input
+                      label="Texto fijo"
+                      value={textoNuevo}
+                      maxLength={MAX_TEXTO_FIJO}
+                      autoFocus
+                      placeholder="Ej. Autor:"
+                      onChange={(e) => {
+                        const texto = sanitizarTexto(e.target.value);
+                        setTextoNuevo(texto);
+                        // Sin texto no hay nada que colocar: se sale del modo de colocación.
+                        if (texto.trim() === '') setColocando((modo) => (modo === 'texto' ? null : modo));
+                      }}
+                      // Enter no inserta nada ni envía ningún formulario.
+                      onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+                    />
+                    <p className="mt-1 text-xs text-text-muted">
+                      {textoNuevo.length}/{MAX_TEXTO_FIJO}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 pt-5">
+                    <Button
+                      type="button"
+                      variant={colocando === 'texto' ? 'primary' : 'secondary'}
+                      disabled={textoNuevo.trim() === ''}
+                      onClick={() => setColocando('texto')}
+                    >
+                      Colocar en la imagen
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={cerrarFilaTexto}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {colocando === 'qr' && <Alert variant="info">Haz clic sobre la imagen para ubicar el QR</Alert>}
+              {colocando === 'texto' && textoNuevo.trim() !== '' && (
+                <Alert variant="info">Haz clic sobre la imagen para ubicar el texto</Alert>
+              )}
+              {colocando === 'variable' && (
                 <Alert variant="info">
                   Haz clic en el punto de la imagen donde va {`{${variableAAgregar}}`}. Ese punto es la línea
                   base del texto; con alineación &ldquo;centro&rdquo; el texto queda centrado sobre él.
@@ -1118,10 +1296,12 @@ export function EditorCertificado() {
                     <svg
                       ref={overlayRef}
                       viewBox={`0 0 ${viewBox.ancho} ${viewBox.alto}`}
-                      className={clsx('absolute inset-0 size-full', (modoAgregar || colocandoQr) && 'cursor-crosshair')}
+                      className={clsx('absolute inset-0 size-full', colocando !== null && 'cursor-crosshair')}
                     >
                       <rect width={viewBox.ancho} height={viewBox.alto} fill="transparent" onClick={handleClicLienzo} />
                       {campos.map((campo, indice) => {
+                        // Un texto fijo vaciado mientras se edita no se dibuja: sigue accesible desde el panel.
+                        if (esTextoFijo(campo) && campo.texto.trim() === '') return null;
                         const renglones = renglonesPorCampo[indice];
                         const tamano = campo.tamano_fuente;
                         const paso = interlineado(campo);
@@ -1171,7 +1351,7 @@ export function EditorCertificado() {
                             <g
                               role="button"
                               tabIndex={0}
-                              aria-label={`Campo ${campo.variable}`}
+                              aria-label={`Campo ${nombreCampo(campo)}`}
                               className="cursor-move touch-none outline-none"
                               onPointerDown={(e) => iniciarArrastre(e, indice, 'mover')}
                               onPointerMove={handlePointerMove}
@@ -1224,7 +1404,7 @@ export function EditorCertificado() {
                             {activo && multilinea && (
                               <rect
                                 role="slider"
-                                aria-label={`Ancho máximo de ${campo.variable}`}
+                                aria-label={`Ancho máximo de ${nombreCampo(campo)}`}
                                 aria-valuenow={campo.ancho_maximo}
                                 x={xTirador - radioAnclaje * 0.75}
                                 y={(arriba + abajo) / 2 - radioAnclaje * 2}
@@ -1264,9 +1444,16 @@ export function EditorCertificado() {
                       {avisoCaja.texto}
                     </Alert>
                   )}
+                  {camposInvalidos.length > 0 && (
+                    <Alert variant="warning">
+                      Esta plantilla usa variables que no existen en este tipo de certificado:{' '}
+                      {[...new Set(camposInvalidos.map((campo) => `{${campo.variable}}`))].join(', ')}. Elimina esos
+                      campos antes de guardar.
+                    </Alert>
+                  )}
                   {camposDesbordados.map((campo) => (
                     <Alert key={`desborde-${campos.indexOf(campo)}`} variant="warning">
-                      {`{${campo.variable}}`}: el texto no cabe en la página; en el PDF se recortará con &ldquo;…&rdquo;.
+                      {nombreCampo(campo)}: el texto no cabe en la página; en el PDF se recortará con &ldquo;…&rdquo;.
                     </Alert>
                   ))}
                 </>
@@ -1300,6 +1487,9 @@ export function EditorCertificado() {
                 campo={campos[seleccionado]}
                 anchoViewbox={viewBox.ancho}
                 bajoQr={campoBajoQr(campos[seleccionado], qr)}
+                variableValida={
+                  esTextoFijo(campos[seleccionado]) || VARIABLES_POR_TIPO[tipo].includes(campos[seleccionado].variable)
+                }
                 onCambiar={(cambios) => actualizarCampo(seleccionado, cambios)}
                 onEliminar={() => eliminarCampo(seleccionado)}
               />
@@ -1323,6 +1513,12 @@ export function EditorCertificado() {
                 Se usan en el visor y en el PDF de prueba. Úsalos para probar casos extremos, como un nombre
                 larguísimo o un título extenso.
               </p>
+              {VARIABLES_POR_TIPO[tipo].includes('tipo_trabajo_con_articulo') && (
+                <p className="mt-1 text-xs text-text-muted">
+                  El PDF de prueba usa el valor que escribas aquí. Para comprobar los artículos reales del catálogo,
+                  emite un certificado de prueba.
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {VARIABLES_POR_TIPO[tipo].map((variable) => (
@@ -1342,7 +1538,7 @@ export function EditorCertificado() {
                 type="button"
                 variant="secondary"
                 loading={generando}
-                disabled={generando || guardando}
+                disabled={generando || guardando || hayTextoVacio}
                 onClick={handleGenerarPdf}
                 className="self-start"
               >
@@ -1359,6 +1555,11 @@ export function EditorCertificado() {
                 </p>
               )}
             </div>
+            {hayTextoVacio && (
+              <p className="text-xs text-error-text">
+                No se puede generar el PDF de prueba: hay un texto fijo vacío.
+              </p>
+            )}
             {errorPdf && <Alert variant="error">{errorPdf}</Alert>}
           </div>
 
@@ -1380,12 +1581,17 @@ export function EditorCertificado() {
             <Button
               type="button"
               loading={guardando}
-              disabled={!svgTexto || !viewBox || guardando || generando}
+              disabled={!svgTexto || !viewBox || guardando || generando || hayTextoVacio}
               onClick={handleGuardar}
             >
               Guardar plantilla
             </Button>
           </div>
+          {hayTextoVacio && (
+            <p className="text-right text-xs text-error-text">
+              No se puede guardar ni generar el PDF de prueba: hay un texto fijo vacío. Escríbelo o elimina el campo.
+            </p>
+          )}
         </Card>
       )}
 

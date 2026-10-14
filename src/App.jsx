@@ -43,6 +43,7 @@ import { Asistencia } from './pages/admin/Asistencia';
 import { CertificadosTrabajo } from './pages/admin/CertificadosTrabajo';
 import { EditorCertificado } from './pages/admin/EditorCertificado';
 import { EmisionMasiva } from './pages/admin/EmisionMasiva';
+import { CertificadosEmitidos } from './pages/admin/CertificadosEmitidos';
 import { VerificarCertificado } from './pages/VerificarCertificado';
 import { MiAsistencia } from './pages/MiAsistencia';
 
@@ -112,6 +113,7 @@ function App() {
                   <Route path="admin/certificados-trabajo" element={<CertificadosTrabajo />} />
                   <Route path="admin/editor-certificado" element={<EditorCertificado />} />
                   <Route path="admin/emision-masiva" element={<EmisionMasiva />} />
+                  <Route path="admin/certificados-emitidos" element={<CertificadosEmitidos />} />
                   <Route path="admin/estadisticas" element={<EstadisticasCongreso />} />
                 </Route>
               </Route>

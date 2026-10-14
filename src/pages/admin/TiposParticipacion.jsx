@@ -5,11 +5,27 @@ import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { Modal } from '../../components/ui/Modal';
 import { Alert } from '../../components/ui/Alert';
 import { PageLoader } from '../../components/ui/PageLoader';
 
-const FORM_INICIAL = { nombre: '', descripcion: '', activo: true };
+const FORM_INICIAL = { nombre: '', descripcion: '', activo: true, articulo: '' };
+
+// El backend solo acepta 'el', 'la' o null (el null real del JSON): cualquier otra cosa se trata como
+// "sin artículo". normalizarArticulo limpia lo que llega del servidor; aArticuloApi convierte el
+// valor del <select> ('' = "Sin definir") y es el ÚNICO camino del artículo hacia el backend.
+function normalizarArticulo(valor) {
+  return valor === 'el' || valor === 'la' ? valor : null;
+}
+
+function aArticuloApi(valor) {
+  return valor === 'el' || valor === 'la' ? valor : null;
+}
+
+function normalizarTipo(tipo) {
+  return { ...tipo, articulo: normalizarArticulo(tipo.articulo) };
+}
 
 export function TiposParticipacion() {
   const { id_congreso } = useParams();
@@ -25,7 +41,7 @@ export function TiposParticipacion() {
 
   useEffect(() => {
     apiFetch(`/congresos/${id_congreso}/tipos-participacion`)
-      .then((data) => setTipos(data ?? []))
+      .then((data) => setTipos((data ?? []).map(normalizarTipo)))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id_congreso]);
@@ -43,6 +59,7 @@ export function TiposParticipacion() {
       nombre: item.nombre,
       descripcion: item.descripcion ?? '',
       activo: item.activo,
+      articulo: item.articulo ?? '',
     });
     setFormError('');
     setModalOpen(true);
@@ -65,6 +82,9 @@ export function TiposParticipacion() {
           cambios.descripcion = form.descripcion || null;
         }
         if (form.activo !== editando.activo) cambios.activo = form.activo;
+        // Ambos lados normalizados: '' contra null no cuenta como cambio (enviaría articulo: '' → 400).
+        const articulo = aArticuloApi(form.articulo);
+        if (articulo !== normalizarArticulo(editando.articulo)) cambios.articulo = articulo;
 
         const actualizado = await apiFetch(
           `/congresos/${id_congreso}/tipos-participacion/${editando.id_tipo_participacion}`,
@@ -72,15 +92,19 @@ export function TiposParticipacion() {
         );
         setTipos((prev) =>
           prev.map((t) =>
-            t.id_tipo_participacion === editando.id_tipo_participacion ? { ...t, ...actualizado } : t,
+            t.id_tipo_participacion === editando.id_tipo_participacion ? normalizarTipo({ ...t, ...actualizado }) : t,
           ),
         );
       } else {
         const nuevo = await apiFetch(`/congresos/${id_congreso}/tipos-participacion`, {
           method: 'POST',
-          body: JSON.stringify({ nombre: form.nombre, descripcion: form.descripcion || undefined }),
+          body: JSON.stringify({
+            nombre: form.nombre,
+            descripcion: form.descripcion || undefined,
+            articulo: aArticuloApi(form.articulo),
+          }),
         });
-        setTipos((prev) => [...prev, nuevo]);
+        setTipos((prev) => [...prev, normalizarTipo(nuevo)]);
       }
       setModalOpen(false);
     } catch (err) {
@@ -91,6 +115,9 @@ export function TiposParticipacion() {
   }
 
   if (loading) return <PageLoader />;
+
+  const activosSinArticulo = tipos.filter((t) => t.activo === true && t.articulo === null).length;
+  const nombreVistaPrevia = form.nombre.trim() === '' ? '(nombre)' : form.nombre;
 
   return (
     <div className="flex flex-col gap-6 pt-6">
@@ -108,10 +135,19 @@ export function TiposParticipacion() {
 
       {error && <Alert variant="error">{error}</Alert>}
 
+      {activosSinArticulo > 0 && (
+        <Alert variant="warning">
+          {activosSinArticulo === 1
+            ? '1 tipo no tiene artículo: el certificado imprimirá solo su nombre.'
+            : `${activosSinArticulo} tipos no tienen artículo: el certificado imprimirá solo sus nombres.`}
+        </Alert>
+      )}
+
       <Table>
         <Table.Head>
           <tr>
             <Table.HeadCell>Nombre</Table.HeadCell>
+            <Table.HeadCell>Artículo</Table.HeadCell>
             <Table.HeadCell>Descripción</Table.HeadCell>
             <Table.HeadCell>Estado</Table.HeadCell>
             <Table.HeadCell></Table.HeadCell>
@@ -121,6 +157,9 @@ export function TiposParticipacion() {
           {tipos.map((t) => (
             <Table.Row key={t.id_tipo_participacion}>
               <Table.Cell>{t.nombre}</Table.Cell>
+              <Table.Cell>
+                {t.articulo === null ? <Badge variant="pendiente">Sin definir</Badge> : t.articulo}
+              </Table.Cell>
               <Table.Cell className="text-text-muted">{t.descripcion || '—'}</Table.Cell>
               <Table.Cell>
                 <Badge variant={t.activo ? 'revisado' : 'default'}>
@@ -146,6 +185,18 @@ export function TiposParticipacion() {
           {formError && <Alert variant="error">{formError}</Alert>}
 
           <Input name="nombre" label="Nombre" value={form.nombre} onChange={handleChange} required />
+
+          <div className="flex flex-col gap-1">
+            <Select name="articulo" label="Artículo" value={form.articulo} onChange={handleChange}>
+              <option value="">Sin definir</option>
+              <option value="el">el</option>
+              <option value="la">la</option>
+            </Select>
+            <p className="text-xs text-text-muted">
+              En el certificado:{' '}
+              {form.articulo === '' ? `${nombreVistaPrevia} (sin artículo)` : `${form.articulo} ${nombreVistaPrevia}`}
+            </p>
+          </div>
 
           <Input
             name="descripcion"

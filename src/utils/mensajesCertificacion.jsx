@@ -38,3 +38,20 @@ export function mensajeErrorEmision(error, idCongreso) {
       return error.message;
   }
 }
+
+// Motivos de regeneracion_fallida en emitir-lote con regenerar: true (la persona ya no cumple los
+// requisitos y su certificado anterior se conserva).
+const MOTIVOS_REGENERACION = {
+  INSCRIPCION_INACTIVA: 'La inscripción está inactiva',
+  INSCRIPCION_NO_CONFIRMADA: 'La inscripción ya no está confirmada',
+  NO_ES_PARTICIPANTE_DEL_TRABAJO: 'La persona ya no figura en el trabajo',
+  TRABAJO_NO_PRESENTO: 'El trabajo ya no está marcado como presentado',
+};
+
+// El motivo puede llegar como código exacto o como mensaje que lo contiene; si no se reconoce, tal cual.
+export function motivoRegeneracion(motivo) {
+  const texto = typeof motivo === 'string' ? motivo : String(motivo ?? '');
+  if (Object.hasOwn(MOTIVOS_REGENERACION, texto)) return MOTIVOS_REGENERACION[texto];
+  const codigo = Object.keys(MOTIVOS_REGENERACION).find((c) => texto.includes(c));
+  return codigo ? MOTIVOS_REGENERACION[codigo] : texto;
+}

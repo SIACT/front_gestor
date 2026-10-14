@@ -7,6 +7,7 @@ import {
   CheckSquare,
   ClipboardList,
   DoorOpen,
+  FileCheck,
   FileEdit,
   FolderTree,
   LayoutDashboard,
@@ -123,6 +124,11 @@ export function adminGroups(idCongreso) {
           icon: Award,
         },
         { label: 'Emisión masiva', path: `/congresos/${idCongreso}/admin/emision-masiva`, icon: Send },
+        {
+          label: 'Certificados emitidos',
+          path: `/congresos/${idCongreso}/admin/certificados-emitidos`,
+          icon: FileCheck,
+        },
       ],
     },
   ];
